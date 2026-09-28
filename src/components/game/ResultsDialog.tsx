@@ -2,6 +2,7 @@ import type { Achievement } from '../../data/achievements'
 import type { GameState } from '../../game/types'
 import { IconStar } from '../icons'
 import { ModalFrame } from '../ModalFrame'
+import { Divider, Seal } from '../theme/Ornaments'
 import { PlayerSwatch } from './PlayerSwatch'
 
 interface ResultsDialogProps {
@@ -15,7 +16,7 @@ interface ResultsDialogProps {
   onLeave: () => void
 }
 
-/** Final ranking with the score breakdown, match stats, achievements, and what to do next. */
+/** Final ranking with the score breakdown (the podium's players in brass seals), match stats, achievements, and what to do next. */
 export function ResultsDialog({ open, onClose, game, unlocked, colorBlind, onRematch, onLeave }: ResultsDialogProps) {
   const scores = game.scores ?? []
   const winners = scores.filter((s) => s.rank === 1).map((s) => game.players[s.player])
@@ -72,7 +73,13 @@ export function ResultsDialog({ open, onClose, game, unlocked, colorBlind, onRem
                   <td className="py-2.5 pr-2 font-display font-bold text-parchment-300">{score.rank === 1 ? '🏆' : score.rank}</td>
                   <td className="py-2.5">
                     <span className="flex items-center gap-2">
-                      <PlayerSwatch color={player.color} letter={colorBlind} />
+                      {score.rank <= 3 ? (
+                        <Seal className="mx-1">
+                          <PlayerSwatch color={player.color} letter={colorBlind} />
+                        </Seal>
+                      ) : (
+                        <PlayerSwatch color={player.color} letter={colorBlind} className="mx-1 size-4" />
+                      )}
                       <span className="font-semibold text-parchment-50">{player.name}</span>
                       <span className="text-xs text-parchment-400">£{player.money}</span>
                     </span>
@@ -88,7 +95,8 @@ export function ResultsDialog({ open, onClose, game, unlocked, colorBlind, onRem
         </table>
       </div>
 
-      <div className="mt-5 overflow-x-auto">
+      <Divider className="mt-6 max-w-80" />
+      <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
           <caption className="eyebrow mb-2 text-left">Match stats</caption>
           <thead>
@@ -117,8 +125,9 @@ export function ResultsDialog({ open, onClose, game, unlocked, colorBlind, onRem
         </table>
       </div>
 
+      {unlocked.length > 0 && <Divider className="mt-6 max-w-80" />}
       {unlocked.length > 0 && (
-        <div className="mt-5 rounded-xl border border-brass-300/40 bg-bronze-500/10 px-4 py-3">
+        <div className="mt-4 rounded-xl border border-brass-300/40 bg-bronze-500/10 px-4 py-3">
           <p className="eyebrow mb-2">Achievements unlocked</p>
           <ul className="flex flex-col gap-1.5">
             {unlocked.map((achievement) => (

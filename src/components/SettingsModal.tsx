@@ -1,7 +1,10 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { AI_SPEEDS, ANIMATION_SPEEDS, DEFAULT_SETTINGS, LANGUAGES, type GameSettings, type LanguageCode } from '../data/settings'
+import { useToast } from '../hooks/useToast'
 import { IconChevronDown, IconCog } from './icons'
 import { ModalFrame } from './ModalFrame'
+import { AccountSection, NotificationsSection, PrivacySection } from './settings/AccountSettings'
+import { SectionDivider } from './theme/Ornaments'
 
 interface SettingsModalProps {
   open: boolean
@@ -12,6 +15,7 @@ interface SettingsModalProps {
 
 /** Settings dialog. Saved between visits; changes apply at once, also in a match. */
 export function SettingsModal({ open, onClose, settings, onChange }: SettingsModalProps) {
+  const notify = useToast()
   const update = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) =>
     onChange({ ...settings, [key]: value })
 
@@ -64,13 +68,6 @@ export function SettingsModal({ open, onClose, settings, onChange }: SettingsMod
             checked={settings.showLog}
             onChange={(checked) => update('showLog', checked)}
           />
-          <Toggle
-            id="color-blind"
-            label="Colour-blind aid"
-            description="Adds each player’s letter (Y, B, P, R, W) to their colour: on the board, the panels and the log."
-            checked={settings.colorBlindAid}
-            onChange={(checked) => update('colorBlindAid', checked)}
-          />
         </SettingsGroup>
 
         <SettingsGroup title="Audio">
@@ -114,6 +111,18 @@ export function SettingsModal({ open, onClose, settings, onChange }: SettingsMod
           </div>
 
         </SettingsGroup>
+
+        <SettingsGroup title="Account">
+          <AccountSection onDone={onClose} notify={notify} />
+        </SettingsGroup>
+
+        <SettingsGroup title="Notifications">
+          <NotificationsSection />
+        </SettingsGroup>
+
+        <SettingsGroup title="Privacy">
+          <PrivacySection onClose={onClose} />
+        </SettingsGroup>
       </div>
     </ModalFrame>
   )
@@ -121,7 +130,8 @@ export function SettingsModal({ open, onClose, settings, onChange }: SettingsMod
 
 function SettingsGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section>
+    <section className="group/section">
+      <SectionDivider />
       <h3 className="eyebrow mb-3 flex items-center gap-3">
         {title}
         <span className="h-px flex-1 bg-linear-to-r from-bronze-500/40 to-transparent" />

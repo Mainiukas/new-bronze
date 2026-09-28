@@ -2,14 +2,163 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo/bronze_icon_32.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/assets/logo/bronze_icon_64.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/logo/bronze_icon_180.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#0b0806" />
     <meta name="description" content="Bronze — an industrial-era strategy board game. Build. Connect. Industrialize." />
     <title>Bronze</title>
+    <style>
+      /* The loading splash (see src/components/theme/splash.ts). Inline, so it works before the app's styles load. */
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: none;
+        place-items: center;
+        overflow: hidden;
+        background: #0b0806;
+        color: #dccbaa;
+      }
+      #splash.splash--on {
+        display: grid;
+        animation: splash-in 0.3s ease both;
+      }
+      #splash.splash--out {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      .splash-art,
+      .splash-art img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 40% 55%;
+      }
+      .splash-shade {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(ellipse 75% 70% at 50% 45%, transparent 35%, rgb(8 5 3 / 0.75) 100%),
+          radial-gradient(ellipse 40% 45% at 50% 50%, rgb(8 5 3 / 0.72), rgb(8 5 3 / 0.4) 100%);
+      }
+      .splash-body {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.25rem;
+        padding: 1.5rem;
+        text-align: center;
+      }
+      .splash-logo {
+        display: block;
+        width: 280px;
+        height: auto;
+      }
+      .splash-loader {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .splash-cog {
+        display: block;
+        width: 28px;
+        height: 28px;
+        animation: splash-spin 2.4s linear infinite;
+      }
+      .splash-bar {
+        position: relative;
+        width: 180px;
+        height: 5px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgb(143 90 31 / 0.35);
+        box-shadow: 0 0 0 1px #2a170a;
+      }
+      .splash-bar span {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 40%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, transparent, #fbe3a4, #d09a48, transparent);
+        animation: splash-sweep 1.4s ease-in-out infinite;
+      }
+      .splash-text {
+        margin: 0;
+        font: 600 1rem/1.4 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        text-shadow: 0 1px 3px #000;
+      }
+      @media (max-width: 767px) {
+        .splash-logo {
+          width: 200px;
+        }
+      }
+      @keyframes splash-in {
+        from {
+          opacity: 0;
+        }
+      }
+      @keyframes splash-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes splash-sweep {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(250%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #splash.splash--on,
+        .splash-cog,
+        .splash-bar span {
+          animation: none;
+        }
+        .splash-bar span {
+          width: 100%;
+          opacity: 0.5;
+        }
+        #splash.splash--out {
+          transition: none;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="splash" role="status"></div>
+    <template id="splash-content">
+      <div class="splash-shade"></div>
+      <div class="splash-body">
+        <img class="splash-logo" src="/assets/logo/bronze_logo_stacked.svg" alt="Bronze" width="1000" height="900" />
+        <div class="splash-loader">
+          <img class="splash-cog" src="/assets/ui/ornaments/seal.svg" alt="" width="160" height="160" />
+          <div class="splash-bar" role="progressbar" aria-label="Loading Bronze"><span></span></div>
+        </div>
+        <p class="splash-text">Stoking the furnaces…</p>
+      </div>
+    </template>
+    <script>
+      // Show the splash only if the app takes longer than 400 ms to start; nothing it needs loads before then.
+      setTimeout(function () {
+        var splash = document.getElementById('splash')
+        if (window.__bronzeReady || !splash) return
+        var art = document.getElementById('splash-art')
+        if (art) splash.appendChild(art.content.cloneNode(true))
+        splash.appendChild(document.getElementById('splash-content').content.cloneNode(true))
+        splash.className = 'splash--on'
+      }, 400)
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

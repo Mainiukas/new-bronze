@@ -6,13 +6,15 @@ import type { IndustryKind } from '../../game/types'
 
 interface IndustryIconProps extends ImgHTMLAttributes<HTMLImageElement> {
   kind: IndustryKind
+  /** Where the icon stands alone (no name beside it): its name, read out and shown on hover. Otherwise it's decorative. */
+  label?: string
 }
 
 /**
  * The industry's picture (assets/icons), sized by font-size unless a class
  * sets it. If the image is missing it shows a short label instead.
  */
-export function IndustryIcon({ kind, className = '', style, ...props }: IndustryIconProps) {
+export function IndustryIcon({ kind, className = '', style, label, ...props }: IndustryIconProps) {
   const url = INDUSTRY_ICON_URLS[kind]
   const [failed, setFailed] = useState(false)
   // Sized by the font unless the caller gives a size class.
@@ -20,7 +22,9 @@ export function IndustryIcon({ kind, className = '', style, ...props }: Industry
   if (!url || failed) {
     return (
       <span
-        aria-hidden="true"
+        aria-hidden={label ? undefined : true}
+        role={label ? 'img' : undefined}
+        aria-label={label}
         className={`inline-grid place-items-center rounded-sm bg-soot-800 font-board leading-none font-bold text-parchment-200 ${sized}`}
         style={style}
       >
@@ -31,8 +35,9 @@ export function IndustryIcon({ kind, className = '', style, ...props }: Industry
   return (
     <img
       src={url}
-      alt=""
-      aria-hidden="true"
+      alt={label ?? ''}
+      title={label}
+      aria-hidden={label ? undefined : true}
       draggable={false}
       className={`inline-block object-contain ${sized}`}
       style={style}

@@ -1,3 +1,5 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import {
   bentCubic,
@@ -5,6 +7,7 @@ import {
   convexHull,
   cubicAt,
   distance,
+  distanceToRect,
   flatten,
   lineGap,
   outline,
@@ -13,18 +16,24 @@ import {
   rayExit,
   rectGap,
   texturePieces,
+  toView,
   upright,
   pointAtLength,
+  type Point,
+  type Rect,
 } from '../components/board/geometry'
 import {
   BUBBLE_H,
   BUBBLE_W,
-  distanceToGroup,
   FAN,
+  groupProblems,
   HEX,
   layoutBoard,
+  layoutGroups,
   MEDALLION_R,
   MIN_GAP,
+  outsideSafeArea,
+  SAFE_AREA,
   TEXTURE_PIECE,
   TILE,
   TILE_GAP,
@@ -32,6 +41,7 @@ import {
   type RouteLayout,
 } from '../components/board/layout'
 import { createTextMeasurer } from '../components/board/measure'
+import { LinkBubble, LinkToken } from '../components/board/parts'
 import {
   BOARD,
   BOARD_DESIGN,
@@ -92,7 +102,8 @@ describe('board.json', () => {
   })
 
   it('exports byte-for-byte as the checked-in file', () => {
-    expect(formatBoardJson(BOARD)).toBe(boardFile)
+    // Git may check the file out with Windows line endings.
+    expect(formatBoardJson(BOARD)).toBe(boardFile.replace(/\r\n/g, '\n'))
   })
 
   it('exports valid JSON that round-trips after edits, in a stable key order', () => {
@@ -258,25 +269,80 @@ describe('board layout', () => {
   const layout = layoutBoard(BOARD, createTextMeasurer())
   const groups = [...layout.groups.values()]
   const routes = (era: 'canal' | 'rail'): RouteLayout[] => [...layout.routes[era]!.routes.values()]
+  /** Points along a link space or token (52 × 21.7): with radius BUBBLE_H / 2 they cover it. */
+  const spine = (r: RouteLayout): Point[] => {
+    const rad = (r.marker.angle * Math.PI) / 180
+    const reach = BUBBLE_W / 2 - BUBBLE_H / 2
+    return [-1, -0.5, 0, 0.5, 1].map((k) => ({ x: r.marker.x + Math.cos(rad) * reach * k, y: r.marker.y + Math.sin(rad) * reach * k }))
+  }
+  const inside = (p: Point, r: Rect, pad = 0) => p.x >= r.x + pad && p.x <= r.x + r.w - pad && p.y >= r.y + pad && p.y <= r.y + r.h - pad
 
-  it('6. leaves no overlaps and no route over another route, in either era', () => {
+  it('6. leaves no problems in either era: no overlaps, nothing outside the safe area, no route over another', () => {
     expect(layout.problems).toEqual([])
-    for (let i = 0; i < groups.length; i++) {
-      for (let j = i + 1; j < groups.length; j++) expect(rectGap(groups[i].bounds, groups[j].bounds)).toBeGreaterThanOrEqual(MIN_GAP - 0.05)
-    }
     for (const era of ['canal', 'rail'] as const) {
       const list = routes(era)
       for (let i = 0; i < list.length; i++) {
-        for (let j = i + 1; j < list.length; j++) expect(lineGap(list[i].line, list[j].line)).toBeGreaterThanOrEqual((list[i].width + list[j].width) / 2)
-        // Bubbles (and the tokens on them, 52 × 21.7) keep 8 clear of every group.
-        const rad = (list[i].marker.angle * Math.PI) / 180
-        const r = BUBBLE_H / 2
-        for (const k of [-(BUBBLE_W / 2 - r), 0, BUBBLE_W / 2 - r]) {
-          const p = { x: list[i].marker.x + Math.cos(rad) * k, y: list[i].marker.y + Math.sin(rad) * k }
-          for (const g of groups) expect(distanceToGroup(g, p) - r).toBeGreaterThanOrEqual(MIN_GAP - 0.05)
+        for (let j = i + 1; j < list.length; j++) expect(lineGap(list[i].visible, list[j].visible)).toBeGreaterThanOrEqual((list[i].width + list[j].width) / 2)
+      }
+    }
+  })
+
+  it('keeps every location rectangle (with its 8-unit margin) clear of every other', () => {
+    expect(groupProblems(groups)).toEqual([])
+    for (let i = 0; i < groups.length; i++) {
+      for (let j = i + 1; j < groups.length; j++) expect(rectGap(groups[i].bounds, groups[j].bounds), `${groups[i].location.name} / ${groups[j].location.name}`).toBeGreaterThanOrEqual(MIN_GAP - 0.05)
+    }
+  })
+
+  it('keeps every link space and token clear of every location rectangle, its own two included', () => {
+    for (const era of ['canal', 'rail'] as const) {
+      for (const r of routes(era)) {
+        for (const g of groups) {
+          const room = Math.min(...spine(r).map((p) => distanceToRect(p, g.bounds))) - BUBBLE_H / 2
+          expect(room, `${era} ${r.link.id} / ${g.location.name}`).toBeGreaterThanOrEqual(MIN_GAP - 0.05)
         }
       }
     }
+  })
+
+  it('keeps every group, route, link space and token inside the safe area (clear of the painted frame)', () => {
+    expect(SAFE_AREA).toEqual({ x: 90, y: 80, w: 820, h: 840 })
+    for (const g of groups) expect(outsideSafeArea(g.bounds), g.location.name).toBe(0)
+    for (const era of ['canal', 'rail'] as const) {
+      for (const r of routes(era)) {
+        for (const p of r.line.points) expect(inside(p, SAFE_AREA, r.width / 2 - 0.05), `${era} ${r.link.id}`).toBe(true)
+        for (const p of spine(r)) expect(inside(p, SAFE_AREA, BUBBLE_H / 2 - 0.05), `${era} ${r.link.id} link space`).toBe(true)
+      }
+    }
+  })
+
+  it('puts the hubs on land inside the frame: The North at the top, West Wales far west, London on the right', () => {
+    const at = (id: string) => layout.groups.get(id)!.bounds
+    expect(at('the_north').y - SAFE_AREA.y).toBeLessThan(5)
+    expect(at('west_wales').x - SAFE_AREA.x).toBeLessThan(5)
+    const london = at('london')
+    expect(SAFE_AREA.x + SAFE_AREA.w - (london.x + london.w)).toBeLessThan(5)
+  })
+
+  it('moves a group that crosses the frame (and its point) inside, then pushes overlaps apart', () => {
+    // Stoke on the frame, right on top of The North, which is on the frame too.
+    const crowded: BoardData = {
+      ...BOARD,
+      locations: BOARD.locations.map((l) => (l.id === 'stoke' ? { ...l, x: 62, y: 3 } : l.id === 'the_north' ? { ...l, x: 62, y: 2 } : l)),
+    }
+    const result = layoutGroups(crowded, createTextMeasurer())
+    expect(result.problems).toEqual([])
+    for (const g of result.groups.values()) {
+      expect(outsideSafeArea(g.bounds)).toBe(0)
+      // The location's point moves with its group.
+      if (!g.fixed) expect(g.point).toEqual(g.center)
+    }
+  })
+
+  it('reports overlaps by name', () => {
+    const [a, b] = [layout.groups.get('birmingham')!, layout.groups.get('derby')!]
+    const onTop = { ...b, bounds: { ...a.bounds } }
+    expect(groupProblems([a, onTop])).toEqual([expect.stringMatching(/^Birmingham and Derby overlap/)])
   })
 
   it('draws only the era’s links: canal and both in the canal era, rail and both in the rail era', () => {
@@ -284,11 +350,35 @@ describe('board layout', () => {
     expect(routes('rail').map((r) => r.link.type).sort()).toEqual([...Array(16).fill('both'), ...Array(17).fill('rail')])
   })
 
-  it('fans route ends out at least 14 apart around each group', () => {
+  it('runs every route from the centre of one group to the centre of the other, so its ends stay under the art', () => {
+    for (const era of ['canal', 'rail'] as const) {
+      for (const r of routes(era)) {
+        const [from, to] = [layout.groups.get(r.link.from)!, layout.groups.get(r.link.to)!]
+        expect(distance(r.line.points[0], from.center)).toBeLessThan(0.01)
+        expect(distance(r.line.points.at(-1)!, to.center)).toBeLessThan(0.01)
+        // The whole route is one smooth path: each segment starts where the last one ended.
+        for (let i = 1; i < r.segments.length; i++) expect(r.segments[i].p0).toEqual(r.segments[i - 1].p3)
+        // Between the two hidden ends is the visible curve.
+        expect(r.segments.slice(1, -1)).toEqual(r.main)
+      }
+    }
+  })
+
+  it('puts each link space on the visible part of its route, between the two rectangles', () => {
+    for (const era of ['canal', 'rail'] as const) {
+      for (const r of routes(era)) {
+        const onRoute = Math.min(...r.visible.points.map((p) => distance(p, r.marker)))
+        expect(onRoute, `${era} ${r.link.id}`).toBeLessThan(2)
+        for (const id of [r.link.from, r.link.to]) expect(inside(r.marker, layout.groups.get(id)!.bounds)).toBe(false)
+      }
+    }
+  })
+
+  it('fans route ends out at least 14 apart where they come out from under each group', () => {
     for (const era of ['canal', 'rail'] as const) {
       const ends = new Map<string, { x: number; y: number }[]>()
       for (const r of routes(era)) {
-        const line = r.line.points
+        const line = r.visible.points
         for (const [id, p] of [
           [r.link.from, line[0]],
           [r.link.to, line[line.length - 1]],
@@ -300,17 +390,8 @@ describe('board layout', () => {
     }
   })
 
-  it('keeps everything on the board, with hubs at the edge', () => {
-    for (const g of groups) {
-      expect(g.bounds.x).toBeGreaterThanOrEqual(0)
-      expect(g.bounds.y).toBeGreaterThanOrEqual(0)
-      expect(g.bounds.x + g.bounds.w).toBeLessThanOrEqual(1000)
-      expect(g.bounds.y + g.bounds.h).toBeLessThanOrEqual(1000)
-    }
-    expect(layout.groups.get('the_north')!.bounds.y).toBeLessThan(10)
-    const london = layout.groups.get('london')!
-    expect(london.bounds.x + london.bounds.w).toBeGreaterThan(990)
-    expect(layout.groups.get('west_wales')!.bounds.x).toBeLessThan(10)
+  it('saves the positions it draws: every location is drawn centred on its point in board.json', () => {
+    for (const g of groups) expect(distance(g.center, toView(g.location)), g.location.name).toBeLessThan(1)
   })
 
   it('uses 34-unit squares with 3-unit gaps: a row for 1–2 slots, a triangle for 3, 2 × 2 for 4, over a plate wide enough for the name', () => {
@@ -370,12 +451,6 @@ describe('board layout', () => {
     expect(groups.filter((g) => g.railBadge).map((g) => g.location.id)).toEqual(['the_north', 'taunton', 'plymouth'])
   })
 
-  it('keeps every route on the board', () => {
-    for (const era of ['canal', 'rail'] as const) {
-      for (const r of routes(era)) for (const p of r.line.points) expect(Math.min(p.x, p.y, 1000 - p.x, 1000 - p.y)).toBeGreaterThanOrEqual(r.width / 2)
-    }
-  })
-
   it('respects a hand-placed labelOffset and follows bend points', () => {
     const edited: BoardData = {
       ...BOARD,
@@ -387,7 +462,29 @@ describe('board layout', () => {
     expect(g.center.x - g.point.x).toBeCloseTo(20)
     expect(g.center.y - g.point.y).toBeCloseTo(-15)
     const route = result.routes.canal!.routes.get('merthyr-barnstaple')!
-    expect(route.segments).toHaveLength(2)
-    expect(route.segments[0].p3).toEqual({ x: 300, y: 520 })
+    expect(route.main).toHaveLength(2)
+    expect(route.main[0].p3).toEqual({ x: 300, y: 520 })
+  })
+})
+
+describe('link spaces', () => {
+  it('draws an empty link as an empty bubble: a dark stadium with a bronze rim and nothing inside', () => {
+    const svg = renderToStaticMarkup(createElement('svg', null, createElement(LinkBubble, { x: 100, y: 100, angle: 30 })))
+    expect(svg).not.toMatch(/<image/)
+    expect(svg).not.toMatch(/link_s(pace|ymbol)/)
+    expect(svg).toMatch(new RegExp(`width="${BUBBLE_W - 2}"`))
+    expect(svg).toMatch(/fill="#1c1a18" fill-opacity="0.85" stroke="#a07a3c" stroke-width="2"/)
+  })
+
+  it('draws a built link as the owner’s token, the same size as the bubble', () => {
+    const svg = renderToStaticMarkup(createElement('svg', null, createElement(LinkToken, { x: 0, y: 0, angle: 0, era: 'rail', token: 'token.png', color: '#c33', mark: undefined })))
+    expect(svg).toMatch(new RegExp(`<image href="token.png" x="${-BUBBLE_W / 2}" y="${-BUBBLE_H / 2}" width="${BUBBLE_W}"`))
+  })
+
+  it('puts link hexagons only on the stops and hubs', () => {
+    const { groups } = layoutGroups(BOARD, createTextMeasurer())
+    const withHexes = [...groups.values()].filter((g) => g.parts.type !== 'city' && g.parts.hexes.length === 2).map((g) => g.location.id)
+    expect(withHexes.sort()).toEqual(['brecon', 'london', 'reading', 'taunton', 'the_north', 'west_wales'])
+    expect([...groups.values()].filter((g) => g.parts.type === 'city').every((g) => !('hexes' in g.parts))).toBe(true)
   })
 })

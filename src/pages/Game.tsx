@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router'
 import { IllustratedBoard, type BoardRecent, type BoardTargets } from '../components/board/IllustratedBoard'
 import { imageOk, TOKEN_ART_URLS } from '../components/board/assets'
 import { Dialog } from '../components/Dialog'
@@ -14,12 +15,13 @@ import { PlayersPanel } from '../components/game/PlayersPanel'
 import { PlayerSwatch } from '../components/game/PlayerSwatch'
 import { ResultsDialog } from '../components/game/ResultsDialog'
 import { ZoomPan } from '../components/game/ZoomPan'
-import { IconBook, IconClose, IconCog } from '../components/icons'
+import { IconBook, IconClose, IconCog, IconScale } from '../components/icons'
 import { Gear } from '../components/Gear'
 import type { Achievement } from '../data/achievements'
 import { BOARD, parseBoardData, slotKey, type BoardData, type BuiltState } from '../data/board'
 import { getGameMode } from '../data/gameModes'
 import { getMap } from '../data/maps'
+import { PATHS } from '../data/navigation'
 import { AI_DELAY_SCALE, ANIMATION_SCALE, type GameSettings } from '../data/settings'
 import { chooseAIAction } from '../game/ai'
 import {
@@ -87,7 +89,6 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
   const [drawer, setDrawer] = useState<'players' | 'markets' | 'log' | null>(null)
   // The rail-era banner shows once, when the era changes during play.
   const [bannerSeen, setBannerSeen] = useState<number | null>(game.eraChange?.round ?? null)
-  const colorBlind = settings.colorBlindAid
 
   const playing = game.status === 'playing'
   const current = playing ? currentPlayer(game) : null
@@ -222,9 +223,9 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
 
   const panels = (
     <>
-      <PlayersPanel game={game} colorBlind={colorBlind} />
+      <PlayersPanel game={game} colorBlind />
       <MarketPanel game={game} />
-      {settings.showLog && <GameLog game={game} colorBlind={colorBlind} />}
+      {settings.showLog && <GameLog game={game} colorBlind />}
     </>
   )
 
@@ -234,7 +235,7 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
         <div className="mx-auto flex max-w-[100rem] items-center gap-2 px-2 py-2 sm:gap-3 sm:px-4">
           <GameMenu onRules={onOpenRules} onSettings={onOpenSettings} onLeave={onLeave} />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-base leading-tight font-extrabold tracking-[0.1em] text-parchment-50 uppercase sm:text-lg">{map.name}</p>
+            <h1 className="truncate font-display text-base leading-tight font-extrabold tracking-[0.1em] text-parchment-50 uppercase sm:text-lg">{map.name}</h1>
             <p className="truncate text-xs text-parchment-400">
               {mode.name} · {game.status === 'finished' ? 'Final' : `Round ${game.round}/${game.totalRounds}`}
             </p>
@@ -253,7 +254,7 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-[112rem] grid-cols-[minmax(0,1fr)] items-start gap-3 px-2 py-3 sm:px-4 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_27rem]">
+      <main id="main-content" tabIndex={-1} className="mx-auto grid w-full outline-none max-w-[112rem] grid-cols-[minmax(0,1fr)] items-start gap-3 px-2 py-3 sm:px-4 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_27rem]">
         <div className="min-w-0 lg:sticky lg:top-[4.5rem]">
           <section className="plate relative mx-auto w-full overflow-hidden p-1 lg:max-w-[calc(100dvh-5.75rem)]" aria-label="Board">
             <ZoomPan>
@@ -263,7 +264,6 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
                   network={network}
                   targets={targets}
                   selectedSource={shipSource}
-                  colorBlind={colorBlind}
                   motion={ANIMATION_SCALE[settings.animationSpeed]}
                   onSelectSlot={onBoardSlot}
                   onSelectLocation={onBoardMarket}
@@ -292,7 +292,7 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
 
         <div className="flex min-w-0 flex-col gap-3">
           <section className="plate rivets p-3 sm:p-4" aria-label="Actions">
-            <TurnHeader game={game} colorBlind={colorBlind} fastForward={fastForward} onFastForward={setFastForward} />
+            <TurnHeader game={game} fastForward={fastForward} onFastForward={setFastForward} />
             <div className="mt-3">
               {game.status === 'finished' ? (
                 <button type="button" className="btn btn-primary w-full" onClick={() => setResultsOpen(true)}>
@@ -337,15 +337,15 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
               <IconClose />
             </button>
           </div>
-          {drawer === 'players' && <PlayersPanel game={game} colorBlind={colorBlind} />}
+          {drawer === 'players' && <PlayersPanel game={game} colorBlind />}
           {drawer === 'markets' && <MarketPanel game={game} />}
-          {drawer === 'log' && <GameLog game={game} colorBlind={colorBlind} />}
+          {drawer === 'log' && <GameLog game={game} colorBlind />}
         </div>
       </Dialog>
 
       <Dialog open={needsHandoff && !overlayOpen} onClose={() => setSeatAtDevice(current?.id ?? null)} labelledBy="handoff-title">
         <div className="plate rivets flex flex-col items-center gap-4 border-bronze-400/40 bg-soot-900/95 px-6 py-8 text-center">
-          {current && <PlayerSwatch color={current.color} letter={colorBlind} className="size-8 text-sm" />}
+          {current && <PlayerSwatch color={current.color} letter className="size-8 text-sm" />}
           <h2 id="handoff-title" className="font-display text-3xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
             {current?.name === 'You' ? 'Your turn' : `Pass to ${current?.name}`}
           </h2>
@@ -366,7 +366,7 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
         onClose={() => setResultsOpen(false)}
         game={game}
         unlocked={unlocked}
-        colorBlind={colorBlind}
+        colorBlind
         onRematch={onRematch}
         onLeave={onLeave}
       />
@@ -375,7 +375,7 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
 }
 
 /** Whose turn it is, and (with computer players) the fast-forward switch. */
-function TurnHeader({ game, colorBlind, fastForward, onFastForward }: { game: GameState; colorBlind: boolean; fastForward: boolean; onFastForward: (on: boolean) => void }) {
+function TurnHeader({ game, fastForward, onFastForward }: { game: GameState; fastForward: boolean; onFastForward: (on: boolean) => void }) {
   if (game.status === 'finished') {
     return <p className="font-display text-xl font-extrabold tracking-[0.12em] text-parchment-50 uppercase">Match over</p>
   }
@@ -383,7 +383,7 @@ function TurnHeader({ game, colorBlind, fastForward, onFastForward }: { game: Ga
   const hasAI = game.players.some((p) => p.isAI)
   return (
     <div className="flex flex-wrap items-center gap-2.5">
-      <PlayerSwatch color={player.color} letter={colorBlind} className="size-5 shadow-[0_0_10px_currentColor]" />
+      <PlayerSwatch color={player.color} letter className="size-5 shadow-[0_0_10px_currentColor]" />
       <p className="min-w-0 flex-1 font-display text-lg leading-tight font-extrabold tracking-[0.08em] text-parchment-50 uppercase">
         {player.isAI ? `${player.name} is playing` : player.name === 'You' ? 'Your turn' : `${player.name}’s turn`}
         <span className="block font-body text-xs font-semibold tracking-normal text-parchment-400 normal-case">
@@ -442,6 +442,7 @@ function EraChip({ era, railRound }: { era: 'canal' | 'rail'; railRound: number 
 /** The match menu: rules, settings, back to the main menu (the match is saved). */
 function GameMenu({ onRules, onSettings, onLeave }: { onRules: () => void; onSettings: () => void; onLeave: () => void }) {
   const [open, setOpen] = useState(false)
+  const navigate = useNavigate()
   const root = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
@@ -480,6 +481,7 @@ function GameMenu({ onRules, onSettings, onLeave }: { onRules: () => void; onSet
           {item('Rules', <IconBook className="size-5" />, onRules)}
           {item('Settings', <IconCog className="size-5" />, onSettings)}
           {item('Main menu', <span className="w-5 text-center">⌂</span>, onLeave)}
+          {item('Legal & privacy', <IconScale className="size-5" />, () => navigate(PATHS.legal))}
           <p className="px-3 pt-1 text-xs text-parchment-400">The match is saved after every action.</p>
         </div>
       )}
@@ -492,7 +494,6 @@ interface PaintedBoardProps {
   network: Set<string>
   targets: BoardTargets
   selectedSource: number | null
-  colorBlind: boolean
   motion: number
   onSelectSlot: (townId: string, slot: number) => void
   onSelectLocation: (townId: string) => void
@@ -500,7 +501,7 @@ interface PaintedBoardProps {
 }
 
 /** The match drawn on the painted board: game state translated into the board's props. */
-function PaintedBoard({ game, network, targets, selectedSource, colorBlind, motion, onSelectSlot, onSelectLocation, onSelectLink }: PaintedBoardProps) {
+function PaintedBoard({ game, network, targets, selectedSource, motion, onSelectSlot, onSelectLocation, onSelectLink }: PaintedBoardProps) {
   // Positions calibrated in the map editor (not yet pasted into board.json) apply here too.
   const [draft] = usePersistentState<BoardData | null>(STORAGE_KEYS.boardDraft, null, parseBoardData)
   const board = draft ?? BOARD
@@ -534,7 +535,7 @@ function PaintedBoard({ game, network, targets, selectedSource, colorBlind, moti
       built={built}
       playerColor={(p) => colorHex(game.players[p].color)}
       playerName={(p) => game.players[p]?.name ?? `Player ${p + 1}`}
-      playerMark={colorBlind ? (p) => PLAYER_STYLE[game.players[p].color].letter : undefined}
+      playerMark={(p) => PLAYER_STYLE[game.players[p].color].letter}
       selected={source ? { type: 'slot', locationId: source.townId, index: source.slot } : null}
       targets={targets}
       prices={game.prices}

@@ -27,6 +27,11 @@ export const EMPTY_STATS: PlayerStats = {
   unlocked: {},
 }
 
+/** "3 wins · 7 matches" */
+export function formatRecord({ wins, matches }: Pick<PlayerStats, 'wins' | 'matches'>): string {
+  return `${wins} ${wins === 1 ? 'win' : 'wins'} · ${matches} ${matches === 1 ? 'match' : 'matches'}`
+}
+
 /** What the local player did in one finished match. */
 export interface MatchSummary {
   won: boolean
@@ -100,6 +105,48 @@ export function recordMatch(stats: PlayerStats, game: GameState): { stats: Playe
   const today = new Date().toISOString()
   for (const achievement of unlocked) next.unlocked[achievement.id] = today
   return { stats: next, unlocked }
+}
+
+/** Anything worth keeping: a finished match or an unlocked achievement. */
+export const hasProgress = (stats: PlayerStats) => stats.matches > 0 || Object.keys(stats.unlocked).length > 0
+
+/** Earliest unlock date of each achievement in either record. */
+function unionUnlocked(a: PlayerStats['unlocked'], b: PlayerStats['unlocked']): PlayerStats['unlocked'] {
+  const unlocked = { ...a }
+  for (const [id, date] of Object.entries(b)) if (!unlocked[id] || date < unlocked[id]) unlocked[id] = date
+  return unlocked
+}
+
+/**
+ * Two separate records played apart (this device's guest play and an
+ * account): counts add up, the best score is the higher one, maps and
+ * achievements combine. Used to move guest progress into an account.
+ */
+export function mergeStats(a: PlayerStats, b: PlayerStats): PlayerStats {
+  return {
+    matches: a.matches + b.matches,
+    wins: a.wins + b.wins,
+    bestScore: Math.max(a.bestScore, b.bestScore),
+    goodsShipped: a.goodsShipped + b.goodsShipped,
+    mapsPlayed: [...new Set([...a.mapsPlayed, ...b.mapsPlayed])],
+    unlocked: unionUnlocked(a.unlocked, b.unlocked),
+  }
+}
+
+/**
+ * Two copies of the same record, one maybe newer (the account on the server
+ * and an unsaved copy on this device): the larger of each. Nothing played is
+ * counted twice.
+ */
+export function latestStats(a: PlayerStats, b: PlayerStats): PlayerStats {
+  return {
+    matches: Math.max(a.matches, b.matches),
+    wins: Math.max(a.wins, b.wins),
+    bestScore: Math.max(a.bestScore, b.bestScore),
+    goodsShipped: Math.max(a.goodsShipped, b.goodsShipped),
+    mapsPlayed: [...new Set([...a.mapsPlayed, ...b.mapsPlayed])],
+    unlocked: unionUnlocked(a.unlocked, b.unlocked),
+  }
 }
 
 /** Validate saved stats, filling in anything missing. */

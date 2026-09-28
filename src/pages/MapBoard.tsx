@@ -280,7 +280,7 @@ function SelectionDetails({ board, era, built, selected }: { board: BoardData; e
           {isLinkActive(link.type, era) ? `usable in the ${era} era` : `closed in the ${era} era`}
         </p>
         <p className="mt-1">{owner ? `Built by ${PLAYER_NAMES[owner.player]}` : 'Not built'}</p>
-        <p className="mt-1 font-mono text-xs text-parchment-500">
+        <p className="mt-1 font-mono text-xs text-parchment-400">
           id {link.id}
           {link.points?.length ? ` · ${link.points.length} bend point${link.points.length === 1 ? '' : 's'}` : ' · automatic bend'}
         </p>

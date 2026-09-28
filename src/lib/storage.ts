@@ -4,19 +4,15 @@
  * Storage can be missing or throw (private browsing, blocked cookies, quota
  * exceeded, sandboxed iframes). Every access is wrapped in try/catch so the
  * app keeps working with in-memory state only.
+ *
+ * Writes follow the visitor's cookie choices: a key in a category they
+ * haven't allowed (see legal/inventory.ts) is kept in memory only.
  */
 
-export const STORAGE_KEYS = {
-  gameMode: 'bronze.lobby.gameMode',
-  map: 'bronze.lobby.map',
-  settings: 'bronze.settings',
-  match: 'bronze.match',
-  stats: 'bronze.stats',
-  /** Seats, names, colours and AI levels from the last new-game setup. */
-  setup: 'bronze.setup',
-  /** Unsaved calibration from the map board editor. */
-  boardDraft: 'bronze.boardDraft',
-} as const
+import { consentStore } from '../legal/consent'
+import { categoryOf } from '../legal/inventory'
+
+export { STORAGE_KEYS } from './storageKeys'
 
 /** Read and JSON-parse a value. Returns undefined if absent or unreadable. */
 export function readStorage(key: string): unknown {
@@ -37,8 +33,9 @@ export function removeStorage(key: string): void {
   }
 }
 
-/** JSON-serialize and write a value. Failures are ignored. */
+/** JSON-serialize and write a value, if the visitor's cookie choices allow it. Failures are ignored. */
 export function writeStorage(key: string, value: unknown): void {
+  if (!consentStore.allows(categoryOf(key))) return
   try {
     window.localStorage.setItem(key, JSON.stringify(value))
   } catch {

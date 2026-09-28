@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Dialog } from './Dialog'
 import { IconClose } from './icons'
+import { Corners } from './theme/Ornaments'
 
 interface ModalFrameProps {
   open: boolean
@@ -16,9 +17,12 @@ interface ModalFrameProps {
   wide?: boolean
 }
 
-/** Standard riveted modal: header with title and close button, scrolling body, optional footer. */
+/** Standard riveted modal with brass corners: header with title and close button, scrolling body, optional footer. */
 export function ModalFrame({ open, onClose, id, title, icon, children, footer, wide = false }: ModalFrameProps) {
   const titleId = `${id}-title`
+  // The body (and its pictures) is only built once the dialog first opens, then kept for the close animation.
+  const [opened, setOpened] = useState(open)
+  if (open && !opened) setOpened(true)
   return (
     <Dialog open={open} onClose={onClose} labelledBy={titleId} className={wide ? 'bz-dialog--wide' : ''}>
       <div className="plate rivets flex max-h-[calc(100dvh-2rem)] flex-col border-bronze-400/40 bg-soot-900/95">
@@ -31,10 +35,14 @@ export function ModalFrame({ open, onClose, id, title, icon, children, footer, w
             <IconClose />
           </button>
         </header>
-        <div className="overflow-y-auto px-4 py-5 sm:px-6">{children}</div>
+        {/* Focusable, so the keyboard can scroll long text that has no links in it. */}
+        <div className="overflow-y-auto px-4 py-5 outline-none focus-visible:ring-2 focus-visible:ring-brass-300/60 sm:px-6" tabIndex={0}>
+          {opened && children}
+        </div>
         {footer && (
           <footer className="flex flex-wrap justify-end gap-3 border-t border-bronze-500/20 px-6 py-4">{footer}</footer>
         )}
+        <Corners />
       </div>
     </Dialog>
   )

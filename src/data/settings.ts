@@ -27,8 +27,6 @@ export interface GameSettings {
   animationSpeed: AnimationSpeed
   aiSpeed: AISpeed
   showLog: boolean
-  /** Adds each player's letter (P, R, Y, B, W) wherever their colour is shown. */
-  colorBlindAid: boolean
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
@@ -40,7 +38,6 @@ export const DEFAULT_SETTINGS: GameSettings = {
   animationSpeed: 'normal',
   aiSpeed: 'normal',
   showLog: true,
-  colorBlindAid: false,
 }
 
 function isLanguageCode(value: unknown): value is LanguageCode {
@@ -75,6 +72,5 @@ export function parseSettings(raw: unknown): GameSettings | undefined {
     animationSpeed: oneOf(ANIMATION_SPEEDS, saved.animationSpeed, d.animationSpeed),
     aiSpeed: oneOf(AI_SPEEDS, saved.aiSpeed, d.aiSpeed),
     showLog: bool(saved.showLog, d.showLog),
-    colorBlindAid: bool(saved.colorBlindAid, d.colorBlindAid),
   }
 }

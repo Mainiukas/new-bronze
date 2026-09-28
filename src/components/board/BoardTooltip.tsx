@@ -81,7 +81,7 @@ function Connections({ board, era, location }: { board: BoardData; era: Era; loc
         {links.map((l) => {
           const active = isLinkActive(l.type, era)
           return (
-            <li key={l.id} className={`contents ${active ? '' : 'text-parchment-500'}`}>
+            <li key={l.id} className={`contents ${active ? '' : 'text-parchment-400'}`}>
               <span>{name(l.from === location.id ? l.to : l.from)}</span>
               <span>
                 {LINK_TYPE_LABEL[l.type]}
@@ -144,7 +144,7 @@ function LocationDetails({ board, era, built, prices, playerName, location, slot
           </p>
           <p className="mt-1 flex gap-1">
             {location.buys.map((b) => (
-              <IndustryIcon key={b} kind={b} className="size-6" title={GOODS_NAMES[b]} />
+              <IndustryIcon key={b} kind={b} className="size-6" label={GOODS_NAMES[b]} />
             ))}
           </p>
         </div>

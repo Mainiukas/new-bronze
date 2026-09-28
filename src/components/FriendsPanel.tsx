@@ -1,44 +1,64 @@
-import { Dialog } from './Dialog'
-import { IconClose, IconUsers } from './icons'
-
-interface FriendsPanelProps {
-  open: boolean
-  onClose: () => void
-}
+import { useAuth } from '../hooks/useAuth'
+import { IconUserPlus, IconUsers } from './icons'
+import { LockPill } from './LockPill'
 
 /**
- * Slide-in friends drawer. Bronze has no account or online server yet, so
- * this only says so: no friend list, no requests, no online count.
+ * The lobby's friends panel. Guests see a lock (log in to use it). Signed in,
+ * friends still need a friends and presence server Bronze doesn't have yet,
+ * so adding friends stays disabled and the panel says why: no friend list,
+ * no requests, and no online count (it would be made up).
  */
-export function FriendsPanel({ open, onClose }: FriendsPanelProps) {
+export function FriendsPanel() {
+  const { signedIn } = useAuth()
   return (
-    <Dialog open={open} onClose={onClose} labelledBy="friends-title" variant="drawer-left">
-      <div className="rivets relative flex h-full flex-col border-r border-bronze-500/30 bg-linear-to-b from-soot-850 to-soot-950 shadow-[20px_0_60px_-20px_rgb(0_0_0/0.9)]">
-        <header className="flex items-center gap-3 border-b border-bronze-500/20 px-5 py-4">
-          <span aria-hidden="true" className="emoji-bronze text-2xl">
-            👥
-          </span>
-          <h2 id="friends-title" className="flex-1 font-display text-2xl font-bold tracking-[0.12em] uppercase">
-            Friends & online
-          </h2>
-          <button type="button" onClick={onClose} className="icon-btn size-10 text-base" aria-label="Close friends">
-            <IconClose />
-          </button>
-        </header>
+    <section aria-labelledby="friends-title" className="plate rivets iron flex flex-col p-4">
+      <header className="flex items-center gap-2.5">
+        <IconUsers className="size-5 text-bronze-300" />
+        <h2 id="friends-title" className="flex-1 font-display text-lg font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
+          Friends
+        </h2>
+        {signedIn ? <span className="soon-tag">Coming soon</span> : <LockPill />}
+      </header>
 
-        <div className="flex flex-1 flex-col items-center justify-center px-8 py-10 text-center">
-          <div className="relative mb-5 grid size-24 place-items-center rounded-full border border-dashed border-bronze-500/40 bg-soot-800/50">
-            <IconUsers className="size-11 text-bronze-400/80" />
-          </div>
-          <p className="inline-flex items-center gap-2 rounded-full border border-bronze-400/40 bg-soot-900/80 px-4 py-1.5 font-display text-sm font-bold tracking-[0.25em] text-brass-300 uppercase">
-            Coming soon
-          </p>
-          <p className="mt-4 max-w-72 text-sm leading-relaxed text-parchment-300">
-            Friends and online matches need an account server, and Bronze doesn’t have one yet. Until then, play against the
-            computer, or pass &amp; play with friends on this device.
-          </p>
-        </div>
+      <form className="mt-3 flex gap-2" onSubmit={(event) => event.preventDefault()} aria-describedby="friends-status">
+        <label htmlFor="add-friend" className="sr-only">
+          Add friend by username
+        </label>
+        <input
+          id="add-friend"
+          type="text"
+          disabled
+          placeholder="Add friend by username"
+          className="min-h-11 min-w-0 flex-1 cursor-not-allowed rounded-lg border border-bronze-500/25 bg-soot-950/60 px-3 text-sm text-parchment-50 opacity-60 outline-none placeholder:text-parchment-400"
+        />
+        <button type="submit" disabled className="btn btn-ghost min-h-11 px-3" aria-label="Add friend">
+          <IconUserPlus className="size-5" />
+        </button>
+      </form>
+
+      <div className="flex flex-col items-center px-2 py-6 text-center">
+        <span className="mb-3 grid size-16 place-items-center rounded-full border border-dashed border-bronze-500/40 bg-soot-950/50">
+          <IconUsers className="size-8 text-bronze-400/70" />
+        </span>
+        <p className="font-display text-base font-bold tracking-[0.1em] text-parchment-100 uppercase">No friends yet</p>
+        <p id="friends-status" className="mt-1.5 text-sm leading-relaxed text-parchment-300">
+          {signedIn
+            ? 'Friend lists and online matches need a game server, and Bronze doesn’t have one yet. Until then, play the computer, or pass & play on this device.'
+            : 'Log in to add friends. Until then, play the computer, or pass & play on this device.'}
+        </p>
       </div>
-    </Dialog>
+
+      {/* No server, so no numbers: a dash, never a made-up count. */}
+      <footer className="flex justify-between border-t border-bronze-500/20 pt-3 text-xs text-parchment-400">
+        <span>
+          Online <span aria-hidden="true">—</span>
+          <span className="sr-only">not available</span>
+        </span>
+        <span>
+          Pending <span aria-hidden="true">—</span>
+          <span className="sr-only">not available</span>
+        </span>
+      </footer>
+    </section>
   )
 }

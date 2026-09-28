@@ -90,3 +90,14 @@ export function getGameMode(id: GameModeId): GameMode {
 export function formatDuration({ min, max }: GameModeConfig['durationMinutes']): string {
   return min === max ? `${min} min` : `${min}–${max} min`
 }
+
+/** 120 → "2:00" */
+export function formatTurnTimer(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+export const MAP_SIZE_LABELS: Record<GameModeConfig['mapSize'], string> = {
+  full: 'Full map',
+  reduced: 'Reduced map',
+  compact: 'Compact map',
+}

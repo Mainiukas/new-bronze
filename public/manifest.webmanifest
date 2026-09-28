@@ -1,0 +1,14 @@
+{
+  "name": "Bronze",
+  "short_name": "Bronze",
+  "description": "An industrial-era strategy board game. Build. Connect. Industrialize.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0806",
+  "theme_color": "#0b0806",
+  "icons": [
+    { "src": "icons/bronze_icon_192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/bronze_icon_512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

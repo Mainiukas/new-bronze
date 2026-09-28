@@ -1,6 +1,8 @@
-import type { ComponentType } from 'react'
-import { formatDuration, type GameMode, type ModeIconName } from '../data/gameModes'
+import type { ComponentType, CSSProperties } from 'react'
+import { formatDuration, formatTurnTimer, MAP_SIZE_LABELS, type GameMode, type GameModeId, type ModeIconName } from '../data/gameModes'
 import { IconBolt, IconCheck, IconClock, IconFactory, IconStopwatch, type IconProps } from './icons'
+import { backgroundUrl } from './theme/backgrounds'
+import { useFirstPaintDone } from './theme/firstPaint'
 
 const MODE_ICONS: Record<ModeIconName, ComponentType<IconProps>> = {
   factory: IconFactory,
@@ -8,65 +10,98 @@ const MODE_ICONS: Record<ModeIconName, ComponentType<IconProps>> = {
   stopwatch: IconStopwatch,
 }
 
+/** The lobby painting at 1280 px (on phones, the same file as the page behind): each card shows a crop of it. */
+const LOBBY_ART = backgroundUrl('lobby', 1280, 'webp') ?? backgroundUrl('lobby', 1280, 'jpg')
+
+/** Which part of the lobby painting each card shows (background-position). */
+const CROPS: Record<GameModeId, string> = {
+  // The mills
+  normal: '25% 50%',
+  // The train on the viaduct
+  blitz: '80% 35%',
+  // The narrowboat
+  bullet: '30% 80%',
+}
+
 interface ModeCardProps {
   mode: GameMode
   selected: boolean
   onSelect: () => void
+  /** Stagger for the load animation. */
+  index?: number
 }
 
 /**
- * Selectable game-mode card. Built on a visually hidden radio input so the
- * group gets native keyboard support (arrow keys) and screen-reader semantics.
+ * Quick-play mode card (like chess.com's Bullet/Blitz/Rapid): a crop of the
+ * lobby painting with the mode's badge, then its name, summary and real
+ * numbers. Built on a visually hidden radio input, so the group gets native
+ * keyboard support (Tab in, arrow keys to change) and screen-reader semantics.
+ * Wide containers show a picture on top; narrow ones put it on the left.
  */
-export function ModeCard({ mode, selected, onSelect }: ModeCardProps) {
+export function ModeCard({ mode, selected, onSelect, index = 0 }: ModeCardProps) {
   const Icon = MODE_ICONS[mode.icon]
+  const painted = useFirstPaintDone()
+  const facts = `${mode.rounds} rounds · ${MAP_SIZE_LABELS[mode.mapSize]} · ${formatTurnTimer(mode.turnTimerSeconds)} per turn`
 
   return (
     <label
-      // Grid areas keep every card identical. Mobile: icon on the left, name and
-      // duration side by side. Wider: duration next to the icon, text below.
-      className={`group relative grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] gap-x-4 gap-y-1 rounded-xl border p-4 transition duration-200 ease-out select-none [grid-template-areas:'icon_name_time'_'icon_desc_desc'] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-brass-300 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-y-2 sm:[grid-template-areas:'icon_time'_'name_name'_'desc_desc'] ${
+      style={{ animationDelay: `${index * 70}ms` } as CSSProperties}
+      className={`plate iron group relative grid animate-fade-up cursor-pointer grid-cols-[7.5rem_minmax(0,1fr)] overflow-hidden rounded-xl transition-[transform,border-color,box-shadow] duration-200 ease-out select-none has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ember-400 @2xl:grid-cols-1 ${
         selected
-          ? 'border-bronze-300/80 bg-linear-to-b from-bronze-500/25 via-soot-800/90 to-soot-900/90 shadow-[0_0_0_1px_rgb(232_181_124/0.35),0_12px_32px_-12px_rgb(255_122_26/0.55)] sm:-translate-y-1'
-          : 'border-bronze-500/20 bg-soot-900/70 hover:-translate-y-0.5 hover:border-bronze-400/50 hover:bg-soot-800/80 active:translate-y-0 active:scale-[0.98]'
+          ? 'border-brass-300/90 shadow-[0_0_0_1px_rgb(240_215_138/0.55),0_16px_36px_-14px_rgb(255_157_77/0.55)]'
+          : 'hover:border-ember-400/70 hover:shadow-[0_0_0_1px_rgb(255_157_77/0.35),0_0_26px_-6px_rgb(255_122_26/0.55)] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-px'
       }`}
     >
       <input type="radio" name="game-mode" value={mode.id} checked={selected} onChange={onSelect} className="sr-only" />
 
-      {/* Icon badge */}
+      {/* Picture: a crop of the lobby painting, dark at the bottom where the badge and text meet it */}
       <span
-        className={`grid size-12 shrink-0 place-items-center self-center rounded-lg border text-2xl transition duration-200 [grid-area:icon] sm:mb-1 ${
-          selected
-            ? 'border-brass-300/60 bg-linear-to-b from-brass-300 to-bronze-600 text-soot-950 shadow-[0_0_18px_-2px_rgb(255_157_77/0.7)]'
-            : 'border-bronze-500/30 bg-soot-800 text-bronze-300 group-hover:text-bronze-200'
-        }`}
+        aria-hidden="true"
+        className="relative block @2xl:aspect-[16/8]"
+        style={LOBBY_ART && painted ? { backgroundImage: `url(${LOBBY_ART})`, backgroundSize: '320% auto', backgroundPosition: CROPS[mode.id] } : undefined}
       >
-        <Icon />
+        <span className="absolute inset-0 bg-linear-to-t from-soot-950/85 via-soot-950/25 to-transparent" />
+        <span className="absolute inset-0 bg-linear-to-r from-transparent to-soot-950/60 @2xl:hidden" />
+        {/* Mode badge */}
+        <span
+          className={`absolute top-1/2 left-1/2 grid size-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 text-[1.7rem] shadow-[0_6px_16px_-4px_rgb(0_0_0/0.9),inset_0_1px_0_rgb(255_255_255/0.35)] transition-transform duration-200 @2xl:top-auto @2xl:-bottom-6 @2xl:left-5 @2xl:translate-x-0 @2xl:translate-y-0 ${
+            selected
+              ? 'border-brass-200 bg-radial-[at_35%_30%] from-brass-200 via-bronze-400 to-bronze-700 text-soot-950'
+              : 'border-bronze-300/70 bg-radial-[at_35%_30%] from-bronze-300 via-bronze-500 to-bronze-800 text-soot-950 group-hover:scale-105'
+          }`}
+        >
+          <Icon strokeWidth={2} />
+        </span>
+        <span className="absolute top-2.5 right-2.5 hidden items-center gap-1 rounded-full border border-bronze-400/40 bg-soot-950/80 px-2 py-0.5 text-xs font-semibold tracking-wide whitespace-nowrap text-bronze-100 tabular-nums @2xl:inline-flex">
+          <IconClock className="size-3.5" />
+          {formatDuration(mode.durationMinutes)}
+        </span>
       </span>
 
-      <span
-        className={`self-center font-display text-2xl leading-none font-extrabold tracking-[0.12em] uppercase transition-colors [grid-area:name] ${
-          selected ? 'text-parchment-50' : 'text-parchment-200'
-        }`}
-      >
-        {mode.name}
+      {/* Text */}
+      <span className="flex min-w-0 flex-col gap-1 p-3.5 pr-10 @2xl:px-5 @2xl:pt-8 @2xl:pb-5">
+        <span className="flex items-baseline gap-2">
+          <span
+            className={`font-display text-[1.7rem] leading-none font-extrabold tracking-[0.1em] uppercase transition-colors @2xl:text-3xl ${
+              selected ? 'text-parchment-50' : 'text-parchment-100'
+            }`}
+          >
+            {mode.name}
+          </span>
+          <span className="text-xs font-semibold whitespace-nowrap text-bronze-200 tabular-nums @2xl:hidden">{formatDuration(mode.durationMinutes)}</span>
+        </span>
+        <span className="text-sm leading-snug text-parchment-300">{mode.description}</span>
+        <span className="mt-1 text-xs font-semibold tracking-wide text-brass-300/90">{facts}</span>
       </span>
-
-      <span className="inline-flex items-center gap-1 self-center justify-self-end rounded-full border border-bronze-500/30 bg-soot-950/60 px-2 py-0.5 text-xs font-semibold tracking-wide whitespace-nowrap text-bronze-200 tabular-nums [grid-area:time]">
-        <IconClock className="size-3.5" />
-        {formatDuration(mode.durationMinutes)}
-      </span>
-
-      <span className="text-sm leading-snug text-parchment-300 [grid-area:desc]">{mode.description}</span>
 
       {/* Selected check */}
       <span
         aria-hidden="true"
-        className={`absolute -top-2 -right-2 grid size-6 place-items-center rounded-full border border-soot-900 bg-linear-to-b from-brass-300 to-bronze-500 text-soot-950 shadow-[0_0_10px_rgb(255_157_77/0.7)] transition duration-200 ${
+        className={`absolute top-2.5 right-2.5 grid size-7 place-items-center rounded-full border-2 border-soot-950 bg-linear-to-b from-brass-200 to-bronze-500 text-soot-950 shadow-[0_0_12px_rgb(240_215_138/0.7)] transition duration-200 @2xl:right-auto @2xl:left-2.5 ${
           selected ? 'scale-100 opacity-100' : 'scale-50 opacity-0'
         }`}
       >
-        <IconCheck className="size-3.5" strokeWidth={3} />
+        <IconCheck className="size-4" strokeWidth={3} />
       </span>
     </label>
   )

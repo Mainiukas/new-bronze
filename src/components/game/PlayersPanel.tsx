@@ -60,7 +60,7 @@ export function PlayersPanel({ game, colorBlind }: { game: GameState; colorBlind
 function Stat({ label, value, title }: { label: string; value: string | number; title?: string }) {
   return (
     <div title={title}>
-      <dt className="text-[0.58rem] tracking-[0.1em] text-parchment-500 uppercase">{label}</dt>
+      <dt className="text-[0.58rem] tracking-[0.1em] text-parchment-400 uppercase">{label}</dt>
       <dd className="font-semibold text-parchment-100">{value}</dd>
     </div>
   )

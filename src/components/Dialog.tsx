@@ -5,8 +5,10 @@ interface DialogProps {
   onClose: () => void
   /** id of the element that names the dialog (usually its heading). */
   labelledBy: string
-  /** Centered modal, or a drawer sliding in from the left edge. */
-  variant?: 'modal' | 'drawer-left'
+  /** Centered modal, a drawer sliding in from the left edge, a sheet rising from the bottom, or the whole screen. */
+  variant?: 'modal' | 'drawer-left' | 'sheet-bottom' | 'screen'
+  /** False: Escape and the backdrop don't close it (a step that has to be finished). */
+  dismissible?: boolean
   className?: string
   children: ReactNode
 }
@@ -17,7 +19,7 @@ interface DialogProps {
  * for free. Clicking the backdrop also closes it. Open/close animations live
  * in index.css (.bz-dialog).
  */
-export function Dialog({ open, onClose, labelledBy, variant = 'modal', className = '', children }: DialogProps) {
+export function Dialog({ open, onClose, labelledBy, variant = 'modal', dismissible = true, className = '', children }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
   // Only treat a click as a backdrop click if the press also started there,
   // so dragging a slider out of the panel doesn't close it.
@@ -38,11 +40,14 @@ export function Dialog({ open, onClose, labelledBy, variant = 'modal', className
       className={`bz-dialog bz-dialog--${variant} ${className}`}
       // Fires for Escape and for close() calls; keeps parent state in sync.
       onClose={onClose}
+      onCancel={(event) => {
+        if (!dismissible) event.preventDefault()
+      }}
       onPointerDown={(event) => {
         pressStartedOnBackdrop.current = event.target === event.currentTarget
       }}
       onClick={(event) => {
-        if (pressStartedOnBackdrop.current && event.target === event.currentTarget) onClose()
+        if (dismissible && pressStartedOnBackdrop.current && event.target === event.currentTarget) onClose()
       }}
     >
       {children}

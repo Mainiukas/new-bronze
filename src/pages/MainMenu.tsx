@@ -1,186 +1,295 @@
-import type { ReactNode } from 'react'
-import { IconBook, IconCog } from '../components/icons'
-import { MapCard } from '../components/MapCard'
+import { useEffect, useRef, type ComponentType, type Dispatch, type SetStateAction } from 'react'
+import { useLocation } from 'react-router'
+import { PLAYER_STYLE } from '../components/game/glyphs'
+import { IconComputer, IconGlobe, IconLock, IconPlay, IconUsers, type IconProps } from '../components/icons'
+import { FriendsPanel } from '../components/FriendsPanel'
+import { AchievementsCard, TournamentsCard } from '../components/LobbyCards'
+import { MatchSetupPanel, type MatchSetup } from '../components/MatchSetupPanel'
 import { ModeCard } from '../components/ModeCard'
-import { PlayButton } from '../components/PlayButton'
-import { formatDuration, GAME_MODES, getGameMode, type GameModeId } from '../data/gameModes'
-import { formatPlayers, getMap, MAPS, type MapId } from '../data/maps'
+import type { PlayerStats } from '../data/achievements'
+import type { Era } from '../data/board'
+import { GAME_MODES, type GameModeId } from '../data/gameModes'
+import type { MapId } from '../data/maps'
+import { opponentsOf, seatCount, withOpponents, type Opponents, type SavedSetup } from '../data/matchSetup'
+import type { PlayerColor } from '../game/types'
+import { useAuth } from '../hooks/useAuth'
+import { useOpenAuth } from '../hooks/useOpenAuth'
+
+/** What the Continue banner shows about the match in progress. */
+export interface SavedMatchSummary {
+  mode: string
+  map: string
+  round: number
+  totalRounds: number
+  era: Era | null
+  players: { name: string; color: PlayerColor; isAI: boolean }[]
+}
+
+/** Location state that asks this page to bring the play panel into view (the sidebar's PLAY). */
+export interface PlayFocusState {
+  focusPlay: number
+}
 
 interface MainMenuProps {
   modeId: GameModeId
   onModeChange: (id: GameModeId) => void
   mapId: MapId
   onMapChange: (id: MapId) => void
-  /** Opens the new-game setup. */
-  onNewGame: () => void
+  setup: SavedSetup
+  onSetupChange: Dispatch<SetStateAction<SavedSetup>>
+  onStart: (setup: MatchSetup) => void
   /** A match in progress that can be resumed, if any. */
-  savedMatch: { summary: string } | null
+  savedMatch: SavedMatchSummary | null
   onContinue: () => void
   onAbandon: () => void
   /** A saved match from an older version of the game, which can't be resumed. */
   outdatedSave: boolean
   onDiscardOutdated: () => void
-  onOpenRules: () => void
-  onOpenSettings: () => void
+  stats: PlayerStats
 }
 
 /**
- * Lobby screen: title, PLAY button, and the mode and map selectors.
- * Selection state is owned by App so it survives tab switches.
- *
- * Desktop: hero + PLAY on the left (sticky), selectors on the right.
- * Mobile: stacked, with PLAY pinned to the bottom of the screen.
+ * The lobby's Play page, like chess.com's and colonist.io's home screens:
+ * the match in progress, quick-play mode cards, opponents and the match
+ * setup with START MATCH in the centre; friends, tournaments and
+ * achievements in a social column on the right (below, on smaller screens).
+ * Selection state is owned by App so it survives page switches.
  */
 export function MainMenu({
   modeId,
   onModeChange,
   mapId,
   onMapChange,
-  onNewGame,
+  setup,
+  onSetupChange,
+  onStart,
   savedMatch,
   onContinue,
   onAbandon,
   outdatedSave,
   onDiscardOutdated,
-  onOpenRules,
-  onOpenSettings,
+  stats,
 }: MainMenuProps) {
-  const mode = getGameMode(modeId)
-  const map = getMap(mapId)
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const location = useLocation()
+  const focusPlay = (location.state as PlayFocusState | null)?.focusPlay
+
+  // PLAY in the sidebar: back to the top, with focus on the play panel's heading.
+  useEffect(() => {
+    if (!focusPlay) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })
+    titleRef.current?.focus({ preventScroll: true })
+  }, [focusPlay])
+
+  const count = seatCount(setup, mapId)
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-10 px-4 pt-8 pb-40 sm:px-6 lg:grid-cols-12 lg:gap-x-10 lg:pt-14 lg:pb-16">
-      {/* Hero */}
-      {/* No transform/animation on this section itself: it would become the
-          containing block for the fixed mobile PLAY bar and trap it here. */}
-      <section className="flex flex-col items-center text-center lg:sticky lg:top-28 lg:col-span-5 lg:items-start lg:self-start lg:text-left">
-        <p className="eyebrow animate-fade-up">An industrial-era strategy game</p>
-        <h1 className="metal-text mt-2 animate-sheen font-display text-[5rem] leading-[0.85] font-extrabold tracking-[0.08em] drop-shadow-[0_6px_30px_rgb(255_122_26/0.35)] sm:text-[7rem] lg:text-[6.5rem] xl:text-[8rem]">
-          BRONZE
-        </h1>
-        <p className="mt-4 flex animate-fade-up items-center gap-3 font-display text-sm font-semibold tracking-[0.22em] whitespace-nowrap text-parchment-200 uppercase sm:text-lg sm:tracking-[0.3em]">
-          <span aria-hidden="true" className="hidden h-px w-8 bg-linear-to-r from-transparent to-bronze-400 sm:block lg:hidden" />
-          Build. Connect. Industrialize.
-          <span aria-hidden="true" className="hidden h-px w-8 bg-linear-to-l from-transparent to-bronze-400 sm:block" />
-        </p>
+    <div className="grid min-h-full grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_20rem]">
+      {/* Centre: play */}
+      <section aria-labelledby="play-title" className="min-w-0 px-4 pt-5 pb-8 sm:px-6 lg:px-8 lg:pt-8">
+        <div className="mx-auto flex max-w-5xl flex-col gap-6">
+          {savedMatch && <ContinueBanner match={savedMatch} onContinue={onContinue} onAbandon={onAbandon} />}
 
-        {/* Match in progress */}
-        {savedMatch && (
-          <div className="plate rivets mt-8 flex w-full animate-fade-up flex-col gap-3 border-brass-300/40 px-5 py-4 text-left sm:flex-row sm:items-center">
-            <div className="min-w-0 flex-1">
-              <p className="eyebrow">Match in progress</p>
-              <p className="mt-0.5 font-display text-lg font-semibold tracking-wide text-parchment-50">{savedMatch.summary}</p>
-            </div>
-            <div className="flex gap-2">
-              <button type="button" className="btn btn-ghost px-3" onClick={onAbandon}>
-                Abandon
-              </button>
-              <button type="button" className="btn btn-primary px-5" onClick={onContinue}>
-                Continue
+          {outdatedSave && (
+            <div role="status" className="plate rivets iron flex flex-col gap-3 border-rust-400/50 px-5 py-4 sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1">
+                <p className="eyebrow text-rust-300">Saved match can’t be continued</p>
+                <p className="mt-0.5 text-sm text-parchment-200">It was saved by an older version of Bronze, whose rules have changed.</p>
+              </div>
+              <button type="button" className="btn btn-ghost px-5" onClick={onDiscardOutdated}>
+                Discard it
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* A save the current version can't read */}
-        {outdatedSave && (
-          <div role="status" className="plate rivets mt-8 flex w-full flex-col gap-3 border-rust-400/40 px-5 py-4 text-left sm:flex-row sm:items-center">
-            <div className="min-w-0 flex-1">
-              <p className="eyebrow text-rust-300">Saved match can’t be continued</p>
-              <p className="mt-0.5 text-sm text-parchment-200">It was saved by an older version of Bronze, whose rules have changed.</p>
+          <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+            <h1
+              id="play-title"
+              ref={titleRef}
+              tabIndex={-1}
+              className="page-title flex items-center gap-3 rounded text-4xl sm:text-5xl"
+            >
+              <IconPlay aria-hidden="true" className="size-8 text-brass-300 sm:size-9" />
+              Play
+            </h1>
+            <dl className="flex flex-wrap gap-2">
+              <StatPill label="Wins" value={stats.wins} />
+              <StatPill label="Best score" value={`${stats.bestScore}★`} />
+              <StatPill label="Matches" value={stats.matches} />
+            </dl>
+          </header>
+
+          {/* Mode cards: side by side when there's room, stacked otherwise */}
+          <fieldset className="@container">
+            <legend className="sr-only">Game mode</legend>
+            <div className="grid gap-3 @2xl:grid-cols-3 @2xl:gap-4">
+              {GAME_MODES.map((gameMode, index) => (
+                <ModeCard
+                  key={gameMode.id}
+                  mode={gameMode}
+                  index={index}
+                  selected={gameMode.id === modeId}
+                  onSelect={() => onModeChange(gameMode.id)}
+                />
+              ))}
             </div>
-            <button type="button" className="btn btn-primary px-5" onClick={onDiscardOutdated}>
-              Start a new game
-            </button>
-          </div>
-        )}
+          </fieldset>
 
-        <div className="mt-6 flex w-full gap-3">
-          <button type="button" className="btn btn-ghost flex-1" onClick={onOpenRules}>
-            <IconBook className="size-5" />
-            Rules
-          </button>
-          <button type="button" className="btn btn-ghost flex-1" onClick={onOpenSettings}>
-            <IconCog className="size-5" />
-            Settings
-          </button>
-        </div>
+          <OpponentsControl
+            value={opponentsOf(setup.seats, count)}
+            onChange={(opponents) => onSetupChange((prev) => ({ ...prev, seats: withOpponents(prev.seats, count, opponents) }))}
+          />
 
-        {/* Current selection (desktop only; on mobile the PLAY button shows it) */}
-        <dl className="plate rivets mt-10 hidden w-full animate-fade-up grid-cols-[auto_1fr] gap-x-6 gap-y-3 px-6 py-5 text-left lg:grid">
-          <SummaryRow label="Mode">
-            {mode.name} <span className="text-parchment-400">· {formatDuration(mode.durationMinutes)}</span>
-          </SummaryRow>
-          <SummaryRow label="Map">
-            {map.name} <span className="text-parchment-400">· {formatPlayers(map.players)}</span>
-          </SummaryRow>
-          <SummaryRow label="Rounds">
-            {mode.rounds} <span className="text-parchment-400">· {mode.turnTimerSeconds}s per turn</span>
-          </SummaryRow>
-        </dl>
-
-        {/* PLAY: pinned to the bottom on mobile, inline on desktop */}
-        <div className="fixed inset-x-0 bottom-0 z-20 bg-linear-to-t from-soot-950 via-soot-950/90 to-transparent px-4 pt-8 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:static lg:mt-6 lg:w-full lg:bg-none lg:p-0">
-          <div className="mx-auto max-w-md animate-fade-up lg:max-w-none">
-            <PlayButton onClick={onNewGame} label="NEW GAME" subtitle={`${mode.name} · ${map.name}`} />
-          </div>
+          <MatchSetupPanel
+            modeId={modeId}
+            mapId={mapId}
+            onMapChange={onMapChange}
+            setup={setup}
+            onSetupChange={onSetupChange}
+            replacesMatch={savedMatch !== null}
+            onStart={onStart}
+          />
         </div>
       </section>
 
-      {/* Selectors */}
-      <div className="flex animate-fade-up flex-col gap-10 [animation-delay:120ms] lg:col-span-7">
-        <fieldset>
-          <SectionLegend index="01" title="Game Mode" />
-          <div className="grid gap-3 sm:grid-cols-3">
-            {GAME_MODES.map((gameMode) => (
-              <ModeCard
-                key={gameMode.id}
-                mode={gameMode}
-                selected={gameMode.id === modeId}
-                onSelect={() => onModeChange(gameMode.id)}
-              />
-            ))}
+      {/* Right: social column (full height beside the centre on desktop, stacked below it otherwise) */}
+      <aside aria-label="Friends and progress" className="relative min-w-0 lg:sticky lg:top-0 lg:h-dvh">
+        <div aria-hidden="true" className="plate iron absolute inset-0 hidden rounded-none border-y-0 border-r-0 lg:block" />
+        <div className="no-scrollbar relative flex flex-col gap-4 px-4 pb-8 sm:px-6 md:grid md:grid-cols-2 md:items-start lg:flex lg:items-stretch lg:h-full lg:overflow-y-auto lg:p-4">
+          <div className="md:row-span-2">
+            <FriendsPanel />
           </div>
-        </fieldset>
-
-        <fieldset>
-          <SectionLegend index="02" title="Map" />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {MAPS.map((gameMap) => (
-              <MapCard
-                key={gameMap.id}
-                map={gameMap}
-                selected={gameMap.id === mapId}
-                onSelect={() => onMapChange(gameMap.id)}
-              />
-            ))}
-          </div>
-        </fieldset>
-      </div>
+          <TournamentsCard />
+          <AchievementsCard stats={stats} />
+        </div>
+      </aside>
     </div>
   )
 }
 
-/** Numbered section heading, used as the fieldset's legend. */
-function SectionLegend({ index, title }: { index: string; title: string }) {
+function StatPill({ label, value }: { label: string; value: number | string }) {
   return (
-    <legend className="mb-4 flex w-full items-center gap-3">
-      <span aria-hidden="true" className="font-display text-sm font-bold tracking-[0.2em] text-bronze-400">
-        {index}
-      </span>
-      <span className="font-display text-2xl font-extrabold tracking-[0.14em] text-parchment-50 uppercase">
-        {title}
-      </span>
-      <span aria-hidden="true" className="h-px flex-1 bg-linear-to-r from-bronze-500/50 to-transparent" />
-    </legend>
+    <div className="flex items-baseline gap-2 rounded-full border border-bronze-500/30 bg-soot-950/90 px-3.5 py-1.5 shadow-[inset_0_1px_0_rgb(243_210_168/0.08)] backdrop-blur-[3px]">
+      <dt className="font-display text-[0.7rem] font-semibold tracking-[0.18em] text-parchment-400 uppercase">{label}</dt>
+      <dd className="font-display text-lg leading-none font-extrabold text-parchment-50 tabular-nums">{value}</dd>
+    </div>
   )
 }
 
-function SummaryRow({ label, children }: { label: string; children: ReactNode }) {
+/** "Continue match": the saved match (mode, map, round, era, players) with Resume and Abandon. */
+function ContinueBanner({ match, onContinue, onAbandon }: { match: SavedMatchSummary; onContinue: () => void; onAbandon: () => void }) {
   return (
-    <>
-      <dt className="eyebrow self-center">{label}</dt>
-      <dd className="font-display text-lg font-semibold tracking-wide text-parchment-50">{children}</dd>
-    </>
+    <section
+      aria-labelledby="continue-title"
+      className="plate rivets iron flex animate-fade-up flex-col gap-4 border-brass-300/50 px-5 py-4 shadow-[0_0_0_1px_rgb(240_215_138/0.15),0_16px_40px_-18px_rgb(255_122_26/0.5)] sm:flex-row sm:items-center"
+    >
+      <div className="flex shrink-0 -space-x-2" aria-hidden="true">
+        {match.players.map((player, i) => (
+          <span
+            key={i}
+            className="grid size-10 place-items-center rounded-full border-2 border-soot-900 font-display text-sm font-extrabold text-soot-950 uppercase"
+            style={{ background: PLAYER_STYLE[player.color].hex }}
+          >
+            {player.name.trim().charAt(0)}
+          </span>
+        ))}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p id="continue-title" className="eyebrow">
+          Continue match
+        </p>
+        <p className="mt-0.5 font-display text-xl leading-tight font-bold tracking-[0.06em] text-parchment-50">
+          {match.mode} · {match.map}
+        </p>
+        <p className="text-sm text-parchment-300">
+          Round {match.round}/{match.totalRounds}
+          {match.era && <> · {match.era === 'canal' ? 'Canal era' : 'Rail era'}</>} · {match.players.map((p) => p.name).join(', ')}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <button type="button" className="btn btn-ghost px-4" onClick={onAbandon}>
+          Abandon
+        </button>
+        <button type="button" className="btn btn-primary px-6" onClick={onContinue}>
+          <IconPlay className="size-4" />
+          Resume
+        </button>
+      </div>
+    </section>
+  )
+}
+
+const OPPONENT_OPTIONS: { value: Exclude<Opponents, 'mixed'> | 'online'; label: string; Icon: ComponentType<IconProps> }[] = [
+  { value: 'computer', label: 'vs Computer', Icon: IconComputer },
+  { value: 'pass', label: 'Pass & Play', Icon: IconUsers },
+  { value: 'online', label: 'Online', Icon: IconGlobe },
+]
+
+/**
+ * Who you play: a preset for the seats below (you against computers, or
+ * everyone human on this device). Online needs a server Bronze doesn't have,
+ * so it is disabled and marked "Coming soon".
+ */
+function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (value: Exclude<Opponents, 'mixed'>) => void }) {
+  const { signedIn } = useAuth()
+  const openAuth = useOpenAuth()
+  return (
+    <fieldset className="@container animate-fade-up [animation-delay:160ms]">
+      <legend className="mb-2 flex w-full items-baseline justify-between gap-3">
+        <span className="font-display text-lg font-extrabold tracking-[0.1em] text-parchment-50 uppercase">Opponents</span>
+        {value === 'mixed' && <span className="text-xs text-parchment-400">Custom: a mix of humans and computers (see Seats)</span>}
+      </legend>
+      <div className="plate iron grid grid-cols-3 gap-1 rounded-xl p-1">
+        {OPPONENT_OPTIONS.map(({ value: option, label, Icon }) => {
+          const online = option === 'online'
+          const checked = !online && value === option
+          // Guests: Online needs an account first, so it's a lock that opens the log-in screen.
+          if (online && !signedIn) {
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => openAuth('login')}
+                className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-center font-display text-sm font-bold tracking-[0.08em] text-parchment-400 uppercase transition hover:bg-soot-700/60 hover:text-parchment-100 @xl:flex-row @xl:gap-2 @xl:text-base"
+              >
+                <Icon className="size-5 shrink-0" />
+                <span className="leading-tight">{label}</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-brass-300/50 bg-soot-950/80 px-2 py-0.5 text-[0.62rem] leading-none tracking-[0.14em] whitespace-nowrap text-brass-200">
+                  <IconLock className="size-3" strokeWidth={2.4} />
+                  Log in to use this
+                </span>
+              </button>
+            )
+          }
+          return (
+            <label
+              key={option}
+              title={online ? 'Online play needs a game server, which Bronze doesn’t have yet' : undefined}
+              className={`relative flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-center font-display text-sm font-bold tracking-[0.08em] uppercase transition has-focus-visible:outline-2 has-focus-visible:outline-ember-400 @xl:flex-row @xl:gap-2 @xl:text-base ${
+                online
+                  ? 'cursor-not-allowed text-parchment-500'
+                  : checked
+                    ? 'cursor-pointer bg-linear-to-b from-bronze-400/35 to-bronze-600/25 text-parchment-50 shadow-[inset_0_0_0_1px_rgb(240_215_138/0.55)]'
+                    : 'cursor-pointer text-parchment-300 hover:bg-soot-700/60 hover:text-parchment-50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="opponents"
+                value={option}
+                checked={checked}
+                disabled={online}
+                onChange={() => !online && onChange(option)}
+                className="sr-only"
+              />
+              <Icon className={`size-5 shrink-0 ${checked ? 'text-brass-300' : ''}`} />
+              <span className="leading-tight">{label}</span>
+              {online && signedIn && <span className="soon-tag">Coming soon</span>}
+            </label>
+          )
+        })}
+      </div>
+    </fieldset>
   )
 }

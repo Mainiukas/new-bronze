@@ -1,6 +1,6 @@
 import '@fontsource/cinzel/latin-700.css'
 import '@fontsource/cinzel/latin-800.css'
-import { useEffect, useEffectEvent, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import {
   EMPTY_BUILT,
   INDUSTRY_NAMES,
@@ -149,6 +149,8 @@ function piecesFor(route: RouteLayout): TexturePiece[] {
   return pieces
 }
 
+const ARROWS: Record<string, Point> = { ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 }, ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 } }
+
 /** Make an SVG element behave like a button (click, Enter, Space). */
 function asButton(label: string, onActivate: () => void) {
   return {
@@ -175,7 +177,8 @@ function slotLabel(name: string, index: number, allowed: Industry[], owner: stri
  * The illustrated map board: the painted map with an SVG overlay (viewBox
  * 0 0 1000 1000) drawn from board data. Layers, bottom to top: route
  * shadows, route textures, link spaces, link tokens, plaques and tiles,
- * badges, hover/selection, then the tooltip.
+ * badges, hover/selection, then the tooltip. Every route runs to the centre
+ * of its locations, under the location art, so no route end shows.
  *
  * Only the current era's links exist on it: canals (and "both" links as
  * canals) in the canal era, railways (and "both" links as railways) in the
@@ -206,6 +209,7 @@ export function IllustratedBoard({
   const imagesReady = useBoardImagesReady()
   const fontsReady = useFontsReady(FONTS)
   const svgRef = useRef<SVGSVGElement>(null)
+  const keyHelpId = useId()
   const [hover, setHover] = useState<TooltipTarget | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
   /** Last item moved in the editor; its values stay on screen. */
@@ -404,6 +408,38 @@ export function IllustratedBoard({
     return () => window.removeEventListener('keydown', nudge)
   }, [])
 
+  /* ---- Keyboard --------------------------------------------------------- */
+
+  /**
+   * Arrow keys move focus to the nearest slot, link or location in that
+   * direction (Tab goes through them in order; Enter or Space acts).
+   */
+  const onBoardKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
+    const step = ARROWS[event.key]
+    const svg = svgRef.current
+    if (!step || editable || !svg || !(document.activeElement instanceof Element) || !svg.contains(document.activeElement)) return
+    const centre = (el: Element) => {
+      const r = el.getBoundingClientRect()
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+    }
+    const from = centre(document.activeElement)
+    let best: { el: SVGElement; score: number } | null = null
+    for (const el of svg.querySelectorAll<SVGElement>('[tabindex="0"]')) {
+      if (el === document.activeElement) continue
+      const p = centre(el)
+      const along = (p.x - from.x) * step.x + (p.y - from.y) * step.y
+      const across = Math.abs((p.x - from.x) * step.y - (p.y - from.y) * step.x)
+      // Ahead of us, within about 60° either side; nearer and straighter wins.
+      if (along <= 1 || across > along * 1.8) continue
+      const score = along + across * 2
+      if (!best || score < best.score) best = { el, score }
+    }
+    if (best) {
+      event.preventDefault()
+      best.el.focus()
+    }
+  }
+
   /* ---- Rendering --------------------------------------------------------- */
 
   const hoverHandlers = (next: TooltipTarget) => ({
@@ -445,7 +481,9 @@ export function IllustratedBoard({
         textRendering="geometricPrecision"
         role="group"
         aria-label="Map board"
+        aria-describedby={editable ? undefined : keyHelpId}
         onPointerMove={onPointerMove}
+        onKeyDown={onBoardKeyDown}
         onPointerUp={endDrag}
         onPointerCancel={() => setDrag(null)}
       >
@@ -500,7 +538,7 @@ export function IllustratedBoard({
                   opacity={shut ? CLOSED_OPACITY.link : 1}
                   pointerEvents={shut ? 'none' : undefined}
                   className={clickable ? 'cursor-pointer' : undefined}
-                  {...(clickable ? asButton(linkLabel(route), () => onSelectLink!(link.id)) : {})}
+                  {...(clickable ? asButton(linkLabel(route, owner ? `built by ${playerName(owner.player)}` : 'not built yet'), () => onSelectLink!(link.id)) : {})}
                   {...(shut ? {} : hoverHandlers({ type: 'link', id: link.id }))}
                 >
                   <circle cx={marker.x} cy={marker.y} r={20} fill="transparent" />
@@ -776,11 +814,13 @@ export function IllustratedBoard({
         {editable && (
           <g>
             <EditGrid />
-            {[...groups.values()].map((g) =>
-              Math.hypot(g.center.x - g.point.x, g.center.y - g.point.y) > 3 ? (
-                <line key={`tie-${g.location.id}`} x1={g.point.x} y1={g.point.y} x2={g.center.x} y2={g.center.y} className="stroke-board-glow" strokeWidth={1} strokeDasharray="3 3" pointerEvents="none" />
-              ) : null,
-            )}
+            {/* From where the data puts a location to where its group was pushed (or placed by hand) */}
+            {[...groups.values()].map((g) => {
+              const at = toView(g.location)
+              return Math.hypot(g.center.x - at.x, g.center.y - at.y) > 3 ? (
+                <line key={`tie-${g.location.id}`} x1={at.x} y1={at.y} x2={g.center.x} y2={g.center.y} className="stroke-board-glow" strokeWidth={1} strokeDasharray="3 3" pointerEvents="none" />
+              ) : null
+            })}
             {routes.map((route) => {
               const points = route.link.points ?? []
               return (
@@ -845,6 +885,9 @@ export function IllustratedBoard({
         )}
       </svg>
 
+      <p id={keyHelpId} className="sr-only">
+        Tab through the board’s slots, links and locations; arrow keys move to the nearest one in that direction; Enter or Space picks it.
+      </p>
       {hover && !editable && !drag && (
         <BoardTooltip board={board} groups={groups} routes={routesLayout.routes} era={era} built={built} prices={prices} playerName={playerName} target={hover} />
       )}

@@ -3,18 +3,24 @@
  * 0 0 1000 1000): each location's tile group, plaque or hub, and, for each
  * era, the routes that exist in it with their link spaces.
  *
- * Groups start centred on their location (or at its labelOffset) and are
- * nudged apart until nothing overlaps: at least MIN_GAP between any two
- * groups, and enough room between linked groups for a link space. Location
- * points never move.
+ * Each location is one rectangle (tiles and plate, plaque or hub, with every
+ * hexagon and badge) that keeps MIN_GAP from every other and lies inside
+ * SAFE_AREA, clear of the painted frame. Groups start centred on their
+ * location (or at its labelOffset); overlapping pairs are pushed apart along
+ * the shortest direction, and a location's point moves with its group.
  *
- * Routes end TRIM short of a group's outline, their ends fanned out around it
- * at least FAN apart. Each gets a seeded 8–15 % bend, flipped or increased
- * where it would run into another route, a group or a link space.
+ * Routes run from the centre of one group to the centre of the other, under
+ * the location art, so their ends are always hidden. Where they come out from
+ * under a group they are fanned around it at least FAN apart, each arriving
+ * along its own direction. Each gets a seeded 8–15 % bend, flipped or
+ * increased where it would run into another route, a group or a link space.
+ * The link space sits at the middle of the route's visible part (between the
+ * two groups' rectangles), and keeps MIN_GAP from every group's rectangle.
  */
 
 import { isLinkActive, type BoardData, type BoardLink, type BoardLocation, type Era } from '../../data/board'
 import {
+  add,
   bentCubic,
   catmullRom,
   convexHull,
@@ -23,6 +29,7 @@ import {
   distanceToRect,
   flatten,
   inflate,
+  lerp,
   lineBounds,
   lineGap,
   outline,
@@ -31,6 +38,7 @@ import {
   polyline,
   rayExit,
   rectGap,
+  scale,
   seededRandom,
   sub,
   toView,
@@ -91,9 +99,9 @@ export const TEXTURE_PIECE: Record<Era, number> = { canal: (1639 * 12) / 256, ra
 export const BUBBLE_W = 52
 export const BUBBLE_H = (BUBBLE_W * 200) / 480
 
-/** Routes stop this far short of a plaque or tile group. */
+/** Where routes come out from under a group: this far outside its drawn shapes. */
 export const TRIM = 4
-/** Smallest gap between any two groups, link spaces or tokens. */
+/** Smallest gap between any two location rectangles, and between a link space or token and any of them. */
 export const MIN_GAP = 8
 /** Route ends around one group are at least this far apart along its outline (the spec asks for 14). */
 export const FAN = 18
@@ -107,10 +115,14 @@ const SPACE_R = BUBBLE_H / 2
  * bubble or token, a gap on each side, and slack for routes arriving at an angle.
  */
 const LINK_GAP = BUBBLE_W + 2 * MIN_GAP + 4
-/** Groups stay this far inside the board edge. */
-const EDGE = 4
-/** Routes stay this far inside it (clear of the painted frame's outer rim). */
-const ROUTE_EDGE = 16
+/**
+ * Everything on the board (every group, route, link space and token) stays
+ * inside this box: x 9–91 %, y 8–92 %. The painted frame's inner edge is at
+ * 6 % on every side, and its corner gears reach about 9 %.
+ */
+export const SAFE_AREA: Rect = { x: 90, y: 80, w: 820, h: 840 }
+/** Most passes of the push-apart loop. */
+export const MAX_ITERATIONS = 200
 
 /* ---- Types ---------------------------------------------------------------- */
 
@@ -145,10 +157,11 @@ export interface HubParts {
 
 export interface GroupLayout {
   location: BoardLocation
-  /** The location's own point. */
+  /** The location's point, moved with its group (the data's x/y unless the group had to move). */
   point: Point
-  /** Centre of the group's bounds after nudging. */
+  /** Centre of the group's rectangle: where its routes end, under the art. */
   center: Point
+  /** The location's one rectangle: tiles and plate, plaque or hub, with every hexagon and badge. */
   bounds: Rect
   parts: CityParts | StopParts | HubParts
   /** Rail-era badge centre, if the location has one. */
@@ -164,9 +177,14 @@ export interface GroupLayout {
 export interface RouteLayout {
   link: BoardLink
   era: Era
-  /** The drawn curve, end to end (the ends sit on the groups' rims). */
+  /** The drawn curve, from the centre of one group to the centre of the other (both ends under the art). */
   segments: Cubic[]
+  /** The part between the two groups, from where it comes out from under one to where it goes under the other. */
+  main: Cubic[]
+  /** `segments`, flattened. */
   line: Polyline
+  /** `main`, flattened: what's checked against other routes and groups. */
+  visible: Polyline
   width: number
   /** Link space / token centre and rotation (degrees). */
   marker: { x: number; y: number; angle: number }
@@ -338,46 +356,49 @@ function exitDistance(r: Rect, from: Point, dir: Point): number {
   return Math.max(0, Math.min(tx, ty))
 }
 
-function clampToBoard(shape: Shape, center: Point): Point {
+/** The nearest centre that keeps the whole group inside SAFE_AREA. */
+function clampToSafeArea(shape: Shape, center: Point): Point {
   const half = { x: shape.bounds.w / 2, y: shape.bounds.h / 2 }
+  const { x, y, w, h } = SAFE_AREA
   return {
-    x: Math.min(1000 - EDGE - half.x, Math.max(EDGE + half.x, center.x)),
-    y: Math.min(1000 - EDGE - half.y, Math.max(EDGE + half.y, center.y)),
+    x: Math.min(x + w - half.x, Math.max(x + half.x, center.x)),
+    y: Math.min(y + h - half.y, Math.max(y + half.y, center.y)),
   }
+}
+
+/** How far a rect sticks out of SAFE_AREA (0 when it's inside). */
+export function outsideSafeArea(r: Rect): number {
+  const { x, y, w, h } = SAFE_AREA
+  return Math.max(0, x - r.x, y - r.y, r.x + r.w - (x + w), r.y + r.h - (y + h))
 }
 
 interface Body {
   id: string
   shape: Shape
-  point: Point
+  /** The labelOffset in view units (zero unless placed by hand): the group's centre minus the location's point. */
+  offset: Point
   center: Point
   fixed: boolean
 }
 
 const boundsAt = (b: Body): Rect => ({ x: b.center.x - b.shape.bounds.w / 2, y: b.center.y - b.shape.bounds.h / 2, w: b.shape.bounds.w, h: b.shape.bounds.h })
 
-/** A group this close to the straight line of a link it isn't part of is edged aside. */
-const CORRIDOR = 4
-
-/** Nudge groups apart. Deterministic: the same board always lays out the same way. */
-function relax(bodies: Body[], linked: Set<string>, links: [number, number][], avoid: { body: Body; line: Polyline; clearance: number }[]) {
+/**
+ * Push overlapping groups apart, up to MAX_ITERATIONS times: each pair along
+ * the direction that needs the smaller move, linked pairs far enough apart for
+ * their link space, and groups a route ran into last time off that route.
+ * After every pass, groups that crossed the safe area's edge move back inside.
+ * Deterministic: the same board always lays out the same way.
+ */
+function relax(bodies: Body[], linked: Set<string>, avoid: { body: Body; line: Polyline; clearance: number }[]) {
   const move = (a: Body, b: Body, d: Point) => {
     // Push a by −d and b by +d, sharing the move unless one is pinned.
     const share = a.fixed || b.fixed ? 1 : 0.5
     if (!a.fixed) a.center = { x: a.center.x - d.x * share, y: a.center.y - d.y * share }
     if (!b.fixed) b.center = { x: b.center.x + d.x * share, y: b.center.y + d.y * share }
   }
-  const ITERATIONS = 1600
-  const SPRING_UNTIL = 900
-  const PULL = 0.04
-  for (let iter = 0; iter < ITERATIONS; iter++) {
+  for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     const before = bodies.map((b) => b.center)
-    // A pull back towards each location's own point keeps groups near their towns. It fades out,
-    // so the pushes apart get the last word and everything ends up clear.
-    if (iter < SPRING_UNTIL) {
-      const keep = 1 - PULL * (1 - iter / SPRING_UNTIL)
-      for (const b of bodies) if (!b.fixed) b.center = { x: b.point.x + (b.center.x - b.point.x) * keep, y: b.point.y + (b.center.y - b.point.y) * keep }
-    }
     for (let i = 0; i < bodies.length; i++) {
       for (let j = i + 1; j < bodies.length; j++) {
         const a = bodies[i]
@@ -414,33 +435,7 @@ function relax(bodies: Body[], linked: Set<string>, links: [number, number][], a
         }
       }
     }
-    // Early on, edge groups off the straight line of links they aren't part of, so routes needn't swerve around them.
-    for (const [ia, ib] of iter < SPRING_UNTIL ? links : []) {
-      const a = bodies[ia].center
-      const b = bodies[ib].center
-      for (let k = 0; k < bodies.length; k++) {
-        const c = bodies[k]
-        if (k === ia || k === ib || c.fixed) continue
-        const rect = boundsAt(c)
-        // Quick reject: the link's box doesn't come near the group.
-        if (rect.x > Math.max(a.x, b.x) + CORRIDOR || rect.x + rect.w < Math.min(a.x, b.x) - CORRIDOR) continue
-        if (rect.y > Math.max(a.y, b.y) + CORRIDOR || rect.y + rect.h < Math.min(a.y, b.y) - CORRIDOR) continue
-        let nearest = { d: Infinity, at: a }
-        for (let t = 0.1; t <= 0.9; t += 0.05) {
-          const q = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
-          const d = distanceToRect(q, rect)
-          if (d < nearest.d) nearest = { d, at: q }
-        }
-        if (nearest.d >= CORRIDOR) continue
-        // Sideways, away from the line.
-        const n = { x: -(b.y - a.y), y: b.x - a.x }
-        const len = Math.hypot(n.x, n.y) || 1
-        const side = Math.sign((c.center.x - nearest.at.x) * n.x + (c.center.y - nearest.at.y) * n.y) || 1
-        const push = Math.min(CORRIDOR - nearest.d, 2)
-        c.center = { x: c.center.x + (n.x / len) * push * side, y: c.center.y + (n.y / len) * push * side }
-      }
-    }
-    // Step aside from routes that ran into this group last time.
+    // Step aside from routes (and link spaces) that ran into this group last time.
     for (const { body, line, clearance } of avoid) {
       if (body.fixed) continue
       const rect = boundsAt(body)
@@ -455,53 +450,56 @@ function relax(bodies: Body[], linked: Set<string>, links: [number, number][], a
       const push = Math.min(clearance - nearest.d, 2)
       body.center = { x: body.center.x + (away.x / len) * push, y: body.center.y + (away.y / len) * push }
     }
-    for (const b of bodies) if (!b.fixed) b.center = clampToBoard(b.shape, b.center)
-    // Once the pull towards the points has stopped, finish as soon as a pass moves nothing.
-    if (iter >= SPRING_UNTIL && bodies.every((b, i) => Math.abs(b.center.x - before[i].x) + Math.abs(b.center.y - before[i].y) < 0.01)) break
+    // The safe area is a hard edge: whatever crossed it moves back inside, and the next pass settles the rest.
+    for (const b of bodies) b.center = clampToSafeArea(b.shape, b.center)
+    if (bodies.every((b, i) => Math.abs(b.center.x - before[i].x) + Math.abs(b.center.y - before[i].y) < 0.01)) break
   }
 }
 
 export function layoutGroups(board: BoardData, measure: MeasureText, avoid: Avoid[] = []): GroupsLayout {
   const linked = new Set<string>()
   const index = new Map(board.locations.map((l, i) => [l.id, i]))
-  const pairs: [number, number][] = []
   for (const link of board.links) {
     const [i, j] = [index.get(link.from)!, index.get(link.to)!].sort((x, y) => x - y)
     linked.add(`${board.locations[i].id}|${board.locations[j].id}`)
-    // Links with hand-set bend points go their own way; only straight-ish ones keep a corridor.
-    if (!link.points?.length) pairs.push([i, j])
   }
   const bodies: Body[] = board.locations.map((location) => {
     const raw = rawShape(location, measure)
     const c = { x: raw.bounds.x + raw.bounds.w / 2, y: raw.bounds.y + raw.bounds.h / 2 }
     const shape = moveShape(raw, { x: -c.x, y: -c.y })
-    const point = toView(location)
     const fixed = location.labelOffset !== undefined
-    const center = fixed ? { x: point.x + location.labelOffset!.x * 10, y: point.y + location.labelOffset!.y * 10 } : clampToBoard(shape, point)
-    return { id: location.id, shape, point, center, fixed }
+    const offset = fixed ? toView(location.labelOffset!) : { x: 0, y: 0 }
+    return { id: location.id, shape, offset, center: clampToSafeArea(shape, add(toView(location), offset)), fixed }
   })
   const byId = new Map(bodies.map((b) => [b.id, b]))
   relax(
     bodies,
     linked,
-    pairs,
     avoid.map((a) => ({ body: byId.get(a.id)!, line: a.line, clearance: a.clearance })),
   )
 
   const groups = new Map<string, GroupLayout>()
   for (const [i, body] of bodies.entries()) {
     const placed = moveShape(body.shape, body.center)
-    groups.set(body.id, { ...placed, location: board.locations[i], point: body.point, center: body.center, fixed: body.fixed, rim: rimOf(placed.solids) })
+    // The location's point goes wherever its group went.
+    const point = sub(body.center, body.offset)
+    groups.set(body.id, { ...placed, location: board.locations[i], point, center: body.center, fixed: body.fixed, rim: rimOf(placed.solids) })
   }
+  return { groups, problems: groupProblems([...groups.values()]) }
+}
+
+/** Groups closer than MIN_GAP to each other, or sticking out of the safe area, by name. Empty means none. */
+export function groupProblems(groups: GroupLayout[]): string[] {
   const problems: string[] = []
-  const all = [...groups.values()]
-  for (let i = 0; i < all.length; i++) {
-    for (let j = i + 1; j < all.length; j++) {
-      const gap = rectGap(all[i].bounds, all[j].bounds)
-      if (gap < MIN_GAP - 0.05) problems.push(`${all[i].location.id} and ${all[j].location.id} are ${round(gap)} apart`)
+  for (let i = 0; i < groups.length; i++) {
+    const out = outsideSafeArea(groups[i].bounds)
+    if (out > 0.05) problems.push(`${groups[i].location.name} sticks ${round(out)} out of the safe area`)
+    for (let j = i + 1; j < groups.length; j++) {
+      const gap = rectGap(groups[i].bounds, groups[j].bounds)
+      if (gap < MIN_GAP - 0.05) problems.push(`${groups[i].location.name} and ${groups[j].location.name} overlap: ${round(gap)} apart, need ${MIN_GAP}`)
     }
   }
-  return { groups, problems }
+  return problems
 }
 
 const round = (n: number) => Math.round(n * 10) / 10
@@ -526,6 +524,53 @@ function spine(at: Point, tangent: Point): Point[] {
 }
 
 const boxesNear = (a: Rect, b: Rect, pad: number) => rectGap(a, b) < pad
+
+/** How far a disc of radius r at p sticks out of SAFE_AREA (0 when it's inside). */
+function outOfSafeArea(p: Point, r: number): number {
+  const { x, y, w, h } = SAFE_AREA
+  return Math.max(0, x + r - p.x, p.x - (x + w - r), y + r - p.y, p.y - (y + h - r))
+}
+
+/** Room between a link space (its spine points, radius SPACE_R) and a location's rectangle. */
+const spaceGap = (points: Point[], r: Rect) => Math.min(...points.map((p) => distanceToRect(p, r))) - SPACE_R
+
+/**
+ * The hidden end of a route: from the group's centre out to where the route
+ * comes out from under it, arriving along the route's own direction there so
+ * the join is smooth. `outward` points away from the group.
+ */
+function underGroup(center: Point, rim: Point, outward: Point): Cubic {
+  const inner = sub(rim, scale(outward, Math.min(distance(center, rim) * 0.5, 24)))
+  return { p0: center, p1: lerp(center, inner, 0.5), p2: inner, p3: rim }
+}
+
+const reverse = (c: Cubic): Cubic => ({ p0: c.p3, p1: c.p2, p2: c.p1, p3: c.p0 })
+
+function unit(v: Point, fallback: Point): Point {
+  const len = Math.hypot(v.x, v.y)
+  if (len > 1e-6) return { x: v.x / len, y: v.y / len }
+  const f = Math.hypot(fallback.x, fallback.y) || 1
+  return { x: fallback.x / f, y: fallback.y / f }
+}
+
+/** The whole route: under group A from its centre, the visible curve, then under group B to its centre. */
+function centreToCentre(main: Cubic[], a: GroupLayout, b: GroupLayout): Cubic[] {
+  const first = main[0]
+  const last = main[main.length - 1]
+  const outA = unit(sub(first.p1, first.p0), sub(first.p3, first.p0))
+  const outB = unit(sub(last.p2, last.p3), sub(last.p0, last.p3))
+  return [underGroup(a.center, first.p0, outA), ...main, reverse(underGroup(b.center, last.p3, outB))]
+}
+
+/** Arc lengths along a route where it comes out from under its first group's rectangle and goes under its second's. */
+function visibleSpan(line: Polyline, a: Rect, b: Rect): [number, number] {
+  const inside = (p: Point, r: Rect) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h
+  let i = 0
+  while (i < line.points.length - 1 && inside(line.points[i], a)) i++
+  let j = line.points.length - 1
+  while (j > i && inside(line.points[j], b)) j--
+  return [line.lengths[i], line.lengths[j]]
+}
 
 /**
  * Where each route leaves each group: aimed at the other end (or the first
@@ -620,10 +665,8 @@ class Costs {
     const half = route.width / 2
     const [ga, gb] = route.groups
     const m = spine(c.marker.point, c.marker.tangent)
-    for (const p of c.coarse.points) {
-      const out = Math.max(ROUTE_EDGE - p.x, p.x - (1000 - ROUTE_EDGE), ROUTE_EDGE - p.y, p.y - (1000 - ROUTE_EDGE), 0)
-      cost += out * 6
-    }
+    for (const p of c.coarse.points) cost += outOfSafeArea(p, half) * 6
+    for (const p of m) cost += outOfSafeArea(p, SPACE_R) * 6
     for (const g of this.groups) {
       if (!boxesNear(g.bounds, c.box, half + MIN_GAP + SPACE_R)) continue
       const own = g === ga || g === gb
@@ -632,8 +675,9 @@ class Costs {
         const d = distanceToGroup(g, p)
         if (d < need) cost += (need - d) * (own ? 2 : 4)
       }
+      // The link space keeps clear of every location's rectangle, its own two included.
       for (const p of m) {
-        const d = distanceToGroup(g, p) - SPACE_R
+        const d = distanceToRect(p, g.bounds) - SPACE_R
         if (d < MIN_GAP) cost += (MIN_GAP - d) * 3
       }
     }
@@ -782,18 +826,23 @@ export function layoutRoutes(board: BoardData, groupsLayout: GroupsLayout, era: 
     settle(placed, costs)
   }
 
-  // Link spaces: at the midpoint, or slid along the route to clear groups and each other.
+  // Link spaces: at the middle of the visible part, or slid along it to clear groups and each other.
   const routes = new Map<string, RouteLayout>()
   const spaces: Point[][] = []
   for (const route of placed) {
     const c = route.options[route.choice]
+    const [ga, gb] = route.groups
+    const segments = centreToCentre(c.segments, ga, gb)
+    const line = flatten(segments, 2)
+    const [from, to] = visibleSpan(line, ga.bounds, gb.bounds)
     const others = placed.filter((r) => r !== route).map((r) => r.options[r.choice].coarse)
     let best = { bad: Infinity, point: c.marker.point, tangent: c.marker.tangent }
     for (const f of SLIDE) {
-      const at = pointAtLength(c.line, c.line.total * f)
+      const at = pointAtLength(line, from + (to - from) * f)
       const s = spine(at.point, at.tangent)
       let bad = 0
-      for (const g of all) for (const p of s) bad += Math.max(0, SPACE_R + MIN_GAP - distanceToGroup(g, p))
+      for (const g of all) for (const p of s) bad += Math.max(0, SPACE_R + MIN_GAP - distanceToRect(p, g.bounds))
+      for (const p of s) bad += outOfSafeArea(p, SPACE_R)
       for (const other of spaces) {
         let nearest = Infinity
         for (const p of s) for (const q of other) nearest = Math.min(nearest, distance(p, q))
@@ -807,8 +856,10 @@ export function layoutRoutes(board: BoardData, groupsLayout: GroupsLayout, era: 
     routes.set(route.link.id, {
       link: route.link,
       era,
-      segments: c.segments,
-      line: c.line,
+      segments,
+      main: c.segments,
+      line,
+      visible: c.line,
       width: route.width,
       marker: { x: best.point.x, y: best.point.y, angle: (Math.atan2(best.tangent.y, best.tangent.x) * 180) / Math.PI },
     })
@@ -816,31 +867,33 @@ export function layoutRoutes(board: BoardData, groupsLayout: GroupsLayout, era: 
   return { era, routes, problems: routeProblems(era, [...routes.values()], all) }
 }
 
-/** Overlaps left after layout in one era. Empty means a clean board. */
+/** Overlaps left after layout in one era, by name. Empty means a clean board. */
 function routeProblems(era: Era, routes: RouteLayout[], groups: GroupLayout[]): string[] {
   const problems: string[] = []
+  const names = new Map(groups.map((g) => [g.location.id, g.location.name]))
+  const routeName = (r: RouteLayout) => `${names.get(r.link.from)}–${names.get(r.link.to)}`
   const spines = routes.map((r) => {
     const rad = (r.marker.angle * Math.PI) / 180
     return spine(r.marker, { x: Math.cos(rad), y: Math.sin(rad) })
   })
   routes.forEach((route, i) => {
     const half = route.width / 2
-    if (route.line.points.some((p) => p.x < half || p.y < half || p.x > 1000 - half || p.y > 1000 - half)) {
-      problems.push(`${era}: ${route.link.id} leaves the board`)
-    }
+    if (route.line.points.some((p) => outOfSafeArea(p, half) > 0.05)) problems.push(`${era}: the ${routeName(route)} route leaves the safe area`)
+    if (spines[i].some((p) => outOfSafeArea(p, SPACE_R) > 0.05)) problems.push(`${era}: the ${routeName(route)} link space leaves the safe area`)
     for (const g of groups) {
-      const nearest = Math.min(...spines[i].map((p) => distanceToGroup(g, p))) - SPACE_R
-      if (nearest < MIN_GAP - 0.05) problems.push(`${era}: link space of ${route.link.id} is ${round(nearest)} from ${g.location.id}`)
+      // No location's rectangle may cover a link space, its own two included.
+      const room = spaceGap(spines[i], g.bounds)
+      if (room < MIN_GAP - 0.05) problems.push(`${era}: the ${routeName(route)} link space is ${round(room)} from ${g.location.name}`)
       if (g.location.id === route.link.from || g.location.id === route.link.to) continue
-      const run = Math.min(...route.line.points.map((p) => distanceToGroup(g, p))) - route.width / 2
-      if (run < 0) problems.push(`${era}: ${route.link.id} runs over ${g.location.id}`)
+      const run = Math.min(...route.visible.points.map((p) => distanceToGroup(g, p))) - half
+      if (run < 0) problems.push(`${era}: the ${routeName(route)} route runs over ${g.location.name}`)
     }
     for (let j = i + 1; j < routes.length; j++) {
       let nearest = Infinity
       for (const p of spines[i]) for (const q of spines[j]) nearest = Math.min(nearest, distance(p, q))
-      if (nearest - 2 * SPACE_R < MIN_GAP - 0.05) problems.push(`${era}: link spaces of ${route.link.id} and ${routes[j].link.id} are ${round(nearest - 2 * SPACE_R)} apart`)
-      const gap = lineGap(route.line, routes[j].line)
-      if (gap < (route.width + routes[j].width) / 2) problems.push(`${era}: ${route.link.id} and ${routes[j].link.id} overlap`)
+      if (nearest - 2 * SPACE_R < MIN_GAP - 0.05) problems.push(`${era}: the ${routeName(route)} and ${routeName(routes[j])} link spaces are ${round(nearest - 2 * SPACE_R)} apart`)
+      const gap = lineGap(route.visible, routes[j].visible)
+      if (gap < (route.width + routes[j].width) / 2) problems.push(`${era}: the ${routeName(route)} and ${routeName(routes[j])} routes overlap`)
     }
   })
   return problems
@@ -854,10 +907,10 @@ function blockers(routes: RouteLayout[], groups: GroupLayout[]): Avoid[] {
     const space = polyline(spine(route.marker, { x: Math.cos(rad), y: Math.sin(rad) }))
     for (const g of groups) {
       const own = g.location.id === route.link.from || g.location.id === route.link.to
-      if (!own && Math.min(...route.line.points.map((p) => distanceToGroup(g, p))) < route.width / 2 + TRIM) {
-        found.push({ id: g.location.id, line: route.line, clearance: route.width / 2 + TRIM + 2 })
+      if (!own && Math.min(...route.visible.points.map((p) => distanceToGroup(g, p))) < route.width / 2 + TRIM) {
+        found.push({ id: g.location.id, line: route.visible, clearance: route.width / 2 + TRIM + 2 })
       }
-      if (Math.min(...space.points.map((p) => distanceToGroup(g, p))) < SPACE_R + MIN_GAP) {
+      if (spaceGap(space.points, g.bounds) < MIN_GAP) {
         found.push({ id: g.location.id, line: space, clearance: SPACE_R + MIN_GAP + 1 })
       }
     }
@@ -894,7 +947,8 @@ export function layoutBoard(board: BoardData, measure: MeasureText, options: { q
       routes: Object.fromEntries(routes.map((r) => [r.era, r])),
       problems: [...groups.problems, ...routes.flatMap((r) => r.problems)],
     }
-    const drift = [...groups.groups.values()].reduce((sum, g) => sum + distance(g.center, g.point), 0)
+    // How far groups moved from where the data puts them.
+    const drift = [...groups.groups.values()].reduce((sum, g) => sum + distance(g.center, add(toView(g.location), g.location.labelOffset ? toView(g.location.labelOffset) : { x: 0, y: 0 })), 0)
     if (!best || layout.problems.length < best.layout.problems.length || (layout.problems.length === best.layout.problems.length && drift < best.drift)) {
       best = { layout, drift }
     }
@@ -907,9 +961,9 @@ export function layoutBoard(board: BoardData, measure: MeasureText, options: { q
   return best!.layout
 }
 
-/** Midpoints of each curve segment: where the editor offers to add a bend point. */
+/** Midpoints of each segment of the visible curve: where the editor offers to add a bend point. */
 export function segmentMidpoints(route: RouteLayout): Point[] {
-  return route.segments.map((s) => {
+  return route.main.map((s) => {
     const line = flatten([s], 4)
     return pointAtLength(line, line.total / 2).point
   })

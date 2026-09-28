@@ -9,8 +9,7 @@ import type { Era, Industry } from '../../data/board'
  * - assets/map.png, else assets/map.webp: the painted map
  * - assets/icons/{loom,anchor,shipyard,iron,coal}.png: industry icons (the only industry icons in the game)
  * - assets/textures/{rail,canal}.png: route textures, seamless left to right
- * - assets/tokens/link_space.png: an empty link's connection bubble (link_symbol.png is its fallback's symbol)
- * - assets/tokens/hex_link.png: the two link hexagons on stops and hubs
+ * - assets/tokens/hex_link.png: the two link hexagons on stops and hubs (empty link spaces are drawn, with nothing inside)
  * - assets/tokens/token_{canal,rail}_<colour>.png: built links, per player colour
  * - assets/tokens/art_{boat,locomotive}.png: token art for other colours
  * - assets/hubs/<hub id>.png: the photo in a trade hub's medallion
@@ -19,7 +18,8 @@ import type { Era, Industry } from '../../data/board'
 const MAPS = import.meta.glob<string>('../../../assets/map.{png,webp}', { eager: true, import: 'default' })
 const ICONS = import.meta.glob<string>('../../../assets/icons/*.png', { eager: true, import: 'default' })
 const TEXTURES = import.meta.glob<string>('../../../assets/textures/*.png', { eager: true, import: 'default' })
-const TOKENS = import.meta.glob<string>('../../../assets/tokens/*.png', { eager: true, import: 'default' })
+// link_space.png and link_symbol.png aren't used: empty link spaces are drawn, with nothing inside.
+const TOKENS = import.meta.glob<string>(['../../../assets/tokens/*.png', '!**/link_space.png', '!**/link_symbol.png'], { eager: true, import: 'default' })
 const HUBS = import.meta.glob<string>('../../../assets/hubs/*.png', { eager: true, import: 'default' })
 
 const file = (files: Record<string, string>, name: string): string | undefined =>
@@ -41,8 +41,6 @@ export const INDUSTRY_ICON_URLS = Object.fromEntries(
 
 export const TEXTURE_URLS: Record<Era, string | undefined> = { rail: file(TEXTURES, 'rail.png'), canal: file(TEXTURES, 'canal.png') }
 
-export const LINK_SPACE_URL = file(TOKENS, 'link_space.png')
-export const LINK_SYMBOL_URL = file(TOKENS, 'link_symbol.png')
 export const HEX_LINK_URL = file(TOKENS, 'hex_link.png')
 export const TOKEN_ART_URLS: Record<Era, string | undefined> = { canal: file(TOKENS, 'art_boat.png'), rail: file(TOKENS, 'art_locomotive.png') }
 
@@ -65,8 +63,6 @@ function boardImages(): [string, string | undefined][] {
     ...Object.entries(ICON_FILES).map(([industry, name]): [string, string | undefined] => [`icons/${name}`, INDUSTRY_ICON_URLS[industry as Industry]]),
     ['textures/rail.png', TEXTURE_URLS.rail],
     ['textures/canal.png', TEXTURE_URLS.canal],
-    ['tokens/link_space.png', LINK_SPACE_URL],
-    ['tokens/link_symbol.png', LINK_SYMBOL_URL],
     ['tokens/hex_link.png', HEX_LINK_URL],
     ['tokens/art_boat.png', TOKEN_ART_URLS.canal],
     ['tokens/art_locomotive.png', TOKEN_ART_URLS.rail],
@@ -80,7 +76,8 @@ let preloading: Promise<void> | null = null
 
 /**
  * Load and decode every board image once. Safe to call repeatedly; the app
- * starts it at launch so the board is usually ready by the time it opens.
+ * starts it when the first page has loaded, so the board is usually ready by
+ * the time it opens.
  */
 export function preloadBoardImages(): Promise<void> {
   if (preloading) return preloading

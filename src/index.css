@@ -10,6 +10,8 @@
 @theme {
   --font-sans: 'Barlow', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Barlow Condensed', 'Arial Narrow', ui-sans-serif, system-ui, sans-serif;
+  /* Engraved capitals: the brass buttons. */
+  --font-engraved: 'Cinzel', 'Times New Roman', serif;
 
   /* Surfaces: soot and cast iron */
   --color-soot-950: #0b0806;
@@ -54,7 +56,7 @@
   --color-parchment-100: #f2e6cf;
   --color-parchment-200: #dccbaa;
   --color-parchment-300: #b9a584;
-  --color-parchment-400: #8f7d62;
+  --color-parchment-400: #a99675;
   --color-parchment-500: #6b5c48;
 
   /* Destructive actions */
@@ -151,6 +153,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+/* A painted page background sits below the page (z-index -10) and would be hidden under the body's ground:
+   on those pages the ground comes from :root alone. */
+:where(html:has(.page-bg)) body {
+  background-color: transparent;
+}
 
 @layer base {
   /* Stop the page scrolling behind an open modal or drawer. */
@@ -230,8 +237,131 @@ body {
 
   /* Metallic gradient text for headings. */
   .metal-text {
-    @apply bg-linear-to-b from-brass-200 via-bronze-400 to-bronze-700 bg-clip-text text-transparent;
+    @apply bg-linear-to-b from-brass-200 via-bronze-400 to-bronze-500 bg-clip-text text-transparent;
     background-size: 100% 220%;
+  }
+
+  /* ---- Lobby surfaces (art in assets/ui) --------------------------------- */
+
+  /* Cast iron: the seamless iron texture under a plate. Use as "plate rivets iron". */
+  .iron {
+    background-color: var(--color-soot-900);
+    background-image:
+      linear-gradient(180deg, rgb(243 210 168 / 0.05), rgb(0 0 0 / 0.3)),
+      url('../assets/ui/iron_panel_tile.png');
+    background-size:
+      auto,
+      256px 256px;
+    border-color: color-mix(in oklab, var(--color-bronze-500) 30%, transparent);
+    box-shadow:
+      0 18px 50px -20px rgb(0 0 0 / 0.85),
+      inset 0 1px 0 rgb(243 210 168 / 0.1),
+      inset 0 0 28px rgb(0 0 0 / 0.55);
+    backdrop-filter: none;
+  }
+
+  /* Large riveted panel: a 9-slice frame (48 px slices) drawn at half size. Content needs 1.5rem+ padding. */
+  .iron-framed {
+    border: 1px solid transparent;
+    border-radius: 10px;
+    border-image: url('../assets/ui/iron_panel_framed.png') 48 fill / 24px / 0 round;
+    box-shadow: 0 24px 60px -24px rgb(0 0 0 / 0.9);
+  }
+
+  /*
+   * Primary brass button: a 9-slice plate (40 px slices) that swaps art on
+   * hover and press. Only for the main actions (Play, Start match); other
+   * buttons use .btn. The two unused plates are loaded as zero-size
+   * backgrounds, so hovering never waits for an image.
+   */
+  .btn-brass {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    min-height: 3.25rem;
+    padding: 0.5rem 1.75rem;
+    border: 1px solid transparent;
+    border-image: url('../assets/ui/button_brass_normal.webp') 40 fill / 20px / 0 stretch;
+    background:
+      url('../assets/ui/button_brass_hover.webp') 0 0 / 0 0 no-repeat,
+      url('../assets/ui/button_brass_pressed.webp') 0 0 / 0 0 no-repeat;
+    color: #140c05;
+    font-family: var(--font-engraved);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+    text-shadow: 0 1px 0 rgb(255 244 214 / 0.7);
+    white-space: nowrap;
+    user-select: none;
+    transition:
+      transform 0.1s ease,
+      filter 0.15s ease;
+  }
+  .btn-brass:not(:disabled):hover {
+    border-image-source: url('../assets/ui/button_brass_hover.webp');
+    filter: drop-shadow(0 0 14px rgb(255 157 77 / 0.45));
+  }
+  .btn-brass:not(:disabled):active {
+    border-image-source: url('../assets/ui/button_brass_pressed.webp');
+    transform: translateY(1px);
+    filter: none;
+  }
+  .btn-brass:focus-visible {
+    outline: 2px solid var(--color-ember-400);
+    outline-offset: 3px;
+  }
+  .btn-brass:disabled {
+    cursor: not-allowed;
+    filter: grayscale(0.7) brightness(0.65);
+  }
+
+  /* Small "Coming soon" tag for features that need a server Bronze doesn't have. */
+  .soon-tag {
+    @apply inline-flex items-center rounded-full border border-bronze-400/40 bg-soot-950/70 px-2 py-0.5 font-display text-[0.65rem] leading-none font-bold tracking-[0.18em] whitespace-nowrap text-brass-300 uppercase;
+  }
+
+  /* A page title: display capitals in the logo's brass (one band per line), a 1 px dark outline and a soft shadow. */
+  .page-title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background-image: linear-gradient(180deg, #fbe3a4 0%, #d09a48 45%, #8f5a1f 55%, #c7883a 100%);
+    background-size: 100% 1lh;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(1px 0 0 #1a0f06) drop-shadow(-1px 0 0 #1a0f06) drop-shadow(0 1px 0 #1a0f06) drop-shadow(0 -1px 0 #1a0f06)
+      drop-shadow(0 4px 10px rgb(0 0 0 / 0.75));
+  }
+
+  /*
+   * Over a painted page background (any page with a PageBackground), panels
+   * let a hint of the painting through: the same iron at 90 %, lightly
+   * blurred. The match screen and the map board keep their solid panels.
+   */
+  :where(html:has(.page-bg)) .plate {
+    background-color: color-mix(in oklab, var(--color-soot-900) 90%, transparent);
+    backdrop-filter: blur(3px);
+  }
+  :where(html:has(.page-bg)) .iron {
+    background-color: transparent;
+    background-image:
+      linear-gradient(180deg, rgb(243 210 168 / 0.05), rgb(0 0 0 / 0.3)),
+      url('../assets/ui/iron_panel_tile_glass.webp');
+    backdrop-filter: blur(3px);
+  }
+  :where(html:has(.page-bg)) .iron-framed {
+    border-image-source: url('../assets/ui/iron_panel_framed_glass.webp');
+    backdrop-filter: blur(3px);
+  }
+  /* Ghost buttons can sit straight on the painting: give them the same 90 % ground. */
+  :where(html:has(.page-bg)) .btn-ghost {
+    background-color: color-mix(in oklab, var(--color-soot-800) 90%, transparent);
   }
 }
 
@@ -294,6 +424,23 @@ dialog.bz-dialog--drawer-left {
   transform: translateX(-100%);
 }
 
+/* The whole screen (the account screens); its content lays itself out */
+dialog.bz-dialog--screen {
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  transform: translateY(12px);
+}
+
+/* Sheet that slides up from the bottom edge (the phone's More menu) */
+dialog.bz-dialog--sheet-bottom {
+  inset: auto 0 0 0;
+  width: 100%;
+  max-height: 85dvh;
+  transform: translateY(100%);
+}
+
 @starting-style {
   dialog.bz-dialog[open] {
     opacity: 0;
@@ -303,6 +450,12 @@ dialog.bz-dialog--drawer-left {
   }
   dialog.bz-dialog--drawer-left[open] {
     transform: translateX(-100%);
+  }
+  dialog.bz-dialog--sheet-bottom[open] {
+    transform: translateY(100%);
+  }
+  dialog.bz-dialog--screen[open] {
+    transform: translateY(12px);
   }
   dialog.bz-dialog[open]::backdrop {
     background-color: rgb(5 3 2 / 0);
@@ -377,6 +530,23 @@ dialog.bz-dialog--drawer-left {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* ==========================================================================
+   PAINTED PAGE BACKGROUNDS (src/components/theme/PageBackground.tsx)
+   ========================================================================== */
+/* Follows the mouse by up to 10 px (desktop only; the variables stay at 0 otherwise). */
+.page-bg-art {
+  transform: translate3d(var(--parallax-x, 0px), var(--parallax-y, 0px), 0);
+  transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* Fades in over the soot ground once loaded, so a page never flashes. */
+.page-bg-img {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.page-bg-img[data-loaded] {
+  opacity: 1;
 }
 
 /* ==========================================================================

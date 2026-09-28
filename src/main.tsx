@@ -8,12 +8,36 @@ import '@fontsource/barlow-condensed/latin-800.css'
 import '@fontsource/barlow/latin-400.css'
 import '@fontsource/barlow/latin-500.css'
 import '@fontsource/barlow/latin-600.css'
+// Cinzel: the brass buttons and the board's labels.
+import '@fontsource/cinzel/latin-700.css'
 import App from './App.tsx'
+import { normalizeAuthRedirect } from './auth/redirect'
 import { preloadBoardImages } from './components/board/assets'
+import { preloadPainting } from './components/theme/backgrounds'
 import './index.css'
 
-// Start loading the board's pictures now, so the map board is ready when it opens.
-void preloadBoardImages()
+// Once the first page (and its painting) has loaded and the browser is idle, fetch what comes next: the
+// account screens' painting (index.html already preloads the lobby's), and the board's pictures and code.
+// None of it holds the first page up; opening a board or the account screens sooner loads them then.
+const prefetchNext = () => {
+  const run = () => {
+    preloadPainting('auth')
+    void preloadBoardImages()
+    // Code split from the first page's (see App.tsx): the account screens, the dialogs, the match and the board.
+    void import('./pages/AuthScreen')
+    void import('./components/SettingsModal')
+    void import('./components/InfoModals')
+    void import('./pages/Game')
+    void import('./pages/MapBoard')
+  }
+  if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 3000 })
+  else setTimeout(run, 500)
+}
+if (document.readyState === 'complete') prefetchNext()
+else window.addEventListener('load', prefetchNext, { once: true })
+
+// A failed Google or email-link return can land as #error=…: turn it back into a route first.
+normalizeAuthRedirect()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

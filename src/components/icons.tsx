@@ -150,6 +150,112 @@ export function IconStopwatch(props: IconProps) {
   )
 }
 
+/* ---- Navigation icons --------------------------------------------------- */
+
+export function IconHome(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.5 11 12 4l8.5 7" />
+      <path d="M6 9.5V20h4.5v-5.5h3V20H18V9.5" />
+    </Svg>
+  )
+}
+
+export function IconMore(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="5.5" cy="12" r="1.3" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.3" fill="currentColor" />
+      <circle cx="18.5" cy="12" r="1.3" fill="currentColor" />
+    </Svg>
+  )
+}
+
+export function IconLogout(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M14 4.5H6.5v15H14" />
+      <path d="M10.5 12h10M17 8.5l3.5 3.5-3.5 3.5" />
+    </Svg>
+  )
+}
+
+export function IconUserPlus(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="10" cy="8.5" r="3.4" />
+      <path d="M3.5 19.5c0-3.4 2.9-5.8 6.5-5.8 1.4 0 2.7.4 3.8 1" />
+      <path d="M18 13.5v6M15 16.5h6" />
+    </Svg>
+  )
+}
+
+export function IconComputer(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.5" y="4.5" width="17" height="11.5" rx="1.5" />
+      <path d="M9 20h6M12 16v4" />
+    </Svg>
+  )
+}
+
+export function IconGlobe(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.2 3.6 8.5s-1.2 6.2-3.6 8.5c-2.4-2.3-3.6-5.2-3.6-8.5s1.2-6.2 3.6-8.5z" />
+    </Svg>
+  )
+}
+
+export function IconLock(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="5" y="10.5" width="14" height="10" rx="2" />
+      <path d="M8.5 10.5V7.5a3.5 3.5 0 017 0v3" />
+    </Svg>
+  )
+}
+
+export function IconLogin(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M10 4.5h7.5v15H10" />
+      <path d="M3.5 12h10M10 8.5l3.5 3.5-3.5 3.5" />
+    </Svg>
+  )
+}
+
+export function IconEye(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </Svg>
+  )
+}
+
+export function IconEyeOff(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M9.9 5.8A9.6 9.6 0 0112 5.5c6 0 9.5 6.5 9.5 6.5a16 16 0 01-2.7 3.4M6.5 7.4C4 9 2.5 12 2.5 12s3.5 6.5 9.5 6.5c1.7 0 3.2-.5 4.5-1.2" />
+      <path d="M9.9 9.9a3 3 0 004.2 4.2M3.5 3.5l17 17" />
+    </Svg>
+  )
+}
+
+/** Google's "G", in its own colours (Google's sign-in branding rules). */
+export function IconGoogle(props: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" width="1em" height="1em" aria-hidden="true" focusable="false" {...props}>
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  )
+}
+
 /* ---- Tab icons ---------------------------------------------------------- */
 
 export function IconTopHat(props: IconProps) {
@@ -185,6 +291,51 @@ export function IconBracket(props: IconProps) {
     <Svg {...props}>
       {/* Four entrants → two semi-finals → one final */}
       <path d="M3 4h5v6H3M8 7h5M3 14h5v6H3M8 17h5M13 7v10M13 12h8" />
+    </Svg>
+  )
+}
+
+/** Scales: the legal pages. */
+export function IconScale(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 4v16M8 20h8M5 7h14M12 4.5l-1 2.5M12 4.5l1 2.5" />
+      <path d="M5 7l-2.5 6a3 3 0 0 0 5 0zM19 7l-2.5 6a3 3 0 0 0 5 0z" />
+    </Svg>
+  )
+}
+
+/** A shield: privacy and cookie choices. */
+export function IconShield(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3.5 5 6v5.5c0 4.2 3 7.6 7 9 4-1.4 7-4.8 7-9V6z" />
+      <path d="M9 12l2 2 4-4" />
+    </Svg>
+  )
+}
+
+export function IconDownload(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />
+    </Svg>
+  )
+}
+
+export function IconTrash(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10.5 11v5M13.5 11v5" />
+    </Svg>
+  )
+}
+
+export function IconMail(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="1.5" />
+      <path d="m4 7 8 6 8-6" />
     </Svg>
   )
 }

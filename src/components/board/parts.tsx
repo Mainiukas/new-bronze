@@ -4,7 +4,7 @@
  */
 
 import { INDUSTRY_SHORT, type Era, type HubLocation, type Industry } from '../../data/board'
-import { HEX_LINK_URL, imageOk, INDUSTRY_ICON_URLS, LINK_SPACE_URL, LINK_SYMBOL_URL, TEXTURE_URLS, TOKEN_ART_URLS } from './assets'
+import { HEX_LINK_URL, imageOk, INDUSTRY_ICON_URLS, TEXTURE_URLS, TOKEN_ART_URLS } from './assets'
 import { upright, type Point, type Rect, type TexturePiece } from './geometry'
 import { LOCOMOTIVE_SILHOUETTE } from './icons'
 import {
@@ -145,7 +145,7 @@ export function RouteShadow({ era, d }: { era: Era; d: string }) {
 const bubble = { x: -BUBBLE_W / 2, y: -BUBBLE_H / 2, width: BUBBLE_W, height: BUBBLE_H }
 
 /**
- * An empty link: the connection bubble (link_space.png), centred on the route
+ * An empty link: an empty bubble the size of a token, centred on the route
  * and turned to it, never upside down. When it can be built it gets a
  * pulsing soft gold glow.
  */
@@ -168,28 +168,37 @@ export function LinkBubble({ x, y, angle, glow = false }: { x: number; y: number
           className="board-target"
         />
       )}
-      {imageOk(LINK_SPACE_URL) ? <image href={LINK_SPACE_URL} {...bubble} /> : <BubbleFallback />}
+      <EmptyBubble />
     </g>
   )
 }
 
-/** Drawn bubble, if link_space.png can't be loaded: a dark stadium with a bronze rim and the link symbol. */
-function BubbleFallback() {
+/** The bubble's rim: 2 units of bronze, drawn inside its 52 × 21.7 outline. */
+const BUBBLE_RIM = 2
+
+/**
+ * A dark stadium (85 % #1c1a18) with a bronze rim, a faint highlight along
+ * its top and a small drop shadow; nothing inside. Same outline as a token.
+ */
+function EmptyBubble({ shadow = true }: { shadow?: boolean }) {
   const w = BUBBLE_W
   const h = BUBBLE_H
+  const r = BUBBLE_RIM
   return (
-    <g>
-      <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={h / 2} fill="#3b3a37" stroke={C.bronze} strokeWidth={1.4} />
-      {imageOk(LINK_SYMBOL_URL) ? (
-        <image href={LINK_SYMBOL_URL} x={-w * 0.3} y={-w * 0.15} width={w * 0.6} height={w * 0.3} />
-      ) : (
-        <g fill="#f4c42a" stroke="#6b4f10" strokeWidth={0.6}>
-          <rect x={-8} y={-2.2} width={16} height={4.4} fill="none" stroke="#f4c42a" strokeWidth={1.2} />
-          <circle cx={-10.5} cy={0} r={4.2} />
-          <circle cx={10.5} cy={0} r={4.2} />
-        </g>
-      )}
+    <g filter={shadow ? `url(#${DEF.tokenShadow})` : undefined}>
+      <rect x={-w / 2 + r / 2} y={-h / 2 + r / 2} width={w - r} height={h - r} rx={(h - r) / 2} fill="#1c1a18" fillOpacity={0.85} stroke="#a07a3c" strokeWidth={r} />
+      <rect x={-w / 2 + 6} y={-h / 2 + r + 1} width={w - 12} height={h * 0.28} rx={h * 0.14} fill="#fff" fillOpacity={0.1} />
     </g>
+  )
+}
+
+/** The empty bubble on its own, e.g. in the rules (outside the board, so without its shadow filter). */
+export function BubbleSwatch({ className, label }: { className?: string; label: string }) {
+  const pad = 1
+  return (
+    <svg viewBox={`${-BUBBLE_W / 2 - pad} ${-BUBBLE_H / 2 - pad} ${BUBBLE_W + pad * 2} ${BUBBLE_H + pad * 2}`} className={className} role="img" aria-label={label}>
+      <EmptyBubble shadow={false} />
+    </svg>
   )
 }
 

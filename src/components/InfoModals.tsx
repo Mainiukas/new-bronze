@@ -4,10 +4,12 @@ import { GAME_MODES } from '../data/gameModes'
 import { MAPS } from '../data/maps'
 import { formatCost, MAX_PLAYERS } from '../game/engine'
 import { INDUSTRIES, INDUSTRY_ORDER, LINK_COST, RULES } from '../game/rules'
-import { HEX_LINK_URL, LINK_SPACE_URL, TOKEN_URLS } from './board/assets'
+import { HEX_LINK_URL, TOKEN_URLS } from './board/assets'
+import { BubbleSwatch } from './board/parts'
 import { IndustryIcon } from './game/IndustryIcon'
-import { IconBook, IconStar } from './icons'
+import { IconBook } from './icons'
 import { ModalFrame } from './ModalFrame'
+import { SectionDivider } from './theme/Ornaments'
 
 interface InfoModalProps {
   open: boolean
@@ -154,7 +156,7 @@ export function HowToPlayModal({ open, onClose }: InfoModalProps) {
             routes and “both” routes as railways. {names(railOnly)} (marked with a locomotive) can only be reached by rail, so they open in the rail era.
           </p>
           <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-            <Picture src={LINK_SPACE_URL} alt="An empty connection bubble" wide>
+            <Picture art={<BubbleSwatch label="An empty connection bubble" className="h-8 w-auto shrink-0" />}>
               An empty bubble: a link nobody has built. It glows when you can build it.
             </Picture>
             <Picture src={HEX_LINK_URL} alt="A link hexagon">
@@ -191,10 +193,10 @@ export function HowToPlayModal({ open, onClose }: InfoModalProps) {
 }
 
 /** A board piece and what it means. */
-function Picture({ src, alt, wide = false, children }: { src: string | undefined; alt: string; wide?: boolean; children: ReactNode }) {
+function Picture({ src, alt = '', art, wide = false, children }: { src?: string; alt?: string; art?: ReactNode; wide?: boolean; children: ReactNode }) {
   return (
     <li className="flex items-center gap-3 rounded-lg border border-bronze-500/25 bg-soot-950/50 p-2.5">
-      {src ? <img src={src} alt={alt} className={`${wide ? 'h-8 w-auto' : 'size-9'} shrink-0`} /> : <span className="size-9" />}
+      {art ?? (src ? <img src={src} alt={alt} className={`${wide ? 'h-8 w-auto' : 'size-9'} shrink-0`} /> : <span className="size-9" />)}
       <span className="text-xs text-parchment-300">{children}</span>
     </li>
   )
@@ -202,7 +204,8 @@ function Picture({ src, alt, wide = false, children }: { src: string | undefined
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section>
+    <section className="group/section">
+      <SectionDivider />
       <h3 className="eyebrow mb-2 flex items-center gap-3">
         {title}
         <span className="h-px flex-1 bg-linear-to-r from-bronze-500/40 to-transparent" />
@@ -217,32 +220,5 @@ function Rule({ name, children }: { name: string; children: ReactNode }) {
     <li>
       <span className="font-display font-bold tracking-wide text-parchment-50 uppercase">{name}.</span> {children}
     </li>
-  )
-}
-
-/** Credits. */
-export function CreditsModal({ open, onClose }: InfoModalProps) {
-  return (
-    <ModalFrame open={open} onClose={onClose} id="credits" title="Credits" icon={<IconStar />}>
-      <div className="flex flex-col gap-5 text-center">
-        <div>
-          <p className="metal-text font-display text-4xl font-extrabold tracking-[0.2em] uppercase">Bronze</p>
-          <p className="text-sm text-parchment-300">An original industrial-era strategy game</p>
-        </div>
-        <dl className="grid gap-3">
-          {[
-            ['Game design', 'The Bronze team'],
-            ['Art & interface', 'The Bronze team'],
-            ['Built with', 'React · TypeScript · Vite · Tailwind CSS'],
-          ].map(([role, who]) => (
-            <div key={role}>
-              <dt className="eyebrow">{role}</dt>
-              <dd className="text-parchment-100">{who}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="text-xs text-parchment-400">Thank you for playing the early build.</p>
-      </div>
-    </ModalFrame>
   )
 }

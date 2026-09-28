@@ -1,560 +1,233 @@
 # Setting up accounts
 
-Bronze plays fine without accounts: until the two settings below are filled
-in, Register and Log in say "Accounts aren't configured yet" and everyone
-plays as a guest. This page connects Bronze to [Supabase](https://supabase.com)
+Bronze plays fine without accounts: until you finish step 1 below, Register
+and Log in say **"Accounts aren't configured yet"** and everyone plays as a
+guest. This guide connects Bronze to [Supabase](https://supabase.com) (free)
 for email + password accounts, Google sign-in, password-reset emails and
-player profiles. It takes about 20 minutes.
+player profiles with a real win/match record.
 
-You need: a Supabase account (free tier is enough) and, for Google sign-in, a
-Google Cloud account.
+It takes about 20 minutes, 10 more for Google. You need:
 
-Throughout, replace:
+- a Supabase account (sign up free at supabase.com, with GitHub or email);
+- for Google sign-in only: a Google account, to use Google Cloud Console.
 
-- `<ref>` with your Supabase project's reference (the `abcd1234` in
-  `https://abcd1234.supabase.co`);
-- `https://your-site.example/` with the address Bronze is published at
-  (for GitHub Pages, something like `https://you.github.io/Bronze/`).
+In the steps, replace:
 
-## 1. Create the Supabase project
+- `https://your-site.example/` with the address your published Bronze has
+  (for GitHub Pages, something like `https://you.github.io/new-bronze/`);
+- `<ref>` with your Supabase project's id: the `abcd1234` in
+  `https://abcd1234.supabase.co`.
 
-1. At [supabase.com/dashboard](https://supabase.com/dashboard), choose
-   **New project**. Pick a name, a region near your players, and a database
-   password (store it somewhere safe; Bronze doesn't need it).
-2. When the project is ready, open **Project Settings → API** (or the
-   **Connect** button) and copy two values: the **Project URL** and the
-   **anon public** key.
+Dashboards move buttons around now and then. If a button isn't where this
+says, look for the same words in the left-hand menu.
 
-## 2. Fill in `.env`
+---
 
-Copy `.env.example` to `.env` in the project folder and paste the two values:
+## 1. Create the Supabase project and fill in `.env`
 
-```
-VITE_SUPABASE_URL=https://<ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOi...   (the anon public key)
-```
+1. Go to [supabase.com/dashboard](https://supabase.com/dashboard) and log in.
+2. Click **New project**.
+   - **Organization**: the one Supabase made for you.
+   - **Project name**: `bronze` (anything is fine).
+   - **Database password**: click **Generate a password** and save it in your
+     password manager. Bronze doesn't need it, but you might later.
+   - **Region**: the one nearest your players (for Lithuania: *Central EU
+     (Frankfurt)* or *North EU (Stockholm)*).
+   - Click **Create new project** and wait a minute or two until it says the
+     project is ready.
+3. Click the **Connect** button at the top of the project page (or open
+   **Project Settings → API Keys** in the left menu, the gear icon). Copy two
+   values:
+   - the **Project URL**, like `https://abcd1234.supabase.co`;
+   - the **anon public** key (a long text starting `eyJ...`, under
+     **Legacy API keys**) or the **publishable** key (starting
+     `sb_publishable_...`). Either works.
 
-Restart `npm run dev`. `.env` is git-ignored, so it's never committed.
+   **Never** copy the `service_role` or **secret** key: it bypasses every
+   rule and would end up inside the published site.
+4. In the Bronze folder, copy `.env.example` to a new file named `.env` and
+   paste the two values after the `=` signs:
 
-- The **anon** key is meant to be public: it ends up in the built site, and
-  the row-level security rules below are what protect the data.
-- **Never** use the `service_role` key here. It bypasses every rule.
-- For the published site, set the same two variables wherever the site is
-  built (e.g. GitHub Actions secrets, or Netlify/Vercel environment
-  variables). Vite writes them into the build, so rebuild after changing them.
+   ```
+   VITE_SUPABASE_URL=https://abcd1234.supabase.co
+   VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
+   ```
 
-## 3. Create the database tables and rules
+   `.env` is git-ignored, so it's never committed. The anon/publishable key
+   is meant to be public; the database rules from step 2 protect the data.
+5. Restart `npm run dev` (stop it with Ctrl+C, run it again). Vite only reads
+   `.env` when it starts.
 
-Open **SQL Editor → New query**, paste everything below, and choose **Run**.
+## 2. Create the tables, rules and functions
 
-```sql
--- ============================================================
--- Bronze accounts: profiles, private settings, consent records,
--- log-in by username, data export, account deletion, clean-up
--- ============================================================
+1. In the Supabase dashboard, open **SQL Editor** (left menu, the `>_` icon).
+2. Click **+ New query** (or **New SQL snippet**).
+3. Open `supabase/migrations/001_accounts.sql` from the Bronze folder, copy
+   **all** of it, paste it into the editor and click **Run** (or press
+   Ctrl+Enter).
+4. It should say **Success. No rows returned**. Open **Table Editor**: you
+   should see `profiles`, `account_settings`, `consents`, `match_results` and
+   `login_attempts`.
 
--- 1. Profiles: one per account. Public (username, photo, record);
---    email addresses stay in auth.users and are never exposed.
-create table public.profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
-  username text not null check (username ~ '^[A-Za-z0-9_]{3,20}$'),
-  avatar_url text,
-  created_at timestamptz not null default now(),
-  wins integer not null default 0 check (wins >= 0),
-  matches integer not null default 0 check (matches >= 0),
-  best_score integer not null default 0 check (best_score >= 0),
-  goods_shipped integer not null default 0 check (goods_shipped >= 0),
-  maps_played text[] not null default '{}',
-  achievements jsonb not null default '{}'::jsonb
-);
+If it says *extension "pg_cron" is not available*: open **Database →
+Extensions**, search for **pg_cron**, switch it on, then run just the last two
+lines of the file again (they schedule the hourly clean-up of unfinished
+sign-ups). Run the file only once on a project; running it twice fails
+because the tables already exist.
 
--- Usernames are unique whatever the case: "Ada" and "ada" can't both exist.
-create unique index profiles_username_key on public.profiles (lower(username));
+What the file sets up:
 
--- Row-level security: anyone can read profiles; players can only change their own.
--- Profiles are only created by the two sign-up paths below, which also record
--- the age answer and the consents.
-alter table public.profiles enable row level security;
+- **profiles**: one per account. Signed-in players can read everyone's
+  username, avatar and record; a player can change only their own username
+  and avatar. Wins, matches and best score can only be changed by the
+  server, through `record_match_result()` (called when a match finishes) and
+  `merge_guest_stats()` (a guest's record, moved in once at first log-in).
+- A **sign-up trigger** that makes the profile: with the username from the
+  Register form, or, for Google, a temporary name (`player_…`) until the
+  player chooses one.
+- `is_username_available()` (the live ✓ / "Taken" check),
+  `email_for_username()` (log in with a username; it gives out the email only
+  when the password is right, and pauses a username for 30 seconds after 5
+  wrong passwords) and `delete_my_account()`.
 
-create policy "Profiles are public"
-  on public.profiles for select
-  using (true);
+## 3. Tell Supabase where Bronze lives
 
-create policy "Players update their own profile"
-  on public.profiles for update
-  to authenticated
-  using ((select auth.uid()) = id)
-  with check ((select auth.uid()) = id);
+Open **Authentication → URL Configuration**:
 
-revoke insert, update, delete on public.profiles from anon, authenticated;
-grant update (username, avatar_url, wins, matches, best_score, goods_shipped, maps_played, achievements)
-  on public.profiles to authenticated;
+1. **Site URL**: your published address, e.g. `https://your-site.example/`.
+   While you only try it on your computer, use `http://localhost:5173/`.
+   Click **Save**.
+2. Under **Redirect URLs**, click **Add URL** and add each address Bronze is
+   opened from, with `**` at the end:
+   - `http://localhost:5173/**`
+   - `http://localhost:4173/**` (for `npm run preview`)
+   - `https://your-site.example/**`
+   - a preview address if your host makes them, e.g.
+     `https://*-your-project.netlify.app/**`
 
--- 2. Private settings: the age answer (14-17 or 18+, never a birth date) and
---    email choices (all off until turned on). Only the functions below use it.
-create table public.account_settings (
-  user_id uuid primary key references auth.users (id) on delete cascade,
-  is_adult boolean not null default false,
-  email_marketing boolean not null default false,
-  email_friends boolean not null default false,
-  email_tournaments boolean not null default false,
-  -- Secret per player, for one-click unsubscribe links in emails.
-  unsubscribe_token uuid not null default gen_random_uuid() unique,
-  updated_at timestamptz not null default now(),
-  -- No marketing emails to anyone under 18.
-  check (is_adult or not email_marketing)
-);
-alter table public.account_settings enable row level security;
-revoke all on public.account_settings from anon, authenticated;
+   Click **Save**.
 
--- 3. Consent records: what was agreed to, which version, and when.
-create table public.consents (
-  id bigint generated always as identity primary key,
-  user_id uuid not null references auth.users (id) on delete cascade,
-  kind text not null check (kind in ('terms', 'privacy', 'age', 'marketing')),
-  granted boolean not null,
-  version text not null,
-  created_at timestamptz not null default now()
-);
-create index consents_user_idx on public.consents (user_id);
-alter table public.consents enable row level security;
-revoke all on public.consents from anon, authenticated;
+Bronze sends people back to the address they're on (`window.location`), at
+`#/auth/callback` (sign-up confirmation and Google) or `#/auth/reset`
+(password reset). Supabase refuses to send anyone to an address not in this
+list, so a missing entry shows up as a link that lands on the wrong page.
 
--- A new account's age answer and consents (used by both sign-up paths).
-create function public.record_signup(p_user uuid, p_age_band text, p_marketing boolean, p_terms_version text)
-returns void
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  adult boolean := p_age_band = '18+';
-  marketing boolean := adult and coalesce(p_marketing, false);
-begin
-  insert into public.account_settings (user_id, is_adult, email_marketing)
-  values (p_user, adult, marketing)
-  on conflict (user_id) do update set is_adult = excluded.is_adult, email_marketing = excluded.email_marketing, updated_at = now();
-  insert into public.consents (user_id, kind, granted, version) values
-    (p_user, 'terms', true, p_terms_version),
-    (p_user, 'privacy', true, p_terms_version),
-    (p_user, 'age', true, p_age_band),
-    (p_user, 'marketing', marketing, p_terms_version);
-end;
-$$;
-revoke execute on function public.record_signup(uuid, text, boolean, text) from public, anon, authenticated;
+## 4. Email sign-in and confirmation
 
--- 4. Email sign-ups: the profile and consents are made at once, from what the
---    Register form sent (username, age answer, Terms version, marketing choice).
---    Google sign-ups have none of these yet: finish_signup() below asks for them
---    before the account is used.
-create function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  meta jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
-  wanted text := meta ->> 'username';
-  age text := meta ->> 'age_band';
-  terms text := meta ->> 'terms_version';
-begin
-  if wanted ~ '^[A-Za-z0-9_]{3,20}$' and age in ('14-17', '18+') and coalesce(terms, '') <> '' then
-    insert into public.profiles (id, username)
-    values (new.id, wanted)
-    -- Taken a moment ago: no profile yet, so they finish at their first log-in.
-    on conflict do nothing;
-    if found then
-      perform public.record_signup(new.id, age, coalesce(meta ->> 'marketing', 'false') = 'true', terms);
-    end if;
-  end if;
-  return new;
-end;
-$$;
+Open **Authentication → Sign In / Providers** (sometimes **Providers**):
 
-revoke execute on function public.handle_new_user() from public, anon, authenticated;
+1. **Email**: leave it **enabled**.
+2. **Confirm email**:
+   - **On** (recommended for a real site): after **Create account**, players
+     see "Check your email to confirm your account", and are logged in when
+     they click the link.
+   - **Off** (easiest while testing): players are logged in straight after
+     registering.
+3. Click **Save**.
 
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
-
--- 5. Finishing a first Google sign-in: username, age answer and consents together.
-create function public.finish_signup(p_username text, p_age_band text, p_marketing boolean, p_terms_version text)
-returns setof public.profiles
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  uid uuid := auth.uid();
-  photo text;
-begin
-  if uid is null then
-    raise exception 'Not signed in' using errcode = '42501';
-  end if;
-  if p_age_band is null or p_age_band not in ('14-17', '18+') then
-    raise exception 'Accounts are only for people aged 14 or over' using errcode = '22023';
-  end if;
-  if coalesce(p_terms_version, '') = '' then
-    raise exception 'The Terms and Privacy Policy must be accepted' using errcode = '22023';
-  end if;
-  select coalesce(u.raw_user_meta_data ->> 'avatar_url', u.raw_user_meta_data ->> 'picture') into photo
-  from auth.users u where u.id = uid;
-  return query
-    insert into public.profiles (id, username, avatar_url) values (uid, trim(p_username), photo) returning *;
-  perform public.record_signup(uid, p_age_band, p_marketing, p_terms_version);
-end;
-$$;
-revoke execute on function public.finish_signup(text, text, boolean, text) from public, anon;
-grant execute on function public.finish_signup(text, text, boolean, text) to authenticated;
-
--- 6. Live "is this username free?" check for the Register form.
-create function public.username_available(name text)
-returns boolean
-language sql
-stable
-set search_path = ''
-as $$
-  select not exists (select 1 from public.profiles where lower(username) = lower(trim(name)));
-$$;
-
-grant execute on function public.username_available(text) to anon, authenticated;
-
--- 7. Log in with a username. Returns the account's email only when the
---    password is right (so nobody can look up emails), and pauses a username
---    for 30 seconds after 5 wrong passwords. Counters are kept for a day at most.
-create table public.login_attempts (
-  username text primary key,
-  failures integer not null default 0,
-  locked_until timestamptz,
-  last_failed_at timestamptz not null default now()
-);
-
--- No policies: only login_email() below reads or writes this table.
-alter table public.login_attempts enable row level security;
-revoke all on public.login_attempts from anon, authenticated;
-
-create function public.login_email(identifier text, password text)
-returns text
-language plpgsql
-volatile
-security definer
-set search_path = ''
-as $$
-declare
-  wanted text := lower(trim(identifier));
-  paused_until timestamptz;
-  account_email text;
-  password_hash text;
-begin
-  delete from public.login_attempts where last_failed_at < now() - interval '1 day';
-
-  select a.locked_until into paused_until from public.login_attempts a where a.username = wanted;
-  if paused_until is not null and paused_until > now() then
-    return null;
-  end if;
-
-  select u.email, u.encrypted_password into account_email, password_hash
-  from public.profiles p
-  join auth.users u on u.id = p.id
-  where lower(p.username) = wanted;
-
-  if account_email is not null
-     and coalesce(password_hash, '') <> ''
-     and extensions.crypt(password, password_hash) = password_hash then
-    delete from public.login_attempts where username = wanted;
-    return account_email;
-  end if;
-
-  insert into public.login_attempts as a (username, failures)
-  values (wanted, 1)
-  on conflict (username) do update
-    set failures = case when a.locked_until is not null then 1 else a.failures + 1 end,
-        locked_until = case when a.locked_until is null and a.failures + 1 >= 5
-                            then now() + interval '30 seconds' end,
-        last_failed_at = now();
-  return null;
-end;
-$$;
-
-revoke execute on function public.login_email(text, text) from public;
-grant execute on function public.login_email(text, text) to anon, authenticated;
-
--- 8. Email choices (Settings -> Notifications).
-create function public.email_preferences()
-returns table (is_adult boolean, email_marketing boolean, email_friends boolean, email_tournaments boolean)
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select s.is_adult, s.email_marketing, s.email_friends, s.email_tournaments
-  from public.account_settings s where s.user_id = auth.uid();
-$$;
-
-create function public.set_email_preferences(p_marketing boolean, p_friends boolean, p_tournaments boolean, p_version text default 'settings')
-returns table (is_adult boolean, email_marketing boolean, email_friends boolean, email_tournaments boolean)
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  uid uuid := auth.uid();
-  was boolean;
-  adult boolean;
-begin
-  if uid is null then
-    raise exception 'Not signed in' using errcode = '42501';
-  end if;
-  insert into public.account_settings (user_id) values (uid) on conflict (user_id) do nothing;
-  select s.email_marketing, s.is_adult into was, adult from public.account_settings s where s.user_id = uid;
-  if p_marketing and not adult then
-    raise exception 'Marketing emails are only for people aged 18 or over' using errcode = '22023';
-  end if;
-  update public.account_settings s
-    set email_marketing = p_marketing, email_friends = p_friends, email_tournaments = p_tournaments, updated_at = now()
-    where s.user_id = uid;
-  if p_marketing is distinct from was then
-    insert into public.consents (user_id, kind, granted, version) values (uid, 'marketing', p_marketing, p_version);
-  end if;
-  return query select s.is_adult, s.email_marketing, s.email_friends, s.email_tournaments
-    from public.account_settings s where s.user_id = uid;
-end;
-$$;
-
--- "I'm 18 or over now" (marketing emails can then be turned on).
-create function public.confirm_adult()
-returns table (is_adult boolean, email_marketing boolean, email_friends boolean, email_tournaments boolean)
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  uid uuid := auth.uid();
-begin
-  if uid is null then
-    raise exception 'Not signed in' using errcode = '42501';
-  end if;
-  insert into public.account_settings (user_id, is_adult) values (uid, true)
-    on conflict (user_id) do update set is_adult = true, updated_at = now();
-  insert into public.consents (user_id, kind, granted, version) values (uid, 'age', true, '18+');
-  return query select s.is_adult, s.email_marketing, s.email_friends, s.email_tournaments
-    from public.account_settings s where s.user_id = uid;
-end;
-$$;
-
-revoke execute on function public.email_preferences() from public, anon;
-revoke execute on function public.set_email_preferences(boolean, boolean, boolean, text) from public, anon;
-revoke execute on function public.confirm_adult() from public, anon;
-grant execute on function public.email_preferences() to authenticated;
-grant execute on function public.set_email_preferences(boolean, boolean, boolean, text) to authenticated;
-grant execute on function public.confirm_adult() to authenticated;
-
--- 9. One-click unsubscribe, from the link in an email: no log-in needed, only
---    the player's secret token. p_list: marketing, friends, tournaments or all.
-create function public.unsubscribe(p_token uuid, p_list text)
-returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  uid uuid;
-  was boolean;
-begin
-  select s.user_id, s.email_marketing into uid, was from public.account_settings s where s.unsubscribe_token = p_token;
-  if uid is null then
-    return false;
-  end if;
-  update public.account_settings s set
-    email_marketing = case when p_list in ('marketing', 'all') then false else s.email_marketing end,
-    email_friends = case when p_list in ('friends', 'all') then false else s.email_friends end,
-    email_tournaments = case when p_list in ('tournaments', 'all') then false else s.email_tournaments end,
-    updated_at = now()
-  where s.user_id = uid;
-  if was and p_list in ('marketing', 'all') then
-    insert into public.consents (user_id, kind, granted, version) values (uid, 'marketing', false, 'unsubscribe-link');
-  end if;
-  return true;
-end;
-$$;
-revoke execute on function public.unsubscribe(uuid, text) from public;
-grant execute on function public.unsubscribe(uuid, text) to anon, authenticated;
-
--- 10. "Download my data": everything stored about the signed-in player.
-create function public.export_my_data()
-returns jsonb
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select jsonb_build_object(
-    'account', (
-      select jsonb_build_object(
-        'id', u.id,
-        'email', u.email,
-        'created_at', u.created_at,
-        'email_confirmed_at', u.email_confirmed_at,
-        'last_sign_in_at', u.last_sign_in_at,
-        'sign_in_methods', coalesce((select jsonb_agg(distinct i.provider) from auth.identities i where i.user_id = u.id), '[]'::jsonb),
-        'details_from_sign_in', u.raw_user_meta_data)
-      from auth.users u where u.id = auth.uid()),
-    'profile', (select to_jsonb(p) from public.profiles p where p.id = auth.uid()),
-    'email_preferences', (
-      select jsonb_build_object('age_18_or_over', s.is_adult, 'marketing', s.email_marketing,
-                                'friends', s.email_friends, 'tournaments', s.email_tournaments)
-      from public.account_settings s where s.user_id = auth.uid()),
-    'consents', coalesce((
-      select jsonb_agg(jsonb_build_object('kind', c.kind, 'granted', c.granted, 'version', c.version, 'at', c.created_at) order by c.created_at, c.id)
-      from public.consents c where c.user_id = auth.uid()), '[]'::jsonb),
-    'failed_log_ins', (
-      select jsonb_build_object('failures', a.failures, 'last_failed_at', a.last_failed_at, 'locked_until', a.locked_until)
-      from public.login_attempts a join public.profiles p on lower(p.username) = a.username
-      where p.id = auth.uid()),
-    'matches', 'Matches are played in your browser; none are stored on the server.'
-  );
-$$;
-revoke execute on function public.export_my_data() from public, anon;
-grant execute on function public.export_my_data() to authenticated;
-
--- 11. "Delete my account": the log-in, profile, settings and consents go at once
---     (on delete cascade), and the failed log-in counter with them.
-create function public.delete_my_account()
-returns void
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  uid uuid := auth.uid();
-  name text;
-begin
-  if uid is null then
-    raise exception 'Not signed in' using errcode = '42501';
-  end if;
-  select p.username into name from public.profiles p where p.id = uid;
-  if name is not null then
-    delete from public.login_attempts a where a.username = lower(name);
-  end if;
-  -- Bronze keeps no match history on the server. If it ever does, anonymise this
-  -- player in other players' matches here (for example, set their player id to null).
-  delete from auth.users u where u.id = uid;
-end;
-$$;
-revoke execute on function public.delete_my_account() from public, anon;
-grant execute on function public.delete_my_account() to authenticated;
-
--- 12. Clean-up, every hour: sign-ups never finished (no profile) or never
---     confirmed after 7 days, and failed log-in counters older than a day.
-create function public.bronze_cleanup()
-returns void
-language sql
-security definer
-set search_path = ''
-as $$
-  delete from auth.users u
-  where u.created_at < now() - interval '7 days'
-    and (u.email_confirmed_at is null or not exists (select 1 from public.profiles p where p.id = u.id));
-  delete from public.login_attempts a where a.last_failed_at < now() - interval '1 day';
-$$;
-revoke execute on function public.bronze_cleanup() from public, anon, authenticated;
-
-create extension if not exists pg_cron;
-select cron.schedule('bronze-cleanup', '17 * * * *', 'select public.bronze_cleanup()');
-```
-
-You should see "Success". **Table Editor** now lists `profiles`,
-`account_settings`, `consents` and `login_attempts`. The last statement turns on
-Supabase's `pg_cron` extension and schedules the hourly clean-up; if your
-project doesn't allow it, enable **pg_cron** under **Database → Extensions** and
-run the last two lines again. (The Privacy Policy says unfinished sign-ups are
-deleted after 7 days and failed log-in counters after a day: this job is what
-does it.)
-
-Already ran an earlier version of this SQL? Run it on a fresh project, or ask
-for a migration: the tables and functions above replace the old ones.
-
-## 4. Email sign-in, confirmation and reset links
-
-In **Authentication**:
-
-1. **Sign In / Providers → Email**: leave it enabled.
-   - **Confirm email** on (recommended): new players see "Check your email to
-     confirm your account", and are logged in when they follow the link.
-   - Off: they're logged in straight after registering.
-2. **URL Configuration**:
-   - **Site URL**: `https://your-site.example/` (while you only develop
-     locally, `http://localhost:5173/`).
-   - **Redirect URLs**: add every address Bronze is served from, with `**` at
-     the end:
-     - `http://localhost:5173/**`
-     - `https://your-site.example/**`
-
-   Confirmation links, reset links and Google all return to these addresses
-   (at `#/auth/callback` or `#/auth/reset`); Supabase refuses any other.
-3. **Emails → SMTP Settings**: Supabase's built-in mailer sends only a few
-   emails an hour and is meant for testing. Before real players sign up,
-   connect your own email provider here (Resend, Postmark, SendGrid, Amazon
-   SES, ...).
+Supabase's built-in email sender only sends a few emails an hour and is meant
+for testing. Before real players sign up, connect your own email provider in
+**Authentication → Emails → SMTP Settings** (Resend, Postmark, SendGrid,
+Amazon SES, ...).
 
 The default email templates work as they are. Their links finish signing in
 only in the browser where the player registered or asked for the reset. For
-links that also work on another device (say, reset on a laptop, open the
-email on a phone), change two templates under **Emails → Templates**:
+links that also work on another device (register on a laptop, open the email
+on a phone), change two templates in **Authentication → Emails → Templates**:
 
-- **Reset Password**: make the link
-  `{{ .SiteURL }}?token_hash={{ .TokenHash }}&type=recovery#/auth/reset`
 - **Confirm signup**: make the link
   `{{ .SiteURL }}?token_hash={{ .TokenHash }}&type=email#/auth/callback`
+- **Reset Password**: make the link
+  `{{ .SiteURL }}?token_hash={{ .TokenHash }}&type=recovery#/auth/reset`
 
-(These use the Site URL, so while testing locally set it to
+(These use the Site URL from step 3, so while testing locally set it to
 `http://localhost:5173/`.)
 
-## 5. Google sign-in
+## 5. Google sign-in (optional)
 
-**In Google Cloud** ([console.cloud.google.com](https://console.cloud.google.com)):
+Skip this if you only want email accounts; the Google button then shows an
+error from Supabase when clicked, so you may want to do it before launch.
 
-1. Create a project (or pick one), then open **APIs & Services → OAuth
-   consent screen** (also called **Google Auth Platform → Branding**). App
-   name "Bronze", your support email; **Audience: External**. Under
-   **Authorized domains**, add `<ref>.supabase.co` and your site's domain.
-   Scopes: `openid`, `email` and `profile` (the defaults).
-2. **Credentials → Create credentials → OAuth client ID**, type **Web
-   application**:
-   - **Authorized JavaScript origins**:
-     - `http://localhost:5173`
-     - `https://your-site.example` (origin only: no path)
-   - **Authorized redirect URIs**: exactly one, Supabase's callback:
-     - `https://<ref>.supabase.co/auth/v1/callback`
+**First, in Supabase:** open **Authentication → Sign In / Providers →
+Google**. Copy the **Callback URL (for OAuth)** it shows: it looks like
+`https://<ref>.supabase.co/auth/v1/callback`. Leave this tab open.
 
-     Google sends players back to Supabase, and Supabase sends them on to
-     Bronze (to the Redirect URLs of step 4). Your own localhost and
-     production addresses go in Supabase's list, not here.
-3. Copy the **Client ID** and **Client secret**.
-4. While the consent screen is in **Testing**, only the test users you list
-   can sign in. **Publish** it for everyone.
+**In Google Cloud Console** ([console.cloud.google.com](https://console.cloud.google.com)):
 
-**In Supabase**: **Authentication → Sign In / Providers → Google**: enable it,
-paste the Client ID and Client secret, and save. The page also shows the
-callback URL to use in Google (the one above).
+1. At the top, click the project picker → **New project** → name it `Bronze`
+   → **Create**, and make sure it's selected.
+2. Open **APIs & Services → OAuth consent screen** (newer consoles call it
+   **Google Auth Platform → Branding**) and click **Get started**:
+   - **App name**: `Bronze`; **User support email**: yours.
+   - **Audience**: **External**.
+   - **Contact information**: your email. Agree to the policy, **Create**.
+   - Under **Branding → Authorized domains**, add `<ref>.supabase.co` and
+     your site's domain (e.g. `your-site.example`, or `you.github.io`).
+   - Scopes: the defaults (`openid`, `email`, `profile`) are all Bronze uses.
+3. Open **Clients** (or **Credentials → + Create credentials → OAuth client
+   ID**):
+   - **Application type**: **Web application**; **Name**: `Bronze`.
+   - **Authorized JavaScript origins** → **Add URI**:
+     `http://localhost:5173` and `https://your-site.example` (origin only:
+     no path, no trailing slash).
+   - **Authorized redirect URIs** → **Add URI**: exactly one, the Supabase
+     callback URL you copied (`https://<ref>.supabase.co/auth/v1/callback`).
+     Your own site's addresses do **not** go here: Google returns people to
+     Supabase, and Supabase returns them to Bronze (the list from step 3).
+   - Click **Create** and copy the **Client ID** and **Client secret**.
+4. While the app's publishing status is **Testing**, only the test users you
+   add under **Audience → Test users** can sign in. When you're ready for
+   everyone, click **Publish app** there.
 
-## 6. Try it
+**Back in Supabase** (the Google provider page): switch **Enable Sign in with
+Google** on, paste the **Client ID** and **Client secret**, click **Save**.
 
-1. `npm run dev`, open <http://localhost:5173>, and choose **Register** in
-   the sidebar.
-2. Register with email: the username check shows ✓ or "Taken"; after
-   **Create account** you get the confirmation email (or are logged in, if
-   confirmation is off).
-3. Log out, then log in again with the **username** instead of the email.
-4. **Continue with Google**: the first time, Bronze asks you to choose a
-   username.
-5. **Forgot password?** sends a reset link that opens the "Set a new
-   password" page.
-6. In **Table Editor → profiles** you'll see each player's row, and their
-   wins and matches update after each finished match.
+## 6. The published site
 
-## 7. Emails
+Vite writes the two settings into the site when it's built, so the build on
+your host needs them too. Add both as environment variables in your host's
+dashboard, then build (deploy) again:
+
+| Host | Where |
+| --- | --- |
+| Netlify | **Site configuration → Environment variables → Add a variable** |
+| Vercel | **Project → Settings → Environment Variables** (tick Production and Preview) |
+| Cloudflare Pages | **Workers & Pages → your project → Settings → Variables and Secrets** |
+| GitHub Pages (built by GitHub Actions) | **Repository → Settings → Secrets and variables → Actions → New repository secret**, then pass them to the build step: `env: { VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}, VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }} }` |
+
+Names: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, values as in `.env`.
+The build command is `npm run build` and the folder to publish is `dist`.
+Then add the site's address to step 3's **Redirect URLs** and step 5's
+**Authorized JavaScript origins**.
+
+Accounts need the site served over `http(s)`. They don't work in
+`dist-single/index.html` opened from disk, nor inside a Claude artifact
+(which blocks connections to other servers): those play as a guest.
+
+## 7. Try it
+
+With `npm run dev` running, open <http://localhost:5173>:
+
+1. **Register** (sidebar, or the top bar on a phone). The username shows ✓ or
+   "Taken" as you type. **Create account** → "Check your email" (or you're
+   logged in straight away, if Confirm email is off).
+2. Click the link in the email: Bronze opens, logs you in and shows the
+   lobby. In Supabase, **Table Editor → profiles** has your row.
+3. **Log out** (the account menu): "Logged out", back to the lobby as a guest.
+4. **Log in** with your **username** (not the email) and password. Then with
+   the email. A wrong password says "Username/email or password is
+   incorrect" either way.
+5. **Forgot password?** on the Log in form → the email → the link opens "Set
+   a new password" → save → log in with the new one.
+6. **Continue with Google** → choose a username (and your age, and accept the
+   Terms) → you're in.
+7. Play a match to the end: your wins/matches in the sidebar go up, and so
+   do `wins` and `matches` in **Table Editor → profiles**.
+8. **Settings → Account → Delete my account**, type your username → you're
+   logged out and the row is gone from `profiles` and **Authentication →
+   Users**.
+
+## 8. Emails other than account emails
 
 Bronze only sends account emails today (confirm your address, reset your
 password), through Supabase. Keep those templates free of news or promotions:
@@ -564,11 +237,12 @@ Optional emails (news, friend and tournament emails) are ready for when you add
 them, but none are sent yet:
 
 - Players choose them in **Settings → Notifications** (all off by default;
-  news only for players who said they're 18 or over). The choices are in the
-  `account_settings` table: send each kind only to players with it turned on.
+  news only for players who said they're 18 or over). News consent is
+  `profiles.marketing_consent`; friend and tournament choices are in
+  `account_settings`. Send each kind only to players with it turned on.
 - Every optional email needs an unsubscribe link and headers. Each player has a
-  secret `unsubscribe_token`; with `list` one of `marketing`, `friends`,
-  `tournaments` or `all`:
+  secret `account_settings.unsubscribe_token`; with `list` one of
+  `marketing`, `friends`, `tournaments` or `all`:
   - in the email: `https://your-site.example/#/unsubscribe?token=<token>&list=<list>`
     (the page unsubscribes as soon as it opens, without logging in);
   - headers, for the one-click button in email apps (RFC 8058):
@@ -580,7 +254,7 @@ them, but none are sent yet:
     Deploy it with the Supabase CLI: `supabase functions deploy unsubscribe --no-verify-jwt`.
 - Unsubscribing is recorded in `consents`, like every change to the news choice.
 
-## 8. Fill in the legal details
+## 9. Fill in the legal details
 
 The legal pages (Privacy Policy, Terms, Refund Policy, Cookie Policy, Business
 details) are templates. Put your details in `src/legal/operator.ts` (every
@@ -590,21 +264,27 @@ placeholder is left.
 
 ## Good to know
 
-- **Guest progress moves in.** A guest's record and achievements on a device
-  are added to the account the first time they log in there.
+- **Guest progress moves in, once.** A guest's record and achievements on a
+  device are added to the account the first time they log in there
+  (`merge_guest_stats`, with an id so it can't be added twice), and the
+  device's guest record is cleared.
+- **Results are never lost or counted twice.** Each finished match gets an id
+  on the device and waits there until the server confirms it; a retry with
+  the same id changes nothing. If saving fails (offline), it's sent again when
+  the connection returns or at the next log-in.
+- **Results come from the player's browser**, because matches run there. The
+  server checks they're plausible (score 0–1000, known maps and
+  achievements), but a determined player could still send made-up results.
+  Ranked play would need matches checked on a server.
 - **Players manage their own data.** Settings → Account has **Download my
-  data** (`export_my_data()`) and **Delete my account** (`delete_my_account()`,
-  which deletes the log-in and, through `on delete cascade`, the profile,
-  settings and consents). People who can't log in use `#/data-request`.
-- **Ages.** Registering asks "Under 14 / 14 to 17 / 18 or over" (no birth date).
-  Under 14 can't make an account; 14–17 can, but never get news emails.
-- **Remember me** off: the session ends when the browser is closed.
-- **Records are written by the player's own browser**, because matches run in
-  the browser. That's fine for casual play; a determined player could edit
-  their own numbers. Ranked play would need match results checked on a server.
-- **Accounts need the site served over `http(s)`.** Google and email links
-  can't return to a page opened from disk (`dist-single/index.html` opened
-  as a file plays as a guest).
+  data** (`export_my_data()`) and **Delete my account** (`delete_my_account()`).
+  People who can't log in use `#/data-request`.
+- **Ages.** Registering asks "Under 14 / 14 to 17 / 18 or over" (no birth
+  date). Under 14 can't make an account; 14–17 can, but never get news
+  emails. `profiles.birth_year` exists but Bronze never fills it in, because
+  the Privacy Policy says it doesn't ask for a birth date.
+- **Remember me** off: the session ends when the browser is closed. On: it
+  survives reloads and restarts (it's kept in `localStorage`, key `bronze.auth`).
 - **Friends, online play, tournaments and the shop** still need a game server
   Bronze doesn't have. Signed-in players see them as "Coming soon"; guests see
   "Log in to use this".

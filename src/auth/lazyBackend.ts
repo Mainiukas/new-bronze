@@ -23,7 +23,7 @@ export function createLazyBackend(load: () => Promise<AuthBackend | null>): Auth
       void ready().then((backend) => {
         if (stopped) return
         if (backend) stop = backend.onUserChange(callback)
-        else callback(null)
+        else callback(null, false)
       })
       return () => {
         stopped = true
@@ -46,7 +46,8 @@ export function createLazyBackend(load: () => Promise<AuthBackend | null>): Auth
     setEmailPreferences: async (preferences) => (await real()).setEmailPreferences(preferences),
     confirmAdult: async () => (await real()).confirmAdult(),
     unsubscribe: async (token, list) => (await real()).unsubscribe(token, list),
-    saveStats: async (userId, stats) => (await real()).saveStats(userId, stats),
+    recordMatchResult: async (result) => (await real()).recordMatchResult(result),
+    mergeGuestStats: async (merge) => (await real()).mergeGuestStats(merge),
     isUsernameAvailable: async (username) => (await real()).isUsernameAvailable(username),
     setRememberMe(remember) {
       // Runs before any call made after it (they all wait on the same load).

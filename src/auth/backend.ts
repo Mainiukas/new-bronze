@@ -1,6 +1,6 @@
 /**
  * What the app needs from an account service. The only implementation is
- * Supabase (supabaseBackend.ts); tests use a stand-in. With no service
+ * Supabase (supabaseBackend.ts, on src/lib/supabase.ts); tests use a stand-in. With no service
  * configured the app runs as a guest and never pretends to sign anyone in.
  */
 
@@ -77,6 +77,24 @@ export interface SignUpInput {
   redirectTo: string
 }
 
+/** One finished match, for the signed-in player's record (counted once per id, however often it's sent). */
+export interface MatchResult {
+  /** Made on this device when the match finished (a UUID). */
+  id: string
+  score: number
+  won: boolean
+  goodsShipped: number
+  mapId: string
+  /** Achievement ids this match unlocked. */
+  achievements: string[]
+}
+
+/** A device's guest record moving into the account (applied once per id). */
+export interface GuestMerge {
+  id: string
+  stats: PlayerStats
+}
+
 /** Optional emails, all off unless turned on. Bronze sends none of these yet. */
 export type EmailList = 'marketing' | 'friends' | 'tournaments'
 
@@ -89,8 +107,12 @@ export interface EmailPreferences {
 }
 
 export interface AuthBackend {
-  /** Calls back with the signed-in user (or null) soon after subscribing, then on every change. */
-  onUserChange(callback: (user: AuthUser | null) => void): () => void
+  /**
+   * Calls back with the signed-in user (or null) soon after subscribing, then
+   * on every change. `recovery`: this sign-in came from a password-reset link
+   * (Supabase's PASSWORD_RECOVERY event).
+   */
+  onUserChange(callback: (user: AuthUser | null, recovery: boolean) => void): () => void
   signUp(input: SignUpInput): Promise<{ needsConfirmation: boolean }>
   signInWithPassword(email: string, password: string): Promise<void>
   /** The email behind a username, only when `password` is right for it (so emails never leak). */
@@ -102,8 +124,9 @@ export interface AuthBackend {
   signOut(): Promise<void>
   sendPasswordReset(email: string, redirectTo: string): Promise<void>
   updatePassword(password: string): Promise<void>
+  /** The player's profile, or null while they have no chosen username yet (first Google sign-in). */
   getProfile(userId: string): Promise<Profile | null>
-  /** Finish a sign-up that has no profile yet (first Google sign-in): username, age and consents together. */
+  /** Finish a sign-up that has no chosen username yet (first Google sign-in): username, age and consents together. */
   createProfile(user: AuthUser, username: string, consent: SignupConsent): Promise<Profile>
   /** Delete the signed-in account and everything stored with it (also used when a first Google sign-in is declined). */
   deleteAccount(): Promise<void>
@@ -115,7 +138,10 @@ export interface AuthBackend {
   confirmAdult(): Promise<EmailPreferences>
   /** One-click unsubscribe from an email's link: works without logging in. */
   unsubscribe(token: string, list: EmailList | 'all'): Promise<boolean>
-  saveStats(userId: string, stats: PlayerStats): Promise<void>
+  /** Add a finished match to the signed-in player's record (the server does the adding). Returns the updated profile. */
+  recordMatchResult(result: MatchResult): Promise<Profile | null>
+  /** Add a guest record to the signed-in player's record, once. Returns the updated profile. */
+  mergeGuestStats(merge: GuestMerge): Promise<Profile | null>
   isUsernameAvailable(username: string): Promise<boolean>
   /** Off: the session ends when the browser closes. */
   setRememberMe(remember: boolean): void

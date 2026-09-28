@@ -37,7 +37,7 @@ export const SERVICES = {
 } as const
 
 /** Shown as "Last updated" on every legal page. Change it whenever a text changes. */
-export const LEGAL_LAST_UPDATED = '2026-09-27'
+export const LEGAL_LAST_UPDATED = '2026-09-28'
 
 /** Version of the Terms and Privacy Policy that people accept. Bump it when either changes materially. */
 export const TERMS_VERSION = '2026-09-27'

@@ -111,8 +111,9 @@ npm run dev        # http://localhost:5173
 ```
 
 To turn on accounts, follow [SETUP.md](SETUP.md): create a Supabase project,
-run its SQL, set up Google sign-in, and put the project's URL and anon key in
-`.env` (copy `.env.example`). `.env` is git-ignored; never commit real keys.
+put its URL and anon key in `.env` (copy `.env.example`), run
+`supabase/migrations/001_accounts.sql` in its SQL editor, and set up Google
+sign-in. `.env` is git-ignored; never commit real keys.
 
 Other scripts:
 
@@ -134,7 +135,7 @@ The build is a static site, so any static host works with no server setup:
   `https://<user>.github.io/Bronze/`.
 - For accounts, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` where the
   site is built, and add the site's address to Supabase's Redirect URLs and
-  Google's JavaScript origins (SETUP.md, steps 4–5).
+  Google's JavaScript origins (SETUP.md, steps 3, 5 and 6).
 
 Upload the contents of `dist/` to GitHub Pages, Netlify, Cloudflare Pages, an
 S3 bucket or similar. For hosts or embeds that take a single file, use
@@ -275,14 +276,14 @@ src/
   App.tsx                 Router, app-wide state (settings, saved match, stats, overlays)
   auth/                   Accounts, independent of React
     backend.ts            What the app needs from an account service (AuthBackend), error codes
-    supabaseBackend.ts    That, on Supabase Auth and the profiles table (null when not configured)
+    supabaseBackend.ts    That, on Supabase Auth and the database functions in supabase/migrations/
     lazyBackend.ts        Loads that on first use, so the first page doesn't wait for it
     store.ts              Signed-in state and actions behind useAuth()
     redirect.ts           Returns from Google and email links (#/auth/callback, #/auth/reset)
     validation.ts         Username, email and password rules, password strength
     messages.ts           What to tell the player when something fails
     AuthProvider.tsx      Puts the store in React context
-    *.test.ts             Validators and the store (with a stand-in backend)
+    *.test.ts             Validators, the store (stand-in backend), the Supabase calls (mocked client)
   components/board/       Illustrated map board: IllustratedBoard (view), parts (SVG pieces),
                           layout (placement, route fan-out, collisions), geometry (curves,
                           texture pieces, hulls), sampling (getPointAtLength), measure (label
@@ -328,7 +329,7 @@ src/
   components/settings/    Settings → Account (download/delete data), Notifications, Privacy
   hooks/                  usePersistentState (localStorage-backed state), useToast, useAuth,
                           useOpenAuth, useLogOut, usePlayerStats (the guest's or the account's record)
-  lib/                    storage (safe localStorage), sound (Web Audio), random (new seeds)
+  lib/                    storage (safe localStorage), sound (Web Audio), random (new seeds), supabase (the client, from .env)
 ```
 
 ## Extending
@@ -368,9 +369,12 @@ progress and a guest's stats are saved to localStorage (`bronze.lobby.*`,
 the last choices and a guest's record are "preferences": they are only saved
 once the visitor allows that in the cookie banner (`bronze.consent`), and
 withdrawing it deletes them. The full list is the Cookie Policy (`#/cookies`). A signed-in
-player's stats are saved to their Supabase profile; until the server confirms a
-save, a copy is kept in `bronze.stats.pending.<id>` and folded back in at the
-next log-in. The session itself is kept by Supabase under `bronze.auth`. The match
+player's record is kept in their Supabase profile and only the server changes
+it: each finished match is sent with an id (`record_match_result`), and a
+guest's record is moved in once at the first log-in on a device
+(`merge_guest_stats`). Until the server confirms each one it waits in
+`bronze.stats.pending.<id>` and is sent again when back online or at the next
+log-in; the id makes sure it's counted once. The session itself is kept by Supabase under `bronze.auth`. The match
 is saved after every action, so **Continue** on the main menu resumes exactly
 where you left off. Saved values are validated when read; a match saved by an
 older version (`GAME_VERSION` in `src/game/types.ts`) isn't resumed: the main

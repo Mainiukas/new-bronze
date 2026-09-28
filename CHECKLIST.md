@@ -165,7 +165,7 @@ The consent is stored server-side in `consents` (kind, granted, version, time) b
 
 Google sign-in shows the same notice before the account exists. The first sign-in stops at "Finish your account" (username, age question, the same Terms box, the marketing box for 18+). Nothing is created until **Create account**, and "Not now" deletes what Google shared.
 
-**Files**: `src/components/auth/Consents.tsx`, `src/components/auth/RegisterForm.tsx`, `src/components/auth/ChooseUsername.tsx`, `src/pages/AuthScreen.tsx`, `src/auth/*`, `SETUP.md` (SQL: `consents`, `record_signup`, `handle_new_user`, `finish_signup`).
+**Files**: `src/components/auth/Consents.tsx`, `src/components/auth/RegisterForm.tsx`, `src/components/auth/ChooseUsername.tsx`, `src/pages/AuthScreen.tsx`, `src/auth/*`, `supabase/migrations/001_accounts.sql` (`consents`, `record_signup`, `handle_new_user`, `finish_signup`).
 
 **Verify**: register, then run `select * from consents` in Supabase. Sign in with a new Google account and choose "Not now": the user disappears from Authentication → Users.
 
@@ -181,11 +181,11 @@ There are no testimonials, ratings or reviews anywhere, and no reviews section.
   - never-confirmed email sign-ups are deleted after 7 days;
   - failed log-in counters are deleted after a day.
 - Declined Google sign-ups are deleted at once.
-- The unsubscribe token and email choices sit in a private table, not in the public `profiles`.
+- The unsubscribe token and email choices sit in a private table (`account_settings`), and the private columns of `profiles` (news consent, Terms version) can't be read by other players.
 - Logs: the only `console` messages are for missing art files, a misconfigured account URL, a computer player that failed to move, and the dev-only board layout report. None contain personal data, and there's no error-reporting service.
 - **One open question** ⚠️: Google profile photos are stored as a public avatar URL.
 
-**Files**: `SETUP.md` SQL (`account_settings`, `login_attempts.last_failed_at`, `bronze_cleanup`), `src/pages/AuthScreen.tsx`.
+**Files**: `supabase/migrations/001_accounts.sql` (`account_settings`, `login_attempts.last_failed_at`, `bronze_cleanup`), `src/pages/AuthScreen.tsx`.
 
 **Verify**: run the SQL, then `select * from cron.job`.
 
@@ -331,7 +331,7 @@ Registration asks **"How old are you?"** with three neutral choices: Under 14, 1
 - **Real-money purchases** → none exist. The Terms require a parent's consent for under-18 purchases, and the flag is stored (`account_settings.is_adult`) for when a shop opens.
 - There are no ads at all, so none are targeted at minors.
 
-**Files**: `src/components/auth/Consents.tsx`, `RegisterForm.tsx`, `ChooseUsername.tsx`, `SETUP.md` SQL.
+**Files**: `src/components/auth/Consents.tsx`, `RegisterForm.tsx`, `ChooseUsername.tsx`, `supabase/migrations/001_accounts.sql`.
 
 ### 18. Unsubscribe ✅ (built, not yet used)
 No optional emails are sent yet. What's ready:
@@ -342,7 +342,7 @@ No optional emails are sent yet. What's ready:
 - Unsubscribing is logged in `consents`.
 - Transactional emails (confirmation, reset) need no unsubscribe link. SETUP.md tells you to keep them free of marketing.
 
-**Files**: `src/pages/legal/Unsubscribe.tsx`, `src/components/settings/AccountSettings.tsx`, `supabase/functions/unsubscribe/index.ts`, `SETUP.md` §7 and SQL (`set_email_preferences`, `unsubscribe`).
+**Files**: `src/pages/legal/Unsubscribe.tsx`, `src/components/settings/AccountSettings.tsx`, `supabase/functions/unsubscribe/index.ts`, `SETUP.md` §8 and `001_accounts.sql` (`set_email_preferences`, `unsubscribe`).
 
 ### 19. Licences ✅ (⚠️ two to confirm)
 **Fonts**, all SIL OFL 1.1:
@@ -375,7 +375,7 @@ The licence texts are in `public/licenses/` and shipped with the site.
 
 For people who can't log in, **`#/data-request`** explains the process and composes an email to `{{OPERATOR_EMAIL}}`. The 30-day (one-month) response time is in the Privacy Policy.
 
-**Files**: `src/components/settings/AccountSettings.tsx`, `src/components/SettingsModal.tsx`, `src/pages/legal/DataRequest.tsx`, `src/auth/*`, `SETUP.md` SQL (`export_my_data`, `delete_my_account`).
+**Files**: `src/components/settings/AccountSettings.tsx`, `src/components/SettingsModal.tsx`, `src/pages/legal/DataRequest.tsx`, `src/auth/*`, `001_accounts.sql` (`export_my_data`, `delete_my_account`).
 
 **Verify**: log in and download: the file opens as JSON. Delete: the user is gone from Supabase Authentication → Users and from `profiles`, `consents` and `account_settings`.
 

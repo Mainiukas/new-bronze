@@ -13,7 +13,7 @@ export function useLogOut() {
   const navigate = useNavigate()
   return async () => {
     try {
-      await auth.logOut()
+      await auth.signOut()
       navigate(PATHS.mainMenu)
       notify(t.auth.loggedOut)
     } catch (error) {

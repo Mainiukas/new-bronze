@@ -1,5 +1,5 @@
 import type { PlayerStats } from '../data/achievements'
-import { AuthError, type AuthBackend, type AuthUser, type EmailList, type EmailPreferences, type Profile, type SignupConsent } from './backend'
+import { AuthError, type AuthBackend, type AuthUser, type EmailList, type EmailPreferences, type GuestMerge, type MatchResult, type Profile, type SignupConsent } from './backend'
 import { authRedirectUrl } from './redirect'
 import { isEmail } from './validation'
 
@@ -17,7 +17,11 @@ export interface AuthState {
   status: AuthStatus
   user: AuthUser | null
   profile: Profile | null
+  /** Signed in from a password-reset link (PASSWORD_RECOVERY): the reset page may set a new password. */
+  passwordRecovery: boolean
 }
+
+const GUEST: AuthState = { status: 'guest', user: null, profile: null, passwordRecovery: false }
 
 const SETTLED: AuthStatus[] = ['signed-in', 'needs-username', 'error']
 
@@ -34,7 +38,7 @@ export interface AuthStoreOptions {
  * backend's user feed; actions resolve once the result shows in the state.
  */
 export function createAuthStore(backend: AuthBackend | null, { redirectUrl = authRedirectUrl, settleTimeoutMs = 15000 }: AuthStoreOptions = {}) {
-  let state: AuthState = { status: backend ? 'loading' : 'unconfigured', user: null, profile: null }
+  let state: AuthState = { status: backend ? 'loading' : 'unconfigured', user: null, profile: null, passwordRecovery: false }
   const listeners = new Set<() => void>()
   let loadId = 0
   let unsubscribe: (() => void) | null = null
@@ -50,18 +54,24 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
   }
 
   /** A user arrived (or left): look up their profile. */
-  async function load(user: AuthUser | null) {
+  async function load(user: AuthUser | null, recovery = false) {
     const id = ++loadId
-    if (!user) return set({ status: 'guest', user: null, profile: null })
+    if (!user) return set(GUEST)
+    const passwordRecovery = recovery || (state.passwordRecovery && state.user?.id === user.id)
     // Same person (a refreshed token, an updated password): keep what's loaded.
-    if (state.user?.id === user.id && state.profile) return set({ ...state, user })
-    set({ status: 'loading', user, profile: null })
+    if (state.user?.id === user.id && state.profile) return set({ ...state, user, passwordRecovery })
+    set({ status: 'loading', user, profile: null, passwordRecovery })
     try {
       const profile = await need().getProfile(user.id)
-      if (id === loadId) set({ status: profile ? 'signed-in' : 'needs-username', user, profile })
+      if (id === loadId) set({ status: profile ? 'signed-in' : 'needs-username', user, profile, passwordRecovery })
     } catch {
-      if (id === loadId) set({ status: 'error', user, profile: null })
+      if (id === loadId) set({ status: 'error', user, profile: null, passwordRecovery })
     }
+  }
+
+  /** A newer copy of the signed-in profile from the server (if it's still the same player). */
+  function takeProfile(profile: Profile | null) {
+    if (profile && state.profile?.id === profile.id) set({ ...state, profile })
   }
 
   /** Resolves when a sign-in has shown up in the state (profile loaded, or known to be missing). */
@@ -94,7 +104,7 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
 
     /** Follow the backend's signed-in user. Returns a stop function. */
     start() {
-      if (backend && !unsubscribe) unsubscribe = backend.onUserChange((user) => void load(user))
+      if (backend && !unsubscribe) unsubscribe = backend.onUserChange((user, recovery) => void load(user, recovery))
       return () => {
         unsubscribe?.()
         unsubscribe = null
@@ -104,7 +114,7 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
     retry: () => load(state.user),
 
     /** Create an account. With email confirmation on, nobody is signed in until the link is followed. */
-    async register({ username, email, password, consent }: { username: string; email: string; password: string; consent: SignupConsent }) {
+    async signUp({ username, email, password, consent }: { username: string; email: string; password: string; consent: SignupConsent }) {
       const service = need()
       if (!(await service.isUsernameAvailable(username))) throw new AuthError('username-taken')
       service.setRememberMe(true)
@@ -114,7 +124,7 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
     },
 
     /** Log in with a username or an email. Wrong details of either kind fail the same way. */
-    async logIn(identifier: string, password: string, remember: boolean) {
+    async signIn(identifier: string, password: string, remember: boolean) {
       const service = need()
       service.setRememberMe(remember)
       const name = identifier.trim()
@@ -125,7 +135,7 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
     },
 
     /** Leaves for Google; the return is handled by finishRedirect on /auth/callback. */
-    async logInWithGoogle(remember: boolean) {
+    async signInWithGoogle(remember: boolean) {
       const service = need()
       service.setRememberMe(remember)
       await service.signInWithGoogle(redirectUrl('/auth/callback'))
@@ -134,18 +144,25 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
     /** Finish a return from Google or an email link, given the page's query parameters. */
     async finishRedirect(params: URLSearchParams) {
       await need().completeRedirect(params)
-      return settled()
+      const result = await settled()
+      // A reset link opened as a token_hash link (another device) has no PASSWORD_RECOVERY event: the URL says so.
+      if (params.get('type') === 'recovery' && !state.passwordRecovery) set({ ...state, passwordRecovery: true })
+      return { ...result, passwordRecovery: state.passwordRecovery }
     },
 
-    async logOut() {
+    async signOut() {
       await need().signOut()
       loadId++
-      set({ status: 'guest', user: null, profile: null })
+      set(GUEST)
     },
 
-    sendPasswordReset: (email: string) => need().sendPasswordReset(email.trim(), redirectUrl('/auth/reset')),
+    /** Email a reset link (to #/auth/reset). Answers the same whether or not the address has an account. */
+    resetPassword: (email: string) => need().sendPasswordReset(email.trim(), redirectUrl('/auth/reset')),
 
-    setNewPassword: (password: string) => need().updatePassword(password),
+    async updatePassword(password: string) {
+      await need().updatePassword(password)
+      if (state.passwordRecovery) set({ ...state, passwordRecovery: false })
+    },
 
     /** Create the profile for a signed-in user who has none (first Google sign-in), with their age answer and consents. */
     async chooseUsername(username: string, consent: SignupConsent) {
@@ -153,7 +170,7 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
       if (!user) throw new AuthError('unknown', 'Not signed in.')
       const profile = await need().createProfile(user, username.trim(), consent)
       loadId++
-      set({ status: 'signed-in', user, profile })
+      set({ ...state, status: 'signed-in', user, profile })
       return profile
     },
 
@@ -161,7 +178,7 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
     async declineSignup() {
       await need().deleteAccount()
       loadId++
-      set({ status: 'guest', user: null, profile: null })
+      set(GUEST)
     },
 
     /** Delete the signed-in account and everything stored with it on the server, then log out here. */
@@ -169,7 +186,7 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
       if (!state.user) throw new AuthError('unknown', 'Not signed in.')
       await need().deleteAccount()
       loadId++
-      set({ status: 'guest', user: null, profile: null })
+      set(GUEST)
     },
 
     exportData: () => need().exportData(),
@@ -180,12 +197,24 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
 
     isUsernameAvailable: (username: string) => need().isUsernameAvailable(username.trim()),
 
-    /** The signed-in player's stats: shown at once, then saved to their profile (rejects if saving fails). */
-    async saveStats(stats: PlayerStats) {
+    /**
+     * A finished match for the signed-in player: `shown` (their stats with it
+     * added) is shown at once; the server adds it to their record, once per
+     * result id, and its answer replaces what's shown. Rejects if saving fails.
+     */
+    async recordMatchResult(result: MatchResult, shown?: PlayerStats) {
       const { profile } = state
       if (!profile) throw new AuthError('unknown', 'Not signed in.')
-      set({ ...state, profile: { ...profile, stats } })
-      await need().saveStats(profile.id, stats)
+      if (shown) set({ ...state, profile: { ...profile, stats: shown } })
+      takeProfile(await need().recordMatchResult(result))
+    },
+
+    /** Move a guest record into the signed-in account (once per merge id). */
+    async mergeGuestStats(merge: GuestMerge, shown?: PlayerStats) {
+      const { profile } = state
+      if (!profile) throw new AuthError('unknown', 'Not signed in.')
+      if (shown) set({ ...state, profile: { ...profile, stats: shown } })
+      takeProfile(await need().mergeGuestStats(merge))
     },
   }
 }

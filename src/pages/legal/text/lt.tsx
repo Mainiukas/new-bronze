@@ -72,7 +72,7 @@ const inventory: InventoryText = {
     'bronze.stats.pending.<id>': {
       where: 'Vietinė saugykla',
       provider: 'Bronze',
-      purpose: 'Jūsų paskyros rezultatų kopija, kol serveris patvirtins jų išsaugojimą, kad dingus ryšiui niekas neprarastų.',
+      purpose: 'Jūsų paskyros baigtos partijos (ir svečio rezultatai), kol serveris patvirtins kiekvienos išsaugojimą, kad dingus ryšiui niekas neprarastų.',
       duration: 'Pašalinama išsaugojus',
     },
     'bronze.boardDraft': {
@@ -152,8 +152,8 @@ const inventory: InventoryText = {
       retention: UNTIL_DELETED,
     },
     {
-      what: 'Žaidimo rezultatai: partijos, pergalės, geriausias rezultatas, išgabentos prekės, žaisti žemėlapiai, pasiekimai ir jų atrakinimo laikas, prisijungimo data',
-      why: 'Jūsų profilis ir pasiekimai. Kiti žaidėjai mato jūsų rezultatus.',
+      what: 'Žaidimo rezultatai: partijos, pergalės, geriausias rezultatas, išgabentos prekės, žaisti žemėlapiai, pasiekimai ir jų atrakinimo laikas, prisijungimo data; atsitiktinis kiekvieno išsaugoto rezultato ID',
+      why: 'Jūsų profilis ir pasiekimai. Kiti prisijungę žaidėjai mato jūsų rezultatus. ID užtikrina, kad du kartus išsiųstas rezultatas būtų įskaitytas vieną kartą.',
       basis: CONTRACT,
       retention: UNTIL_DELETED,
     },

@@ -1,70 +1,26 @@
-import { createClient, isAuthError, type EmailOtpType, type SupabaseClient, type User } from '@supabase/supabase-js'
-import { parseStats, type PlayerStats } from '../data/achievements'
+import { isAuthError, type EmailOtpType, type User } from '@supabase/supabase-js'
+import { parseStats } from '../data/achievements'
 import { TERMS_VERSION } from '../legal/operator'
+import { createSupabaseClient, SESSION_STORAGE_KEY, type BronzeSupabase, type ProfileRow, type SettingsRow } from '../lib/supabase'
 import { AuthError, type AuthBackend, type AuthErrorCode, type AuthUser, type EmailPreferences, type Profile } from './backend'
 
 /**
  * Accounts on Supabase Auth, with player profiles in the `profiles` table
- * (see SETUP.md). Configured by VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY;
- * without them this returns null and the app plays as a guest.
+ * (supabase/migrations/001_accounts.sql, SETUP.md). Wins, matches and the
+ * best score are changed only by the server (record_match_result,
+ * merge_guest_stats); the browser never writes them.
  */
 
-/** Where supabase-js keeps the session (localStorage). */
-const STORAGE_KEY = 'bronze.auth'
 const REMEMBER_KEY = 'bronze.auth.remember'
 /** A cookie with no expiry: the browser drops it on closing, which is how "Remember me" off ends the session. */
 const ALIVE_COOKIE = 'bronze_session_alive'
 
-const PROFILE_COLUMNS = 'id, username, avatar_url, created_at, wins, matches, best_score, goods_shipped, maps_played, achievements'
-
-// Types (not interfaces): supabase-js needs rows assignable to Record<string, unknown>.
-type ProfileRow = {
-  id: string
-  username: string
-  avatar_url: string | null
-  created_at: string
-  wins: number
-  matches: number
-  best_score: number
-  goods_shipped: number
-  maps_played: string[] | null
-  achievements: Record<string, string> | null
-}
-
-/** A player's private settings (the account_settings table, read through functions only). */
-type SettingsRow = { is_adult: boolean; email_marketing: boolean; email_friends: boolean; email_tournaments: boolean }
+/** The columns other signed-in players may read (the private ones have no grant). */
+const PROFILE_COLUMNS = 'id, username, avatar, wins, matches, best_score, goods_shipped, maps_played, achievements, created_at, needs_username'
 
 const toPreferences = (rows: SettingsRow[] | null): EmailPreferences => {
   const row = rows?.[0]
   return { adult: !!row?.is_adult, marketing: !!row?.email_marketing, friends: !!row?.email_friends, tournaments: !!row?.email_tournaments }
-}
-
-/** The parts of the database schema (SETUP.md) the app uses. */
-type Database = {
-  public: {
-    Tables: {
-      profiles: {
-        Row: ProfileRow
-        Insert: Pick<ProfileRow, 'id' | 'username'> & Partial<Omit<ProfileRow, 'id' | 'username'>>
-        Update: Partial<Omit<ProfileRow, 'id' | 'created_at'>>
-        Relationships: []
-      }
-    }
-    Views: Record<never, never>
-    Functions: {
-      login_email: { Args: { identifier: string; password: string }; Returns: string | null }
-      username_available: { Args: { name: string }; Returns: boolean }
-      finish_signup: { Args: { p_username: string; p_age_band: string; p_marketing: boolean; p_terms_version: string }; Returns: ProfileRow[] }
-      delete_my_account: { Args: Record<string, never>; Returns: undefined }
-      export_my_data: { Args: Record<string, never>; Returns: Record<string, unknown> }
-      email_preferences: { Args: Record<string, never>; Returns: SettingsRow[] }
-      set_email_preferences: { Args: { p_marketing: boolean; p_friends: boolean; p_tournaments: boolean; p_version: string }; Returns: SettingsRow[] }
-      confirm_adult: { Args: Record<string, never>; Returns: SettingsRow[] }
-      unsubscribe: { Args: { p_token: string; p_list: string }; Returns: boolean }
-    }
-    Enums: Record<never, never>
-    CompositeTypes: Record<never, never>
-  }
 }
 
 function safely<T>(run: () => T): T | undefined {
@@ -80,8 +36,8 @@ function expireForgottenSession() {
   const remember = safely(() => localStorage.getItem(REMEMBER_KEY)) !== '0'
   const alive = safely(() => document.cookie.split('; ').includes(`${ALIVE_COOKIE}=1`))
   if (!remember && !alive) {
-    safely(() => localStorage.removeItem(STORAGE_KEY))
-    safely(() => localStorage.removeItem(`${STORAGE_KEY}-user`))
+    safely(() => localStorage.removeItem(SESSION_STORAGE_KEY))
+    safely(() => localStorage.removeItem(`${SESSION_STORAGE_KEY}-user`))
   }
   markBrowserSession()
 }
@@ -101,29 +57,24 @@ const toAuthUser = (user: User): AuthUser => {
   }
 }
 
-const toProfile = (row: ProfileRow): Profile => ({
-  id: row.id,
-  username: row.username,
-  avatarUrl: row.avatar_url,
-  createdAt: row.created_at,
-  stats: parseStats({
-    matches: row.matches,
-    wins: row.wins,
-    bestScore: row.best_score,
-    goodsShipped: row.goods_shipped,
-    mapsPlayed: row.maps_played ?? [],
-    unlocked: row.achievements ?? {},
-  })!,
-})
-
-const toRow = (stats: PlayerStats) => ({
-  wins: stats.wins,
-  matches: stats.matches,
-  best_score: stats.bestScore,
-  goods_shipped: stats.goodsShipped,
-  maps_played: stats.mapsPlayed,
-  achievements: stats.unlocked,
-})
+/** A profile row as the app's Profile. Null while the player has no chosen username yet. */
+const toProfile = (row: ProfileRow | null | undefined): Profile | null =>
+  !row || row.needs_username
+    ? null
+    : {
+        id: row.id,
+        username: row.username,
+        avatarUrl: row.avatar,
+        createdAt: row.created_at,
+        stats: parseStats({
+          matches: row.matches,
+          wins: row.wins,
+          bestScore: row.best_score,
+          goodsShipped: row.goods_shipped,
+          mapsPlayed: row.maps_played ?? [],
+          unlocked: row.achievements ?? {},
+        })!,
+      }
 
 const CODES: Record<string, AuthErrorCode> = {
   invalid_credentials: 'invalid-credentials',
@@ -157,48 +108,34 @@ function toAuthError(error: unknown): AuthError {
   return new AuthError('unknown', message)
 }
 
-export function createSupabaseBackend(): AuthBackend | null {
-  const url = (import.meta.env.VITE_SUPABASE_URL ?? '').trim()
-  const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim()
-  if (!url || !anonKey) return null
+/** Connect to the configured project. Null when accounts aren't configured. */
+export async function loadSupabaseBackend(): Promise<AuthBackend | null> {
+  expireForgottenSession()
+  const client = await createSupabaseClient()
+  return client ? createSupabaseBackend(client) : null
+}
 
-  let client: SupabaseClient<Database>
-  try {
-    expireForgottenSession()
-    client = createClient<Database>(url, anonKey, {
-      auth: {
-        // Codes (not tokens) come back in the URL, which keeps the hash routes intact.
-        flowType: 'pkce',
-        storageKey: STORAGE_KEY,
-        persistSession: true,
-        autoRefreshToken: true,
-        // /auth/callback and /auth/reset finish redirects themselves.
-        detectSessionInUrl: false,
-      },
-    })
-  } catch (error) {
-    console.error('Bronze accounts are misconfigured (check VITE_SUPABASE_URL):', error)
-    return null
-  }
+/** The account backend on a Supabase client (a real one, or a stand-in in tests). */
+export function createSupabaseBackend(client: BronzeSupabase): AuthBackend {
   const auth = client.auth
 
   const getProfile = async (userId: string): Promise<Profile | null> => {
     const { data, error } = await client.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).maybeSingle()
     if (error) throw toAuthError(error)
-    return data ? toProfile(data as ProfileRow) : null
+    return toProfile(data as ProfileRow | null)
   }
 
   return {
     onUserChange(callback) {
-      const { data } = auth.onAuthStateChange((_event, session) => {
+      const { data } = auth.onAuthStateChange((event, session) => {
         // Supabase asks that other auth calls not run inside this callback: hand off first.
-        window.setTimeout(() => callback(session ? toAuthUser(session.user) : null), 0)
+        setTimeout(() => callback(session ? toAuthUser(session.user) : null, event === 'PASSWORD_RECOVERY'), 0)
       })
       return () => data.subscription.unsubscribe()
     },
 
     async signUp({ email, password, username, consent, redirectTo }) {
-      // The new-user trigger (SETUP.md) makes the profile and records the age answer and consents, with the server's time.
+      // The new-user trigger (001_accounts.sql) makes the profile and records the age answer and consents, with the server's time.
       const metadata = { username, age_band: consent.ageBand, terms_version: consent.termsVersion, marketing: consent.marketing && consent.ageBand === '18+' }
       const { data, error } = await auth.signUp({ email, password, options: { data: metadata, emailRedirectTo: redirectTo } })
       if (error) throw toAuthError(error)
@@ -214,7 +151,7 @@ export function createSupabaseBackend(): AuthBackend | null {
     },
 
     async emailForLogin(username, password) {
-      const { data, error } = await client.rpc('login_email', { identifier: username, password })
+      const { data, error } = await client.rpc('email_for_username', { name: username, password })
       if (error) throw toAuthError(error)
       return typeof data === 'string' && data ? data : null
     },
@@ -272,18 +209,10 @@ export function createSupabaseBackend(): AuthBackend | null {
         p_marketing: consent.marketing && consent.ageBand === '18+',
         p_terms_version: consent.termsVersion,
       })
-      if (error) {
-        if (error.code === '23505') {
-          // Already has a profile (made at sign-up): use it. Otherwise the username is taken.
-          const existing = /profiles_pkey/.test(error.message) ? await getProfile(user.id) : null
-          if (existing) return existing
-          throw new AuthError('username-taken', error.message)
-        }
-        throw toAuthError(error)
-      }
-      const row = (data as ProfileRow[] | null)?.[0]
-      if (!row) throw new AuthError('unknown', 'The profile was not created.')
-      return toProfile(row)
+      if (error) throw error.code === '23505' ? new AuthError('username-taken', error.message) : toAuthError(error)
+      const profile = toProfile((data as ProfileRow[] | null)?.[0])
+      if (!profile) throw new AuthError('unknown', `No profile for ${user.id} after choosing a username.`)
+      return profile
     },
 
     async deleteAccount() {
@@ -323,13 +252,35 @@ export function createSupabaseBackend(): AuthBackend | null {
       return data === true
     },
 
-    async saveStats(userId, stats) {
-      const { error } = await client.from('profiles').update(toRow(stats)).eq('id', userId)
+    async recordMatchResult({ id, score, won, goodsShipped, mapId, achievements }) {
+      const { data, error } = await client.rpc('record_match_result', {
+        score,
+        won,
+        p_match_id: id,
+        p_goods_shipped: goodsShipped,
+        p_map_id: mapId,
+        p_achievements: achievements,
+      })
       if (error) throw toAuthError(error)
+      return toProfile((data as ProfileRow[] | null)?.[0])
+    },
+
+    async mergeGuestStats({ id, stats }) {
+      const { data, error } = await client.rpc('merge_guest_stats', {
+        p_merge_id: id,
+        p_matches: stats.matches,
+        p_wins: stats.wins,
+        p_best_score: stats.bestScore,
+        p_goods_shipped: stats.goodsShipped,
+        p_maps_played: stats.mapsPlayed,
+        p_achievements: stats.unlocked,
+      })
+      if (error) throw toAuthError(error)
+      return toProfile((data as ProfileRow[] | null)?.[0])
     },
 
     async isUsernameAvailable(username) {
-      const { data, error } = await client.rpc('username_available', { name: username })
+      const { data, error } = await client.rpc('is_username_available', { name: username })
       if (error) throw toAuthError(error)
       return data === true
     },

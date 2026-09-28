@@ -95,7 +95,7 @@ export function LoginForm({ disabled, onGoogle, onForgot, onLoggedIn, footer, au
     setBusy(true)
     setError(null)
     try {
-      const state = await auth.logIn(identifier, password, remember)
+      const state = await auth.signIn(identifier, password, remember)
       const cleared = { count: 0, until: 0 }
       writeFailures(cleared)
       setFailures(cleared)

@@ -59,7 +59,7 @@ export function ForgotPasswordView({ disabled, onBack }: { disabled: boolean; on
     setBusy(true)
     setError(null)
     try {
-      await auth.sendPasswordReset(email)
+      await auth.resetPassword(email)
       setSent(true)
       setResendAt(Date.now() + RESEND_SECONDS * 1000)
       setNow(Date.now())
@@ -121,9 +121,9 @@ export function ResetPasswordView({ disabled, onBack, onDone }: { disabled: bool
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const { finishRedirect, status } = auth
+  const { finishRedirect, status, passwordRecovery } = auth
 
-  // Exchange the link's code for a session, then tidy the address bar.
+  // Exchange the link's code for a session (Supabase then reports PASSWORD_RECOVERY), then tidy the address bar.
   useEffect(() => {
     const params = authParams()
     if (!hasAuthResult(params)) return
@@ -145,7 +145,8 @@ export function ResetPasswordView({ disabled, onBack, onDone }: { disabled: bool
     }
   }, [finishRedirect, t.authErrors])
 
-  const signedIn = status === 'signed-in' || status === 'needs-username' || status === 'error'
+  // The form shows for a session from a reset link (PASSWORD_RECOVERY), or for a player who is already signed in.
+  const signedIn = passwordRecovery || status === 'signed-in' || status === 'needs-username' || status === 'error'
   const view = phase === 'ready' && !signedIn && status !== 'loading' && status !== 'unconfigured' ? 'invalid' : phase
 
   useEffect(() => {
@@ -168,7 +169,7 @@ export function ResetPasswordView({ disabled, onBack, onDone }: { disabled: bool
     setBusy(true)
     setError(null)
     try {
-      await auth.setNewPassword(password)
+      await auth.updatePassword(password)
       onDone()
     } catch (failure) {
       setError(authErrorMessage(failure, t.authErrors))

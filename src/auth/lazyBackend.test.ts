@@ -10,7 +10,7 @@ function recorder(log: string[]): AuthBackend {
   return {
     onUserChange: (callback) => {
       log.push('onUserChange')
-      callback(null)
+      callback(null, false)
       return () => log.push('unsubscribed')
     },
     signUp: async () => {
@@ -34,7 +34,8 @@ function recorder(log: string[]): AuthBackend {
     setEmailPreferences: async () => ({ adult: false, marketing: false, friends: false, tournaments: false }),
     confirmAdult: async () => ({ adult: true, marketing: false, friends: false, tournaments: false }),
     unsubscribe: async () => true,
-    saveStats: call('saveStats'),
+    recordMatchResult: async () => null,
+    mergeGuestStats: async () => null,
     isUsernameAvailable: async () => true,
     setRememberMe: (remember) => void log.push(`remember:${remember}`),
   }

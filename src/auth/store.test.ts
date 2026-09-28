@@ -1,19 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_STATS } from '../data/achievements'
+import { EMPTY_STATS, type PlayerStats } from '../data/achievements'
 import { AuthError, type AuthBackend, type AuthUser, type Profile, type SignupConsent } from './backend'
 import { createAuthStore } from './store'
 
 /** An in-memory account service for the store's tests. */
 function stubBackend({ signedInAs = null as AuthUser | null, profiles = [] as Profile[], password = 'Sprocket-42' } = {}) {
   let user = signedInAs
-  const listeners = new Set<(user: AuthUser | null) => void>()
-  const emit = () => setTimeout(() => listeners.forEach((listener) => listener(user)), 0)
+  const listeners = new Set<(user: AuthUser | null, recovery: boolean) => void>()
+  let recovery = false
+  const emit = () => setTimeout(() => listeners.forEach((listener) => listener(user, recovery)), 0)
+  const counted = new Set<string>()
   const accounts: Record<string, AuthUser> = { 'ada@example.com': { id: 'u1', email: 'ada@example.com', displayName: 'Ada Lovelace', avatarUrl: null } }
   const calls: string[] = []
   const backend: AuthBackend = {
     onUserChange(listener) {
       listeners.add(listener)
-      setTimeout(() => listener(user), 0)
+      setTimeout(() => listener(user, false), 0)
       return () => listeners.delete(listener)
     },
     async signUp({ email, username, consent }) {
@@ -30,8 +32,14 @@ function stubBackend({ signedInAs = null as AuthUser | null, profiles = [] as Pr
       return profile && pw === password ? (Object.keys(accounts).find((e) => accounts[e].id === profile.id) ?? null) : null
     },
     async signInWithGoogle() {},
-    async completeRedirect() {
-      user = { id: 'g1', email: 'g@example.com', displayName: 'Grace Hopper', avatarUrl: 'https://example.com/g.png' }
+    async completeRedirect(params) {
+      if (params.get('type') === 'reset') {
+        // A password-reset link: Ada, with Supabase's PASSWORD_RECOVERY event.
+        user = accounts['ada@example.com']
+        recovery = true
+      } else {
+        user = { id: 'g1', email: 'g@example.com', displayName: 'Grace Hopper', avatarUrl: 'https://example.com/g.png' }
+      }
       emit()
     },
     async signOut() {
@@ -72,9 +80,23 @@ function stubBackend({ signedInAs = null as AuthUser | null, profiles = [] as Pr
       calls.push(`unsubscribe:${token}:${list}`)
       return true
     },
-    async saveStats(id, stats) {
-      const profile = profiles.find((p) => p.id === id)
-      if (profile) profile.stats = stats
+    async recordMatchResult({ id, score, won }) {
+      calls.push(`match:${id}`)
+      const profile = profiles.find((p) => p.id === user?.id)!
+      if (!counted.has(id)) {
+        counted.add(id)
+        const s: PlayerStats = profile.stats
+        profile.stats = { ...s, matches: s.matches + 1, wins: s.wins + (won ? 1 : 0), bestScore: Math.max(s.bestScore, score) }
+      }
+      return { ...profile }
+    },
+    async mergeGuestStats({ id, stats }) {
+      const profile = profiles.find((p) => p.id === user?.id)!
+      if (!counted.has(id)) {
+        counted.add(id)
+        profile.stats = { ...profile.stats, matches: profile.stats.matches + stats.matches, wins: profile.stats.wins + stats.wins }
+      }
+      return { ...profile }
     },
     async isUsernameAvailable(name) {
       return !profiles.some((p) => p.username.toLowerCase() === name.toLowerCase())
@@ -97,7 +119,7 @@ describe('auth store', () => {
     const store = createAuthStore(null)
     store.start()
     expect(store.getState().status).toBe('unconfigured')
-    await expect(store.logIn('ada@example.com', 'Sprocket-42', true)).rejects.toThrow(/configured/)
+    await expect(store.signIn('ada@example.com', 'Sprocket-42', true)).rejects.toThrow(/configured/)
   })
 
   it('starts as a guest when nobody is signed in', async () => {
@@ -105,7 +127,7 @@ describe('auth store', () => {
     expect(store.getState().status).toBe('loading')
     store.start()
     await settle()
-    expect(store.getState()).toEqual({ status: 'guest', user: null, profile: null })
+    expect(store.getState()).toEqual({ status: 'guest', user: null, profile: null, passwordRecovery: false })
   })
 
   it('restores a signed-in session with its profile', async () => {
@@ -122,26 +144,26 @@ describe('auth store', () => {
     store.start()
     await settle()
 
-    const state = await store.logIn('ada', 'Sprocket-42', false)
+    const state = await store.signIn('ada', 'Sprocket-42', false)
     expect(state.status).toBe('signed-in')
     expect(state.profile?.stats.wins).toBe(2)
     expect(calls).toContain('remember:false')
 
-    await store.logOut()
+    await store.signOut()
     expect(store.getState().status).toBe('guest')
     await settle()
     expect(store.getState().status).toBe('guest')
 
-    expect((await store.logIn('ada@example.com', 'Sprocket-42', true)).status).toBe('signed-in')
+    expect((await store.signIn('ada@example.com', 'Sprocket-42', true)).status).toBe('signed-in')
   })
 
   it('fails wrong usernames and wrong passwords the same way', async () => {
     const store = createAuthStore(stubBackend({ profiles: [ada] }).backend, options)
     store.start()
     await settle()
-    await expect(store.logIn('nobody', 'Sprocket-42', true)).rejects.toMatchObject({ code: 'invalid-credentials' })
-    await expect(store.logIn('ada', 'wrong-password', true)).rejects.toMatchObject({ code: 'invalid-credentials' })
-    await expect(store.logIn('ada@example.com', 'wrong-password', true)).rejects.toMatchObject({ code: 'invalid-credentials' })
+    await expect(store.signIn('nobody', 'Sprocket-42', true)).rejects.toMatchObject({ code: 'invalid-credentials' })
+    await expect(store.signIn('ada', 'wrong-password', true)).rejects.toMatchObject({ code: 'invalid-credentials' })
+    await expect(store.signIn('ada@example.com', 'wrong-password', true)).rejects.toMatchObject({ code: 'invalid-credentials' })
     expect(store.getState().status).toBe('guest')
   })
 
@@ -162,19 +184,45 @@ describe('auth store', () => {
   it('refuses a taken username at registration', async () => {
     const { backend, calls } = stubBackend({ profiles: [ada] })
     const store = createAuthStore(backend, options)
-    await expect(store.register({ username: 'ADA', email: 'x@example.com', password: 'Sprocket-42', consent: adult })).rejects.toMatchObject({ code: 'username-taken' })
-    expect(await store.register({ username: 'Brunel', email: 'ib@example.com', password: 'Sprocket-42', consent: adult })).toEqual({ needsConfirmation: true })
+    await expect(store.signUp({ username: 'ADA', email: 'x@example.com', password: 'Sprocket-42', consent: adult })).rejects.toMatchObject({ code: 'username-taken' })
+    expect(await store.signUp({ username: 'Brunel', email: 'ib@example.com', password: 'Sprocket-42', consent: adult })).toEqual({ needsConfirmation: true })
     expect(calls).toContain('signUp:ib@example.com:Brunel:18+:false')
   })
 
-  it('saves stats to the signed-in profile', async () => {
+  it('adds a finished match on the server, once per result id, showing it at once', async () => {
     const profiles = [{ ...ada }]
     const store = createAuthStore(stubBackend({ signedInAs: adaUser, profiles }).backend, options)
     store.start()
     await settle()
-    await store.saveStats({ ...ada.stats, wins: 3, matches: 6 })
-    expect(profiles[0].stats.wins).toBe(3)
+    const result = { id: 'r1', score: 40, won: true, goodsShipped: 3, mapId: 'black-country', achievements: [] }
+    const sent = store.recordMatchResult(result, { ...ada.stats, wins: 3, matches: 6 })
     expect(store.getState().profile?.stats.matches).toBe(6)
+    await sent
+    expect(profiles[0].stats).toMatchObject({ wins: 3, matches: 6, bestScore: 40 })
+    // A retry of the same result changes nothing.
+    await store.recordMatchResult(result)
+    expect(store.getState().profile?.stats).toMatchObject({ wins: 3, matches: 6 })
+  })
+
+  it('moves a guest record into the account once', async () => {
+    const profiles = [{ ...ada }]
+    const store = createAuthStore(stubBackend({ signedInAs: adaUser, profiles }).backend, options)
+    store.start()
+    await settle()
+    const merge = { id: 'm1', stats: { ...EMPTY_STATS, matches: 4, wins: 1 } }
+    await store.mergeGuestStats(merge)
+    await store.mergeGuestStats(merge)
+    expect(store.getState().profile?.stats).toMatchObject({ matches: 9, wins: 3 })
+  })
+
+  it('lets a password-reset link set a new password (PASSWORD_RECOVERY)', async () => {
+    const store = createAuthStore(stubBackend({ profiles: [ada] }).backend, options)
+    store.start()
+    await settle()
+    const state = await store.finishRedirect(new URLSearchParams('code=abc&type=reset'))
+    expect(state).toMatchObject({ status: 'signed-in', passwordRecovery: true })
+    await store.updatePassword('New-Sprocket-43')
+    expect(store.getState().passwordRecovery).toBe(false)
   })
 
   it('deletes a first-time Google sign-in that is turned down, leaving a guest', async () => {
@@ -186,7 +234,7 @@ describe('auth store', () => {
     expect(store.getState().status).toBe('needs-username')
     await store.declineSignup()
     expect(calls).toContain('delete:g1')
-    expect(store.getState()).toEqual({ status: 'guest', user: null, profile: null })
+    expect(store.getState()).toEqual({ status: 'guest', user: null, profile: null, passwordRecovery: false })
   })
 
   it('deletes the signed-in account and its profile', async () => {

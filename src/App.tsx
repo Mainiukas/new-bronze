@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { HashRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { AuthProvider } from './auth/AuthProvider'
+import { supabaseConfigured } from './lib/supabase'
 import { createLazyBackend } from './auth/lazyBackend'
 import { CookieBanner } from './components/legal/CookieBanner'
 import { SiteFooter } from './components/legal/SiteFooter'
@@ -59,15 +60,14 @@ const Unsubscribe = lazy(() => import('./pages/legal/Unsubscribe').then((module)
 type Overlay = MenuAction
 
 /**
- * Accounts: Supabase when VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (SETUP.md), else guests only.
+ * Accounts: Supabase when VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (src/lib/supabase.ts, SETUP.md), else guests only.
  * Its code loads once the first page is on screen (the account area shows "checking" until then).
  */
-const accountsConfigured = !!(import.meta.env.VITE_SUPABASE_URL ?? '').trim() && !!(import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim()
-const accountBackend = accountsConfigured
+const accountBackend = supabaseConfigured
   ? createLazyBackend(() =>
       whenFirstPaint()
         .then(() => import('./auth/supabaseBackend'))
-        .then((module) => module.createSupabaseBackend()),
+        .then((module) => module.loadSupabaseBackend()),
     )
   : null
 

@@ -85,7 +85,7 @@ export function RegisterForm({ disabled, onGoogle, onRegistered, footer, autoFoc
     setBusy(true)
     setServerError(null)
     try {
-      const result = await auth.register({ username: name, email: values.email, password: values.password, consent: signupConsent(age, marketing) })
+      const result = await auth.signUp({ username: name, email: values.email, password: values.password, consent: signupConsent(age, marketing) })
       onRegistered({ ...result, username: name, email: values.email.trim() })
     } catch (error) {
       if (error instanceof AuthError && error.code === 'username-taken') {

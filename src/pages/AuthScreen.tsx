@@ -75,7 +75,7 @@ export function AuthScreen() {
   const startGoogle = async (remember: boolean) => {
     const from = state.background
     rememberReturnTo(from ? `${from.pathname}${from.search}` : PATHS.mainMenu)
-    await auth.logInWithGoogle(remember)
+    await auth.signInWithGoogle(remember)
   }
 
   /** A first Google sign-in turned down: the unfinished account is deleted (nothing is kept), then back to the lobby. */
@@ -85,7 +85,7 @@ export function AuthScreen() {
       notify(a.signupCancelled)
     } catch {
       // Couldn't reach the server: at least log out here. The unfinished sign-up is deleted automatically within 7 days.
-      await auth.logOut().catch(() => undefined)
+      await auth.signOut().catch(() => undefined)
       notify(a.signupLoggedOut)
     }
     navigate(PATHS.mainMenu, { replace: true })

@@ -91,11 +91,15 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
 ]
 
-/** Fold a finished match into the stats. Returns the new stats and what was unlocked. */
-export function recordMatch(stats: PlayerStats, game: GameState): { stats: PlayerStats; unlocked: Achievement[] } {
+/**
+ * Fold a finished match into the stats. Returns the new stats, what was
+ * unlocked, and the match as the local player saw it (null if they had no
+ * part in it, e.g. the match didn't finish).
+ */
+export function recordMatch(stats: PlayerStats, game: GameState): { stats: PlayerStats; unlocked: Achievement[]; match: MatchSummary | null } {
   const you = game.players[0]
   const score = game.scores?.find((s) => s.player === 0)
-  if (!score || you.isAI) return { stats, unlocked: [] }
+  if (!score || you.isAI) return { stats, unlocked: [], match: null }
 
   const match: MatchSummary = {
     won: score.rank === 1,
@@ -117,7 +121,7 @@ export function recordMatch(stats: PlayerStats, game: GameState): { stats: Playe
   const unlocked = ACHIEVEMENTS.filter((a) => !next.unlocked[a.id] && a.earned(match, next))
   const today = new Date().toISOString()
   for (const achievement of unlocked) next.unlocked[achievement.id] = today
-  return { stats: next, unlocked }
+  return { stats: next, unlocked, match }
 }
 
 /** Anything worth keeping: a finished match or an unlocked achievement. */

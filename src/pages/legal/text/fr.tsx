@@ -77,7 +77,7 @@ const inventory: InventoryText = {
     'bronze.stats.pending.<id>': {
       where: LOCAL,
       provider: 'Bronze',
-      purpose: 'Une copie des statistiques de votre compte jusqu’à ce que le serveur confirme leur enregistrement, pour ne rien perdre en cas de coupure.',
+      purpose: 'Les parties terminées de votre compte (et vos statistiques d’invité) jusqu’à ce que le serveur confirme l’enregistrement de chacune, pour ne rien perdre en cas de coupure.',
       duration: 'Supprimé une fois enregistré',
     },
     'bronze.boardDraft': {
@@ -170,8 +170,8 @@ const inventory: InventoryText = {
       retention: UNTIL_DELETED,
     },
     {
-      what: 'Statistiques de jeu : parties, victoires, meilleur score, marchandises livrées, cartes jouées, succès et date de déblocage, date d’inscription',
-      why: 'Votre profil et vos succès. Les autres joueurs voient vos statistiques.',
+      what: 'Statistiques de jeu : parties, victoires, meilleur score, marchandises livrées, cartes jouées, succès et date de déblocage, date d’inscription ; un identifiant aléatoire pour chaque résultat enregistré',
+      why: 'Votre profil et vos succès. Les autres joueurs connectés voient vos statistiques. Les identifiants garantissent qu’un résultat envoyé deux fois ne compte qu’une fois.',
       basis: CONTRACT,
       retention: UNTIL_DELETED,
     },

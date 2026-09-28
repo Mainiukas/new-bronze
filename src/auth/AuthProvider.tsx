@@ -11,7 +11,7 @@ export function AuthProvider({ backend, children }: { backend: AuthBackend | nul
 
   const value = useMemo<AuthContextValue>(() => {
     const { getState: _getState, subscribe: _subscribe, start: _start, ...actions } = store
-    return { ...state, ...actions, configured: state.status !== 'unconfigured', signedIn: state.status === 'signed-in' }
+    return { ...state, ...actions, configured: state.status !== 'unconfigured', signedIn: state.status === 'signed-in', loading: state.status === 'loading' }
   }, [state, store])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

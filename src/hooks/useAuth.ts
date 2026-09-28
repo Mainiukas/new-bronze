@@ -8,6 +8,8 @@ export type AuthContextValue = AuthState &
     configured: boolean
     /** Signed in with a profile. */
     signedIn: boolean
+    /** Finding out who's signed in, or loading their profile. */
+    loading: boolean
   }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

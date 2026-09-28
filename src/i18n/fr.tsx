@@ -6,6 +6,7 @@ import type { GoodsKind, IndustryKind, LogEntry, RouteKind } from '../game/types
 import { renderWith } from './game/en'
 import game from './game/fr'
 import { pluralizer } from './languages'
+import accountWords from './account/fr'
 import type { Messages } from './messages'
 
 /* Tous les mots de l’écran en français (traduits de en.tsx). */
@@ -645,6 +646,16 @@ const fr: Messages = {
     'link-invalid': 'Ce lien est invalide ou a expiré.',
     cancelled: 'La connexion a été annulée. Réessayez, ou utilisez votre pseudo ou votre e-mail.',
     network: 'Le serveur des comptes est injoignable. Vérifiez votre connexion et réessayez.',
+    'wrong-password': 'Votre mot de passe actuel est incorrect.',
+    'too-soon': 'Vous pouvez changer de pseudo une fois tous les 30 jours.',
+    'same-username': 'C’est déjà votre pseudo.',
+    'reauth-needed': 'Pour votre sécurité, reconnectez-vous, puis réessayez.',
+    'mfa-required': 'Saisissez d’abord votre code de double authentification.',
+    'invalid-code': 'Ce code est erroné ou a expiré. Vérifiez-le et réessayez.',
+    unavailable: 'Ce n’est pas encore disponible.',
+    'last-identity': 'Vous ne pouvez pas supprimer votre seul moyen de connexion. Définissez d’abord un mot de passe ou liez un autre compte.',
+    'identity-taken': 'Ce compte est déjà lié à un autre joueur de Bronze.',
+    'invalid-input': 'Vérifiez votre saisie et réessayez.',
     unknown: 'Une erreur s’est produite. Veuillez réessayer.',
   },
   validation: {
@@ -657,6 +668,9 @@ const fr: Messages = {
     choosePassword: 'Choisissez un mot de passe.',
     typeAgain: 'Saisissez à nouveau le mot de passe.',
     noMatch: 'Les mots de passe ne correspondent pas.',
+    sameUsername: 'C’est déjà votre pseudo.',
+    enterCurrentPassword: 'Saisissez votre mot de passe actuel.',
+    sameAsCurrent: 'Choisissez un mot de passe différent de l’actuel.',
   },
   consents: {
     howOld: 'Quel âge avez-vous ?',
@@ -779,6 +793,7 @@ const fr: Messages = {
     table: (caption: string) => `${caption} (tableau)`,
     freeToPlay: 'Bronze est gratuit ; rien n’est vendu.',
   },
+  ...accountWords,
 }
 
 export default fr

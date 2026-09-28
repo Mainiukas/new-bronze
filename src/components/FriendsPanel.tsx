@@ -2,6 +2,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useT } from '../i18n'
 import { IconUserPlus, IconUsers } from './icons'
 import { LockPill } from './LockPill'
+import { VerifyPill } from './VerifyEmail'
+import { useAccountAccess } from '../hooks/useAccountAccess'
 
 /**
  * The lobby's friends panel. Guests see a lock (log in to use it). Signed in,
@@ -12,6 +14,7 @@ import { LockPill } from './LockPill'
 export function FriendsPanel() {
   const t = useT()
   const { signedIn } = useAuth()
+  const access = useAccountAccess()
   return (
     <section aria-labelledby="friends-title" className="plate rivets iron flex flex-col p-4">
       <header className="flex items-center gap-2.5">
@@ -19,7 +22,7 @@ export function FriendsPanel() {
         <h2 id="friends-title" className="flex-1 font-display text-lg font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
           {t.friends.title}
         </h2>
-        {signedIn ? <span className="soon-tag">{t.common.comingSoon}</span> : <LockPill />}
+        {access === 'guest' ? <LockPill /> : access === 'unverified' ? <VerifyPill /> : <span className="soon-tag">{t.common.comingSoon}</span>}
       </header>
 
       <form className="mt-3 flex gap-2" onSubmit={(event) => event.preventDefault()} aria-describedby="friends-status">

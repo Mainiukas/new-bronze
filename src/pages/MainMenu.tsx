@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ComponentType, type Dispatch, type SetStateAction } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { PLAYER_STYLE } from '../components/game/glyphs'
 import { IconComputer, IconGlobe, IconLock, IconPlay, IconUsers, type IconProps } from '../components/icons'
 import { FriendsPanel } from '../components/FriendsPanel'
@@ -10,8 +10,10 @@ import type { PlayerStats } from '../data/achievements'
 import type { Era } from '../data/board'
 import { GAME_MODES, type GameModeId } from '../data/gameModes'
 import type { MapId } from '../data/maps'
+import { accountPath } from '../data/navigation'
 import { opponentsOf, seatCount, withOpponents, type Opponents, type SavedSetup } from '../data/matchSetup'
 import type { PlayerColor } from '../game/types'
+import { useAccountAccess } from '../hooks/useAccountAccess'
 import { useAuth } from '../hooks/useAuth'
 import { useOpenAuth } from '../hooks/useOpenAuth'
 import { displayName, useT, type Messages } from '../i18n'
@@ -238,6 +240,8 @@ const OPPONENT_OPTIONS: { value: keyof Messages['lobby']['opponents']; Icon: Com
 function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (value: Exclude<Opponents, 'mixed'>) => void }) {
   const t = useT()
   const { signedIn } = useAuth()
+  const access = useAccountAccess()
+  const navigate = useNavigate()
   const openAuth = useOpenAuth()
   return (
     <fieldset className="@container animate-fade-up [animation-delay:160ms]">
@@ -251,19 +255,20 @@ function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (va
           const online = option === 'online'
           const checked = !online && value === option
           // Guests: Online needs an account first, so it's a lock that opens the log-in screen.
-          if (online && !signedIn) {
+          // Signed in without a verified email: the lock leads to verifying it.
+          if (online && access !== 'ready') {
             return (
               <button
                 key={option}
                 type="button"
-                onClick={() => openAuth('login')}
+                onClick={() => (access === 'guest' ? openAuth('login') : navigate(accountPath('security')))}
                 className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-center font-display text-sm font-bold tracking-[0.08em] text-parchment-400 uppercase transition hover:bg-soot-700/60 hover:text-parchment-100 @xl:flex-row @xl:gap-2 @xl:text-base"
               >
                 <Icon className="size-5 shrink-0" />
                 <span className="leading-tight">{label}</span>
                 <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-brass-300/50 bg-soot-950/80 px-2 py-0.5 text-[0.62rem] leading-tight tracking-[0.1em] text-balance text-brass-200">
                   <IconLock className="size-3" strokeWidth={2.4} />
-                  {t.common.logInToUse}
+                  {access === 'guest' ? t.common.logInToUse : t.verifyEmail.needed}
                 </span>
               </button>
             )

@@ -28,6 +28,8 @@ export const SERVICES = {
   supabaseRegion: '{{SUPABASE_REGION}}',
   /** Who sends account emails: Supabase's built-in mailer or your SMTP provider. */
   emailProvider: '{{EMAIL_PROVIDER}}',
+  /** Who sends phone verification codes by SMS (e.g. "Twilio Ireland Limited"), or "Not used" if phone verification isn't set up. */
+  smsProvider: '{{SMS_PROVIDER}}',
   /** How long Supabase keeps database backups for this project. */
   backupRetention: '{{BACKUP_RETENTION}}',
   /** How long Supabase keeps its sign-in (auth audit) logs. */
@@ -40,7 +42,7 @@ export const SERVICES = {
 export const LEGAL_LAST_UPDATED = '2026-09-28'
 
 /** Version of the Terms and Privacy Policy that people accept. Bump it when either changes materially. */
-export const TERMS_VERSION = '2026-09-27'
+export const TERMS_VERSION = '2026-09-28'
 
 /** The EU/Lithuanian age of digital consent (GDPR art. 8, as set in Lithuania): younger players can't have an account. */
 export const MIN_ACCOUNT_AGE = 14

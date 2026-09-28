@@ -6,6 +6,7 @@ import type { GoodsKind, IndustryKind, LogEntry, RouteKind } from '../game/types
 import { renderWith } from './game/en'
 import game from './game/lt'
 import { pluralizer } from './languages'
+import accountWords from './account/lt'
 import type { Messages } from './messages'
 
 /* Visi ekrano žodžiai lietuviškai (vertimas iš en.tsx). */
@@ -647,6 +648,16 @@ const lt: Messages = {
     'link-invalid': 'Ši nuoroda netinkama arba nebegalioja.',
     cancelled: 'Prisijungimas atšauktas. Bandykite dar kartą arba naudokite vartotojo vardą ar el. paštą.',
     network: 'Nepavyksta pasiekti paskyrų serverio. Patikrinkite ryšį ir bandykite vėl.',
+    'wrong-password': 'Neteisingas dabartinis slaptažodis.',
+    'too-soon': 'Vartotojo vardą galite keisti kartą per 30 dienų.',
+    'same-username': 'Tai jau yra jūsų vartotojo vardas.',
+    'reauth-needed': 'Dėl saugumo prisijunkite iš naujo ir bandykite dar kartą.',
+    'mfa-required': 'Pirmiausia įveskite dviejų veiksnių kodą.',
+    'invalid-code': 'Kodas neteisingas arba nebegalioja. Patikrinkite ir bandykite dar kartą.',
+    unavailable: 'Tai dar neprieinama.',
+    'last-identity': 'Negalite pašalinti vienintelio prisijungimo būdo. Pirmiausia nustatykite slaptažodį arba susiekite kitą paskyrą.',
+    'identity-taken': 'Ši paskyra jau susieta su kitu Bronze žaidėju.',
+    'invalid-input': 'Patikrinkite, ką įvedėte, ir bandykite dar kartą.',
     unknown: 'Kažkas nepavyko. Bandykite dar kartą.',
   },
   validation: {
@@ -659,6 +670,9 @@ const lt: Messages = {
     choosePassword: 'Pasirinkite slaptažodį.',
     typeAgain: 'Įveskite slaptažodį dar kartą.',
     noMatch: 'Slaptažodžiai nesutampa.',
+    sameUsername: 'Tai jau yra jūsų vartotojo vardas.',
+    enterCurrentPassword: 'Įveskite dabartinį slaptažodį.',
+    sameAsCurrent: 'Pasirinkite kitokį nei dabartinis slaptažodį.',
   },
   consents: {
     howOld: 'Kiek jums metų?',
@@ -781,6 +795,7 @@ const lt: Messages = {
     table: (caption: string) => `${caption} (lentelė)`,
     freeToPlay: 'Bronze žaisti nemokama; niekas neparduodama.',
   },
+  ...accountWords,
 }
 
 export default lt

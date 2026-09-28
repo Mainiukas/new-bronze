@@ -22,16 +22,20 @@ until the placeholders are filled in.
 | `@supabase/supabase-js` | Accounts: sign-in, profiles, consents | Bundled. Talks only to **your** Supabase project (`VITE_SUPABASE_URL`), and only when accounts are configured | Essential (for accounts) |
 | Google sign-in (via Supabase) | "Continue with Google" | Only when the player clicks it: the page goes to Google and comes back | Essential (user-initiated) |
 | Google profile photos | Avatar of players who signed in with Google | The image loads from Google's servers (with no referrer) for signed-in Google players | Essential for that feature ⚠️ |
+| Stripe.js (`@stripe/stripe-js`, card form) | Optional card check ("Verified player"): a €0 SetupIntent, nothing charged | Only when `VITE_STRIPE_PUBLISHABLE_KEY` is set **and** the player clicks **Verify with a card**: loads from `js.stripe.com`, the card form is Stripe's iframe, and Stripe sets `__stripe_mid`/`__stripe_sid` | Essential (user-initiated) |
+| SMS provider (via Supabase) | Optional phone verification | Server-side only: Supabase sends the SMS; nothing loads in the browser | Essential (user-initiated) |
 | Fonts: Cinzel, Barlow, Barlow Condensed | Text | **Self-hosted**: bundled via Fontsource; no Google Fonts requests | Essential |
 | Tailwind CSS, Vite | Build tools; their CSS and small runtime helpers ship in the bundle | Bundled | Essential |
 
-There are **no analytics, advertising, tracking pixels, social embeds, CDNs,
-iframes or error-reporting services**. There are no remote fonts either. A
-browser test confirms that a first visit makes no requests to any other server.
+There are **no analytics, advertising, tracking pixels, social embeds, CDNs
+or error-reporting services**, and no iframes except Stripe's card form during
+a card check the player starts. There are no remote fonts either. A browser
+test confirms that a first visit makes no requests to any other server.
 
 ### Cookies and browser storage
 
-Bronze sets one cookie and several storage entries, all first-party. The full
+Bronze sets one cookie and several storage entries, all first-party, plus
+Stripe's two fraud-prevention cookies only during a card check. The full
 table, with purpose, category and duration for each, is generated from
 `src/legal/inventory.ts` and shown on the Cookie Policy (`#/cookies`).
 
@@ -45,6 +49,7 @@ table, with purpose, category and duration for each, is generated from
 | `bronze.match` (match in progress) | Local storage | Essential |
 | `bronze.stats.pending.<id>` | Local storage | Essential |
 | `bronze.boardDraft` (map editor only) | Local storage | Essential |
+| `__stripe_mid`, `__stripe_sid` (only during a card check the player starts) | Cookie (Stripe) | Essential |
 | `bronze.settings`, `bronze.lobby.gameMode`, `bronze.lobby.map`, `bronze.setup`, `bronze.stats` (guest record) | Local storage | Preferences (consent) |
 
 ### Personal data
@@ -60,23 +65,37 @@ table, with purpose, category and duration for each, is generated from
   - consent records (what was agreed to, its version and when);
   - email preferences;
   - game record (matches, wins, best score, goods shipped, maps, achievements);
+  - match history (per match: time, map, mode, players, place, score, goods, links, industries);
+  - optional profile details (bio, country, avatar picture) and privacy settings;
+  - previous usernames (30 days);
+  - two-factor authentication: the authenticator key (Supabase) and hashed recovery codes;
+  - optional phone number (Supabase Auth; the SMS provider sends codes);
+  - optional card check: verified yes/no, date, brand, last 4 (never the card number; Stripe handles the card);
+  - reports about players (12 months);
+  - rate-limit counters (a day);
   - failed log-in counter (at most a day);
-  - Supabase's sign-in logs.
+  - Supabase's sign-in logs (also shown to the player as Recent sign-ins).
 - **Friends**: none. Friends are "Coming soon", so no friend data exists.
 - **Analytics**: none.
-- **Match history**: none on the server. Matches are played in the browser.
 
 ### Emails
 
-Supabase sends two emails, both transactional: **confirm your address** and
-**reset your password** (templates in the Supabase dashboard). No marketing or
+Supabase sends the transactional emails: **confirm your address**, **reset
+your password**, **change of email address** (to both addresses), the
+re-authentication code for a password change, and the **security notices**
+(password, email, phone or two-factor changed) once they're switched on
+(SETUP.md step 11). The `stripe-webhook` function sends a "card verification
+added" notice if it's given an email provider key. No marketing or other
 notification emails are sent. The preferences, unsubscribe links and endpoint
 are built for when they are.
 
 ### Payments and shop
 
-None. The Shop is "Coming soon": no prices, no in-game currency, no checkout,
-no payment SDK.
+Nothing is sold. The Shop is "Coming soon": no prices, no in-game currency, no
+checkout. Stripe is used only for the optional €0 card check (a SetupIntent,
+nothing charged, the card not saved to a customer); the UI says "We don't
+charge your card. It's only used to verify you're a real person." The Stripe
+secret key lives only in Supabase's Edge Function secrets.
 
 ---
 
@@ -87,7 +106,8 @@ no payment SDK.
 - the data collected and why;
 - the legal basis for each item (art. 6(1)(a)/(b)/(c)/(f));
 - how long each item is kept;
-- recipients and processors (Supabase, Google, hosting, email provider, other players);
+- recipients and processors (Supabase, Google, Stripe, the SMS provider, hosting, email provider, other players and visitors);
+- who sees the profile (Public / Friends only / Private) and how the card and phone checks work;
 - transfers outside the EEA;
 - your rights (access, rectification, erasure, portability, objection or
   restriction, withdrawing consent, complaining to the VDAI, with its address);
@@ -175,24 +195,28 @@ There are no testimonials, ratings or reviews anywhere, and no reviews section.
 **Verify**: search the code for "review", "rating" or "testimonial" (the only hits are the password-strength rating and code comments).
 
 ### 7. Data minimisation ✅
-- Only what accounts need: no phone number, no birth date (an age band only), no location.
+- Only what accounts need: no birth date (an age band only), no location. A bio, country, avatar picture, phone number and card check are optional; for the card, only the brand, last 4 digits and date are kept.
+- Profiles of players under 18 start as "Friends only".
 - New clean-ups, run hourly by the SQL's `pg_cron` job:
   - unfinished sign-ups (no profile) are deleted after 7 days;
   - never-confirmed email sign-ups are deleted after 7 days;
-  - failed log-in counters are deleted after a day.
+  - failed log-in counters are deleted after a day;
+  - rate-limit counters are deleted after a day;
+  - old usernames (and their reservation) are deleted after 30 days;
+  - reports are deleted after a year.
 - Declined Google sign-ups are deleted at once.
 - The unsubscribe token and email choices sit in a private table (`account_settings`), and the private columns of `profiles` (news consent, Terms version) can't be read by other players.
 - Logs: the only `console` messages are for missing art files, a misconfigured account URL, a computer player that failed to move, and the dev-only board layout report. None contain personal data, and there's no error-reporting service.
 - **One open question** ⚠️: Google profile photos are stored as a public avatar URL.
 
-**Files**: `supabase/migrations/001_accounts.sql` (`account_settings`, `login_attempts.last_failed_at`, `bronze_cleanup`), `src/pages/AuthScreen.tsx`.
+**Files**: `supabase/migrations/001_accounts.sql` (`account_settings`, `login_attempts.last_failed_at`, `bronze_cleanup`), `002_profiles_security.sql` (column grants on `profiles`, `bronze_cleanup`), `src/pages/AuthScreen.tsx`.
 
 **Verify**: run the SQL, then `select * from cron.job`.
 
 ### 8. Third-party SDKs ✅
 Listed in the audit above.
 - Nothing unused ships: `link_space.png` and `link_symbol.png` are no longer bundled.
-- Fonts are self-hosted, and there's no CDN.
+- Fonts are self-hosted, and there's no CDN. Stripe.js loads from Stripe only for a card check the player starts.
 - Nothing non-essential exists to gate. The consent categories and `consentStore.allows()` are ready for any future tool.
 - The SDKs are documented in the Privacy Policy (recipients) and the Cookie Policy.
 
@@ -369,13 +393,14 @@ The licence texts are in `public/licenses/` and shipped with the site.
 
 ### 20. Data deletion and export ✅
 **Settings → Account**:
-- **Download my data**: a JSON file with the account (email, sign-in methods, dates, what the sign-in provider shared), profile, email choices, every consent with its version and time, the failed log-in counter, and this browser's data.
-- **Delete my account**: a confirmation that lists what goes, then you type your username. It deletes the auth user, which cascades to the profile, settings and consents, and clears the log-in counter. It then signs out and says "Your account and its data have been deleted". There is no match history on the server, so there's nothing to anonymise; the SQL marks where that belongs if it's ever added.
+(also **Account settings → Data**)
+- **Download my data**: a JSON file with the account (email, sign-in methods, dates, what the sign-in provider shared), profile (with bio, country, avatar, privacy, phone and card flags), email choices, every consent with its version and time, match history, previous usernames, reports made, the failed log-in counter, and this browser's data.
+- **Delete my account**: a confirmation that lists what goes, then you type your username (with two-factor on, the session must have passed it). It removes uploaded avatar pictures, then deletes the auth user, which cascades to the profile, settings, consents, match history, username history, recovery codes and reports about the player, and clears the log-in counter. Reports the player made are kept without their name. It then signs out and says "Your account and its data have been deleted".
 - **Clear this device**: removes everything Bronze stored in this browser.
 
 For people who can't log in, **`#/data-request`** explains the process and composes an email to `{{OPERATOR_EMAIL}}`. The 30-day (one-month) response time is in the Privacy Policy.
 
-**Files**: `src/components/settings/AccountSettings.tsx`, `src/components/SettingsModal.tsx`, `src/pages/legal/DataRequest.tsx`, `src/auth/*`, `001_accounts.sql` (`export_my_data`, `delete_my_account`).
+**Files**: `src/components/settings/AccountSettings.tsx`, `src/components/SettingsModal.tsx`, `src/pages/legal/DataRequest.tsx`, `src/auth/*`, `001_accounts.sql` and `002_profiles_security.sql` (`export_my_data`, `delete_my_account`).
 
 **Verify**: log in and download: the file opens as JSON. Delete: the user is gone from Supabase Authentication → Users and from `profiles`, `consents` and `account_settings`.
 
@@ -396,6 +421,7 @@ All are in `src/legal/operator.ts`:
 - `{{HOSTING_LOG_RETENTION}}`: how long your host keeps access logs
 - `{{SUPABASE_REGION}}`: an EU region is recommended
 - `{{EMAIL_PROVIDER}}`: Supabase's mailer or your SMTP provider
+- `{{SMS_PROVIDER}}`: who sends SMS codes (e.g. "Twilio Ireland Limited"), or "Not used" (SETUP.md step 12)
 - `{{BACKUP_RETENTION}}`: Supabase backup period for your plan
 - `{{AUTH_LOG_RETENTION}}`: how long Supabase keeps sign-in logs
 - `{{TRANSFER_SAFEGUARDS}}`: e.g. "the Standard Contractual Clauses in Supabase's DPA"

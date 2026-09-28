@@ -3,6 +3,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useT } from '../i18n'
 import { Gear } from './Gear'
 import { LockedNotice } from './LockPill'
+import { VerifyNotice } from './VerifyEmail'
+import { useAccountAccess } from '../hooks/useAccountAccess'
 import { PageTitle } from './theme/Ornaments'
 
 interface ComingSoonProps {
@@ -14,12 +16,15 @@ interface ComingSoonProps {
   icon: ReactNode
   /** Needs an account: guests also see a lock with the way in. */
   locked?: string
+  /** Also needs a verified email (online features): unverified players see how to verify. */
+  needsVerifiedEmail?: boolean
 }
 
 /** Shared layout for tabs that aren't built yet: the title, then a panel saying so. */
-export function ComingSoon({ title, empty, blurb, icon, locked }: ComingSoonProps) {
+export function ComingSoon({ title, empty, blurb, icon, locked, needsVerifiedEmail = false }: ComingSoonProps) {
   const t = useT()
   const { signedIn } = useAuth()
+  const access = useAccountAccess()
   return (
     <section className="mx-auto flex max-w-2xl animate-fade-up flex-col items-center px-4 py-12 text-center sm:py-16">
       <PageTitle divider className="text-5xl sm:text-7xl">
@@ -40,6 +45,7 @@ export function ComingSoon({ title, empty, blurb, icon, locked }: ComingSoonProp
         </p>
         <p className="mt-5 max-w-md text-parchment-200">{blurb}</p>
         {locked && !signedIn && <LockedNotice>{locked}</LockedNotice>}
+        {needsVerifiedEmail && access === 'unverified' && <VerifyNotice />}
       </div>
     </section>
   )

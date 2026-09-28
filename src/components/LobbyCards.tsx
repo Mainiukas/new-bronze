@@ -5,6 +5,8 @@ import { useT } from '../i18n'
 import { ACHIEVEMENTS, type AchievementId, type PlayerStats } from '../data/achievements'
 import { PATHS } from '../data/navigation'
 import { IconBracket, IconLock, IconTrophy } from './icons'
+import { VerifyPill } from './VerifyEmail'
+import { useAccountAccess } from '../hooks/useAccountAccess'
 
 const cardClass =
   'plate rivets iron group block rounded-xl p-4 transition-[border-color,box-shadow] hover:border-ember-400/60 hover:shadow-[0_0_24px_-8px_rgb(255_122_26/0.55)]'
@@ -13,6 +15,7 @@ const cardClass =
 export function TournamentsCard() {
   const t = useT()
   const { signedIn } = useAuth()
+  const access = useAccountAccess()
   const openAuth = useOpenAuth()
   if (!signedIn) {
     return (
@@ -41,7 +44,7 @@ export function TournamentsCard() {
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="font-display text-lg font-extrabold tracking-[0.1em] text-parchment-50 uppercase">{t.nav.tournaments}</span>
-            <span className="soon-tag">{t.common.comingSoon}</span>
+            {access === 'unverified' ? <VerifyPill /> : <span className="soon-tag">{t.common.comingSoon}</span>}
           </span>
           <span className="block text-sm text-parchment-300">{t.lobby.tournamentsTeaser}</span>
         </span>

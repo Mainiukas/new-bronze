@@ -1,8 +1,11 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { Link } from 'react-router'
+import { accountPath } from '../data/navigation'
+import { useAuth } from '../hooks/useAuth'
 import { AI_SPEEDS, ANIMATION_SPEEDS, defaultSettings, type GameSettings } from '../data/settings'
 import { useToast } from '../hooks/useToast'
 import { LANGUAGES, useT, type LanguageCode } from '../i18n'
-import { IconChevronDown, IconCog } from './icons'
+import { IconChevronDown, IconCog, IconShield } from './icons'
 import { ModalFrame } from './ModalFrame'
 import { AccountSection, NotificationsSection, PrivacySection } from './settings/AccountSettings'
 import { SectionDivider } from './theme/Ornaments'
@@ -19,6 +22,7 @@ export function SettingsModal({ open, onClose, settings, onChange }: SettingsMod
   const t = useT()
   const s = t.settings
   const notify = useToast()
+  const { signedIn } = useAuth()
   const update = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) =>
     onChange({ ...settings, [key]: value })
 
@@ -118,6 +122,12 @@ export function SettingsModal({ open, onClose, settings, onChange }: SettingsMod
         </SettingsGroup>
 
         <SettingsGroup title={s.account}>
+          {signedIn && (
+            <Link to={accountPath('profile')} onClick={onClose} className="btn btn-ghost self-start">
+              <IconShield className="size-4" />
+              {t.accountPage.menu}
+            </Link>
+          )}
           <AccountSection onDone={onClose} notify={notify} />
         </SettingsGroup>
 

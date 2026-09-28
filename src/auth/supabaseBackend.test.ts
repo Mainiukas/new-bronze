@@ -25,7 +25,9 @@ const row = (id: string, username: string, extra: Partial<ProfileRow> = {}): Pro
  * A stand-in for the Supabase client: just the calls Bronze makes, backed by
  * two accounts. `calls` records every RPC and sign-in, in order.
  */
-function fakeSupabase() {
+function fakeSupabase({ twoFactorFor = [] as string[] } = {}) {
+  let signedIn: string | null = null
+  let aal: 'aal1' | 'aal2' = 'aal1'
   const users: Record<string, { id: string; email: string; meta: Record<string, string> }> = {
     'ada@example.com': { id: 'u1', email: 'ada@example.com', meta: {} },
     'grace@example.com': { id: 'g1', email: 'grace@example.com', meta: { full_name: 'Grace Hopper' } },
@@ -63,14 +65,36 @@ function fakeSupabase() {
       async signInWithPassword({ email, password }: { email: string; password: string }) {
         calls.push(`signIn:${email}`)
         if (!users[email] || password !== PASSWORD) return { data: {}, error: new AuthApiError('Invalid login credentials', 400, 'invalid_credentials') }
+        signedIn = users[email].id
+        aal = 'aal1'
         emit('SIGNED_IN', session(email))
         return { data: {}, error: null }
       },
+      mfa: {
+        async getAuthenticatorAssuranceLevel() {
+          const on = !!signedIn && twoFactorFor.includes(signedIn)
+          return { data: { currentLevel: signedIn ? aal : null, nextLevel: on ? 'aal2' : 'aal1', currentAuthenticationMethods: [] }, error: null }
+        },
+        async listFactors() {
+          const on = !!signedIn && twoFactorFor.includes(signedIn)
+          const all = on ? [{ id: 'f-1', factor_type: 'totp', status: 'verified' }] : []
+          return { data: { all, totp: all, phone: [] }, error: null }
+        },
+        async challengeAndVerify({ factorId, code }: { factorId: string; code: string }) {
+          calls.push(`mfa:${factorId}:${code}`)
+          if (code !== '654321') return { data: null, error: new AuthApiError('Invalid TOTP code entered', 422, 'mfa_verification_failed') }
+          aal = 'aal2'
+          emit('MFA_CHALLENGE_VERIFIED', session(Object.keys(users).find((email) => users[email].id === signedIn)!))
+          return { data: {}, error: null }
+        },
+      },
       async exchangeCodeForSession() {
+        signedIn = 'g1'
         emit('SIGNED_IN', session('grace@example.com'))
         return { data: {}, error: null }
       },
       async signOut() {
+        signedIn = null
         emit('SIGNED_OUT', null)
         return { error: null }
       },
@@ -89,8 +113,8 @@ function fakeSupabase() {
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 5))
 
-async function started() {
-  const fake = fakeSupabase()
+async function started(options?: Parameters<typeof fakeSupabase>[0]) {
+  const fake = fakeSupabase(options)
   const store = createAuthStore(createSupabaseBackend(fake.client), { redirectUrl: (route) => `https://bronze.test/#${route}` })
   store.start()
   await settle()
@@ -138,6 +162,16 @@ describe('Supabase accounts (mocked client)', () => {
       'rpc:record_match_result:{"score":44,"won":true,"p_match_id":"r-1","p_goods_shipped":4,"p_map_id":"mersey-valley","p_achievements":["foreman"]}',
     )
     expect(store.getState().profile?.stats).toMatchObject({ wins: 3, matches: 6, bestScore: 44 })
+  })
+
+  it('with 2FA on: password, then the 6-digit code, then the profile', async () => {
+    const { store, calls } = await started({ twoFactorFor: ['u1'] })
+    expect((await store.signIn('ada', PASSWORD, true)).status).toBe('needs-mfa')
+    await expect(store.verifyMfa('111111')).rejects.toMatchObject({ code: 'invalid-code' })
+    const state = await store.verifyMfa('654321')
+    expect(state.status).toBe('signed-in')
+    expect(state.profile?.username).toBe('Ada')
+    expect(calls).toContain('mfa:f-1:654321')
   })
 
   it('signs out back to a guest', async () => {

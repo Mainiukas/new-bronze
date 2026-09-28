@@ -251,7 +251,8 @@ export function CallbackView({
     if (done.current) return
     done.current = true
     if (state.status === 'needs-username') onNeedsUsername()
-    else onSignedIn(state)
+    // The two-factor step shows by itself (App draws the account screen while it's needed).
+    else if (state.status !== 'needs-mfa') onSignedIn(state)
   })
   const carryOnWithCurrent = useEffectEvent(() => carryOn(auth))
 
@@ -279,7 +280,7 @@ export function CallbackView({
   }, [hasResult, params, finishRedirect, t.authErrors, cb.linkProblem])
 
   // Nothing to finish (e.g. reloaded after it finished): carry on once the session is known.
-  const settledSignedIn = !hasResult && (status === 'signed-in' || status === 'needs-username')
+  const settledSignedIn = !hasResult && (status === 'signed-in' || status === 'needs-username' || status === 'needs-mfa')
   useEffect(() => {
     if (settledSignedIn) carryOnWithCurrent()
   }, [settledSignedIn])

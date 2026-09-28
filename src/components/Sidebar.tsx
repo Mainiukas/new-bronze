@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState, type ComponentType, type FocusEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router'
-import { PATHS, type MenuAction } from '../data/navigation'
+import { accountPath, PATHS, type MenuAction } from '../data/navigation'
 import { useAuth } from '../hooks/useAuth'
 import { useT } from '../i18n'
 import { useLogOut } from '../hooks/useLogOut'
 import { useOpenAuth } from '../hooks/useOpenAuth'
-import { IconChevronDown, IconCog, IconLock, IconLogin, IconLogout, IconPlay, IconUserPlus, IconUsers, type IconProps } from './icons'
+import { IconChevronDown, IconCog, IconLock, IconLogin, IconLogout, IconPlay, IconShield, IconUserPlus, IconUsers, type IconProps } from './icons'
 import { ACTION_ITEMS, BOARD_ITEM, CREDITS_ITEM, LEGAL_ITEM, PAGE_ITEMS } from './navItems'
 import { ProfileAvatar, type LobbyProfile } from './ProfileChip'
 import { Logo } from './theme/Logo'
@@ -114,7 +114,7 @@ export function Sidebar({ profile, onPlay, onMenuAction }: SidebarProps) {
             <span className="size-10 animate-pulse rounded-full bg-soot-700" />
             <span className="h-3 w-24 animate-pulse rounded bg-soot-700 max-lg:hidden" />
           </div>
-        ) : auth.status === 'error' || auth.status === 'needs-username' ? (
+        ) : auth.status === 'error' || auth.status === 'needs-username' || auth.status === 'needs-mfa' ? (
           <>
             {auth.status === 'error' && (
               <button type="button" onClick={() => void auth.retry()} className={itemClass(false)} {...tipFor(t.nav.retryAccountTip)}>
@@ -238,7 +238,7 @@ function LegalGroup({ tip }: { tip: TipHandlers }) {
 
 /**
  * The signed-in player's chip: photo or colour disc, username and record.
- * Opens a small menu: Profile, Settings, Log out.
+ * Opens a small menu: Profile, Account settings, Settings, Log out.
  */
 function ProfileMenu({ profile, onSettings, onLogOut, tip }: { profile: LobbyProfile; onSettings: () => void; onLogOut: () => void; tip: TipHandlers }) {
   const t = useT()
@@ -320,6 +320,10 @@ function ProfileMenu({ profile, onSettings, onLogOut, tip }: { profile: LobbyPro
           <button type="button" role="menuitem" className={`${itemRow} text-parchment-200 hover:bg-bronze-500/15 hover:text-parchment-50`} onClick={() => choose(() => navigate(PATHS.profile))}>
             <IconUsers className="size-5 text-bronze-300" />
             {t.nav.profile}
+          </button>
+          <button type="button" role="menuitem" className={`${itemRow} text-parchment-200 hover:bg-bronze-500/15 hover:text-parchment-50`} onClick={() => choose(() => navigate(accountPath('profile')))}>
+            <IconShield className="size-5 text-bronze-300" />
+            {t.accountPage.menu}
           </button>
           <button type="button" role="menuitem" className={`${itemRow} text-parchment-200 hover:bg-bronze-500/15 hover:text-parchment-50`} onClick={() => choose(onSettings)}>
             <IconCog className="size-5 text-bronze-300" />

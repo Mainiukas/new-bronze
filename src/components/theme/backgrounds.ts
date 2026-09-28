@@ -93,5 +93,8 @@ const PAGE_BACKGROUNDS: Record<string, BackgroundName> = {
 /** The painting behind a lobby page, or null for the map board (it keeps its plain ground). */
 export function backgroundForPage(pathname: string): BackgroundName | null {
   if (pathname === PATHS.board) return null
+  // Profiles hang in the trophy room; account settings at the industrialist's desk.
+  if (pathname.startsWith('/u/')) return 'achievements'
+  if (pathname === PATHS.account) return 'auth_study'
   return PAGE_BACKGROUNDS[pathname] ?? 'lobby'
 }

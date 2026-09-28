@@ -50,6 +50,19 @@ progress on the device is added to it at their first log-in. Until
 [SETUP.md](SETUP.md)), everyone plays as a guest and the account screens say
 "Accounts aren't configured yet".
 
+**Profiles and account settings.** Every player has a profile at `#/u/<name>`
+(avatar with the brass seal, member since, country, bio, stats, the last 20
+matches, achievements), shown to others as their privacy settings allow
+(Public, Friends only, Private). **Account settings** (`#/settings/account`)
+has Profile (avatar preset or upload, bio, country, username change once every
+30 days), Security (email and password change, two-factor authentication with
+an authenticator app and recovery codes, linked accounts, recent sign-ins,
+sign out other devices, and the optional phone and card checks), Privacy,
+Notifications and Data. Online play, friends, tournaments and the shop need a
+confirmed email address. The phone check needs an SMS provider and the card
+check needs Stripe keys: until they're set up, the phone panel says it isn't
+available yet and the card panel is hidden (SETUP.md, steps 12 and 13).
+
 **Online and friends** need a game server Bronze doesn't have. Guests see
 "Log in to use this" on the Online opponents option, the friends panel,
 Tournaments, Locker and Shop; signed-in players see them as "Coming soon"
@@ -110,10 +123,12 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-To turn on accounts, follow [SETUP.md](SETUP.md): create a Supabase project,
-put its URL and anon key in `.env` (copy `.env.example`), run
-`supabase/migrations/001_accounts.sql` in its SQL editor, and set up Google
-sign-in. `.env` is git-ignored; never commit real keys.
+To turn on accounts, follow [SETUP.md](SETUP.md) (it starts with a checklist):
+create a Supabase project, put its URL and anon key in `.env` (copy
+`.env.example`), run `supabase/migrations/001_accounts.sql` and then
+`002_profiles_security.sql` in its SQL editor, and set up Google sign-in and
+the security settings. `.env` is git-ignored; never commit real keys. The
+Stripe secret key goes only into Supabase's secrets, never into `.env`.
 
 Other scripts:
 
@@ -134,8 +149,9 @@ The build is a static site, so any static host works with no server setup:
 - Asset paths are relative (`base: './'`), so it works from a sub-path such as
   `https://<user>.github.io/Bronze/`.
 - For accounts, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` where the
-  site is built, and add the site's address to Supabase's Redirect URLs and
-  Google's JavaScript origins (SETUP.md, steps 3, 5 and 6).
+  site is built (and `VITE_STRIPE_PUBLISHABLE_KEY` for the card check), and add
+  the site's address to Supabase's Redirect URLs and Google's JavaScript
+  origins (SETUP.md, steps 3, 5 and 6).
 
 Upload the contents of `dist/` to GitHub Pages, Netlify, Cloudflare Pages, an
 S3 bucket or similar. For hosts or embeds that take a single file, use
@@ -280,10 +296,11 @@ src/
     lazyBackend.ts        Loads that on first use, so the first page doesn't wait for it
     store.ts              Signed-in state and actions behind useAuth()
     redirect.ts           Returns from Google and email links (#/auth/callback, #/auth/reset)
-    validation.ts         Username, email and password rules, password strength
+    validation.ts         Username, email and password rules, password strength, username and password changes
     messages.ts           What to tell the player when something fails
     AuthProvider.tsx      Puts the store in React context
-    *.test.ts             Validators, the store (stand-in backend), the Supabase calls (mocked client)
+    *.test.ts             Validators, the store (stand-in backend, 2FA at log-in), the Supabase calls
+                          (mocked client), username changes, password changes and privacy
   components/board/       Illustrated map board: IllustratedBoard (view), parts (SVG pieces),
                           layout (placement, route fan-out, collisions), geometry (curves,
                           texture pieces, hulls), sampling (getPointAtLength), measure (label
@@ -303,7 +320,12 @@ src/
     ProfileChip.tsx       Avatar (Google photo or coloured initial) and the lobby profile
     LockPill.tsx          "Log in to use this" pill and the locked-page notice
     auth/                 Account forms: Register, Log in, forgot/reset password, Google
-                          return, choose a username, and the fields they share
+                          return, choose a username, the two-factor step (MfaChallenge),
+                          and the fields they share
+    account/              Account settings tabs: Profile, Privacy, Security (TwoFactorPanel,
+                          PhonePanel, CardPanel) and their shared parts
+    VerifyEmail.tsx       The "verify your email" banner and locks (60 s resend cooldown)
+    AchievementList.tsx   The achievements grid (locked ones greyed, with what they need)
     LobbyCards.tsx        Tournaments and Achievements cards in the social column
     game/                 Match screen: ActionBar, PlayersPanel, MarketPanel, GameLog, MoveTimer,
                           EraBanner, ResultsDialog, ZoomPan, GameBoard (practice maps), glyphs
@@ -312,7 +334,9 @@ src/
     MainMenu.tsx, Game.tsx, MapBoard.tsx, Achievements.tsx, Locker.tsx, Shop.tsx, Tournaments.tsx
     AuthScreen.tsx        The account screens (/auth, /auth/forgot, /auth/reset, /auth/callback,
                           /auth/username), over the page they were opened from
-    Profile.tsx, NotFound.tsx  Your profile; the 404 page
+    PublicProfile.tsx     A player's profile (#/u/<name>): header, stats, match history, report
+    AccountPage.tsx       Account settings (#/settings/account?tab=…)
+    Profile.tsx, NotFound.tsx  #/profile (goes to your own profile); the 404 page
   data/
     gameModes.ts          Game modes: rounds, starting money, board size, timer, computer pause
     maps.ts               Maps: the illustrated map plus the drawn practice maps
@@ -320,6 +344,8 @@ src/
     board.ts              Board types, validation, export formatting, era rules, network checks
     board.test.ts         Board data, the design checks, curves, texture pieces and layout
     achievements.ts       Achievements and lifetime stats
+    countries.ts          Countries, flags and phone dialling codes
+    avatars.ts            The preset avatars
     navigation.ts         Sidebar pages, dialog actions and route paths
     matchSetup.ts         Seats for a new match: validation, opponents presets, colour swaps
     settings.ts           Settings shape, defaults and validation
@@ -329,7 +355,12 @@ src/
   components/settings/    Settings → Account (download/delete data), Notifications, Privacy
   hooks/                  usePersistentState (localStorage-backed state), useToast, useAuth,
                           useOpenAuth, useLogOut, usePlayerStats (the guest's or the account's record)
-  lib/                    storage (safe localStorage), sound (Web Audio), random (new seeds), supabase (the client, from .env)
+  lib/                    storage (safe localStorage), sound (Web Audio), random (new seeds), supabase (the client, from .env),
+                          stripe (Stripe.js, loaded only for a card check), image (avatar crop), device (sign-in list)
+supabase/
+  migrations/             001_accounts.sql (run once), 002_profiles_security.sql (safe to re-run)
+  functions/              Edge Functions: unsubscribe, create-setup-intent and stripe-webhook (the card check)
+  tests/                  The SQL checks (plain PostgreSQL with a stand-in for Supabase); see its README
 ```
 
 ## Extending
@@ -370,7 +401,8 @@ the last choices and a guest's record are "preferences": they are only saved
 once the visitor allows that in the cookie banner (`bronze.consent`), and
 withdrawing it deletes them. The full list is the Cookie Policy (`#/cookies`). A signed-in
 player's record is kept in their Supabase profile and only the server changes
-it: each finished match is sent with an id (`record_match_result`), and a
+it: each finished match is sent with an id (`record_match_result`, which also
+adds it to the player's match history), and a
 guest's record is moved in once at the first log-in on a device
 (`merge_guest_stats`). Until the server confirms each one it waits in
 `bronze.stats.pending.<id>` and is sent again when back online or at the next

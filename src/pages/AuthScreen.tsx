@@ -6,6 +6,7 @@ import type { AuthState } from '../auth/store'
 import { ChooseUsername } from '../components/auth/ChooseUsername'
 import { FormAlert } from '../components/auth/fields'
 import { LoginForm } from '../components/auth/LoginForm'
+import { MfaChallenge } from '../components/auth/MfaChallenge'
 import { CallbackView, ForgotPasswordView, ResetPasswordView } from '../components/auth/RecoveryViews'
 import { RegisterForm } from '../components/auth/RegisterForm'
 import { Dialog } from '../components/Dialog'
@@ -20,7 +21,8 @@ import type { AuthLocationState, AuthMode } from '../hooks/useOpenAuth'
 import { useToast } from '../hooks/useToast'
 import { useT, type Messages } from '../i18n'
 
-type View = keyof typeof AUTH_PATHS
+/** The account screens, plus the two-factor step (shown wherever a log-in still needs its code). */
+type View = keyof typeof AUTH_PATHS | 'mfa'
 
 const VIEWS = Object.fromEntries(Object.entries(AUTH_PATHS).map(([view, path]) => [path, view])) as Record<string, View>
 
@@ -54,7 +56,12 @@ export function AuthScreen() {
   const state = (location.state ?? {}) as AuthLocationState
   const depth = state.depth ?? 0
   const routeView: View = VIEWS[location.pathname] ?? 'forms'
-  const view: View = auth.status === 'needs-username' && routeView !== 'reset' && routeView !== 'callback' ? 'username' : routeView
+  const view: View =
+    auth.status === 'needs-mfa'
+      ? 'mfa'
+      : auth.status === 'needs-username' && routeView !== 'reset' && routeView !== 'callback'
+        ? 'username'
+        : routeView
   const mode: AuthMode = params.get('mode') === 'login' ? 'login' : 'register'
   const onAuthRoute = isAuthPath(location.pathname)
 
@@ -116,7 +123,18 @@ export function AuthScreen() {
 
   let body: ReactNode
   let titleId = 'auth-title'
-  if (view === 'username') {
+  if (view === 'mfa') {
+    titleId = 'mfa-title'
+    body = (
+      <MfaChallenge
+        onDone={(state) => {
+          if (state.status === 'needs-username') return
+          if (onAuthRoute && routeView !== 'reset') navigate(takeReturnTo(), { replace: true })
+          if (state.status === 'signed-in') notify(welcome(t, state.profile, false))
+        }}
+      />
+    )
+  } else if (view === 'username') {
     titleId = 'username-title'
     body = (
       <ChooseUsername
@@ -180,7 +198,7 @@ export function AuthScreen() {
         onGoogle={startGoogle}
         onForgot={() => go(AUTH_PATHS.forgot)}
         onLoggedIn={(signedIn) => {
-          if (signedIn.status === 'needs-username') return
+          if (signedIn.status === 'needs-username' || signedIn.status === 'needs-mfa') return
           leave()
           notify(signedIn.status === 'signed-in' ? welcome(t, signedIn.profile, false) : a.profileFailed)
         }}
@@ -212,12 +230,12 @@ export function AuthScreen() {
     )
   }
 
-  const painting = view === 'forgot' || view === 'reset' || view === 'username' ? 'auth_study' : 'auth'
-  const closeLabel = view === 'username' ? a.cancelSignup : t.common.close
-  const onClose = view === 'username' ? () => void decline() : leave
+  const painting = view === 'forgot' || view === 'reset' || view === 'username' || view === 'mfa' ? 'auth_study' : 'auth'
+  const closeLabel = view === 'username' ? a.cancelSignup : view === 'mfa' ? t.mfaLogin.cancel : t.common.close
+  const onClose = view === 'username' ? () => void decline() : view === 'mfa' ? () => void auth.signOut() : leave
 
   return (
-    <Dialog open onClose={onClose} labelledBy={titleId} variant="screen" dismissible={view !== 'username'}>
+    <Dialog open onClose={onClose} labelledBy={titleId} variant="screen" dismissible={view !== 'username' && view !== 'mfa'}>
       <div ref={scrollRef} className="relative h-full overflow-y-auto overscroll-contain">
         <PageBackground name={painting}>
           {/* A warm lamp glow behind the panel */}

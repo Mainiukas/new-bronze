@@ -48,10 +48,10 @@ export function ModeCard({ mode, selected, onSelect, index = 0 }: ModeCardProps)
   return (
     <label
       style={{ animationDelay: `${index * 70}ms` } as CSSProperties}
-      className={`plate iron group relative grid animate-fade-up cursor-pointer grid-cols-[7.5rem_minmax(0,1fr)] overflow-hidden rounded-xl transition-[transform,border-color,box-shadow] duration-200 ease-out select-none has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ember-400 @2xl:grid-cols-1 ${
+      className={`plate iron group relative grid animate-fade-up cursor-pointer grid-cols-[7.5rem_minmax(0,1fr)] overflow-hidden rounded-xl transition-[border-color,box-shadow] duration-200 ease-out select-none has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ember-400 @2xl:grid-cols-1 ${
         selected
           ? 'border-brass-300/90 shadow-[0_0_0_1px_rgb(240_215_138/0.55),0_16px_36px_-14px_rgb(255_157_77/0.55)]'
-          : 'hover:border-ember-400/70 hover:shadow-[0_0_0_1px_rgb(255_157_77/0.35),0_0_26px_-6px_rgb(255_122_26/0.55)] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-px'
+          : 'hover:border-ember-400/70 hover:shadow-[0_0_0_1px_rgb(255_157_77/0.35),0_0_26px_-6px_rgb(255_122_26/0.55)]'
       }`}
     >
       <input type="radio" name="game-mode" value={mode.id} checked={selected} onChange={onSelect} className="sr-only" />

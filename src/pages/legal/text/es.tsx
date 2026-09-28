@@ -68,6 +68,18 @@ const inventory: InventoryText = {
       purpose: 'Cuenta las contraseñas incorrectas para pausar los inicios de sesión 30 segundos tras 5 fallos (seguridad).',
       duration: 'Solo esta pestaña',
     },
+    __stripe_mid: {
+      where: 'Cookie',
+      provider: 'Stripe',
+      purpose: 'Solo si inicias una verificación de tarjeta: la pone el formulario de tarjeta de Stripe para reconocer el dispositivo y prevenir el fraude.',
+      duration: '1 año',
+    },
+    __stripe_sid: {
+      where: 'Cookie',
+      provider: 'Stripe',
+      purpose: 'Solo si inicias una verificación de tarjeta: la pone el formulario de tarjeta de Stripe para prevenir el fraude durante la verificación.',
+      duration: '30 minutos',
+    },
     'bronze.match': {
       where: LOCAL,
       provider: 'Bronze',
@@ -134,7 +146,7 @@ const inventory: InventoryText = {
   account: [
     {
       what: 'Dirección de correo electrónico',
-      why: 'Para que puedas iniciar sesión, y para los correos de la cuenta (confirmar tu dirección, restablecer la contraseña).',
+      why: 'Para que puedas iniciar sesión, y para los correos de la cuenta (confirmar tu dirección, restablecer la contraseña, avisos de seguridad cuando cambian tu contraseña, tu correo, tu teléfono o tu verificación en dos pasos).',
       basis: CONTRACT,
       retention: UNTIL_DELETED,
     },
@@ -144,7 +156,19 @@ const inventory: InventoryText = {
       basis: CONTRACT,
       retention: UNTIL_DELETED,
     },
-    { what: 'Nombre de usuario', why: 'Tu nombre en el juego. Los demás jugadores lo ven.', basis: CONTRACT, retention: UNTIL_DELETED },
+    { what: 'Nombre de usuario', why: 'Tu nombre en el juego. Cualquiera puede verlo, sean cuales sean tus ajustes de privacidad.', basis: CONTRACT, retention: UNTIL_DELETED },
+    {
+      what: 'Nombres de usuario anteriores, y cuándo los cambiaste',
+      why: 'Para que los enlaces a tu nombre anterior lleven a tu perfil durante 30 días y nadie más pueda quedárselo (y hacerse pasar por ti) en ese tiempo.',
+      basis: 'Interés legítimo en evitar la suplantación (art. 6.1.f RGPD)',
+      retention: '30 días',
+    },
+    {
+      what: 'Datos de perfil que decides añadir: biografía, país, avatar (uno predefinido o una imagen que subes); y tus ajustes de privacidad',
+      why: 'Se muestran en tu perfil a quien permitan tus ajustes de privacidad.',
+      basis: CONTRACT,
+      retention: 'Hasta que los cambies o elimines tu cuenta',
+    },
     {
       what: 'Datos de la cuenta de Google (nombre, correo, foto de perfil, ID de Google), solo si inicias sesión con Google',
       why: 'Para iniciar sesión con Google. El nombre sirve para sugerir un nombre de usuario; la foto es tu avatar, que ven los demás jugadores.',
@@ -171,9 +195,45 @@ const inventory: InventoryText = {
     },
     {
       what: 'Estadísticas de juego: partidas, victorias, mejor puntuación, mercancías entregadas, mapas jugados, logros y cuándo se desbloquearon, fecha de alta; un identificador aleatorio por cada resultado guardado',
-      why: 'Tu perfil y tus logros. Los demás jugadores con sesión iniciada ven tus estadísticas. Los identificadores garantizan que un resultado enviado dos veces cuente una sola vez.',
+      why: 'Tu perfil y tus logros, visibles para quien permitan tus ajustes de privacidad. Los identificadores garantizan que un resultado enviado dos veces cuente una sola vez.',
       basis: CONTRACT,
       retention: UNTIL_DELETED,
+    },
+    {
+      what: 'Historial de partidas: de cada partida terminada, cuándo, el mapa y el modo de juego, cuántos jugadores, tu puesto, tu puntuación, las mercancías entregadas, los enlaces y las industrias construidos',
+      why: 'Tus últimas partidas y estadísticas en tu perfil, visibles para quien permitan tus ajustes de privacidad.',
+      basis: CONTRACT,
+      retention: UNTIL_DELETED,
+    },
+    {
+      what: 'Verificación en dos pasos, solo si la activas: la clave de la app de autenticación (la guarda Supabase) y tus códigos de recuperación (guardados solo como hashes irreversibles)',
+      why: 'Para pedir un código de tu teléfono al iniciar sesión, y dejarte entrar con un código de recuperación si lo pierdes.',
+      basis: CONTRACT,
+      retention: 'Hasta que la desactives o elimines tu cuenta',
+    },
+    {
+      what: 'Número de teléfono, solo si verificas uno',
+      why: 'Para mostrar la insignia «Teléfono verificado» en tu perfil y, si quieres, enviarte los códigos de verificación en dos pasos por SMS. Solo tú ves el número.',
+      basis: CONTRACT,
+      retention: UNTIL_DELETED,
+    },
+    {
+      what: 'Verificación de tarjeta, solo si verificas una tarjeta: que está verificada, cuándo, la marca de la tarjeta y sus 4 últimos dígitos (nunca el número de la tarjeta)',
+      why: 'Para mostrar la insignia «Jugador verificado», como señal de que eres una persona real. No se cobra nada. Escribes la tarjeta en el formulario de Stripe; nunca nos llega.',
+      basis: CONTRACT,
+      retention: 'Hasta que quites la verificación o elimines tu cuenta',
+    },
+    {
+      what: 'Denuncias: cuando denuncias a un jugador o un jugador te denuncia a ti: a quién, el motivo, la nota y cuándo',
+      why: 'Para revisar trampas, nombres ofensivos, acoso y spam, y mantener el juego limpio y seguro.',
+      basis: 'Interés legítimo en un juego seguro (art. 6.1.f RGPD)',
+      retention: '12 meses; menos si se elimina la cuenta denunciada',
+    },
+    {
+      what: 'Contadores contra abusos: el identificador de tu cuenta (o, antes de iniciar sesión, tu dirección IP), qué acción y cuántos intentos',
+      why: 'Para limitar cuántas veces se pueden probar contraseñas, códigos, comprobaciones de nombre de usuario y denuncias, contra adivinanzas y spam.',
+      basis: SECURITY,
+      retention: 'Se eliminan al cabo de un día',
     },
     {
       what: 'Contador de inicios de sesión fallidos: el nombre de usuario intentado, cuántas contraseñas incorrectas y cuándo',
@@ -183,7 +243,7 @@ const inventory: InventoryText = {
     },
     {
       what: 'Eventos de inicio de sesión que guarda Supabase (hora, dirección IP, navegador)',
-      why: 'Seguridad del servicio de inicio de sesión.',
+      why: 'Seguridad del servicio de inicio de sesión, y tu lista de inicios de sesión recientes en Ajustes de la cuenta → Seguridad (solo la ves tú).',
       basis: SECURITY,
       retention: SERVICES.authLogRetention,
     },
@@ -210,6 +270,18 @@ const inventory: InventoryText = {
       location: 'Consulta la política de privacidad de Google',
     },
     {
+      name: 'Stripe (Stripe Payments Europe, Limited, para personas en el EEE)',
+      role: 'Solo si verificas una tarjeta: encargado del tratamiento para la verificación, y responsable independiente de su propia prevención del fraude y obligaciones legales',
+      data: 'Los datos de la tarjeta que escribes en el formulario de Stripe, datos de tu dispositivo y navegador, y el identificador de tu cuenta',
+      location: 'Irlanda y Estados Unidos; consulta la política de privacidad de Stripe',
+    },
+    {
+      name: SERVICES.smsProvider,
+      role: 'Encargado del tratamiento, solo si verificas un número de teléfono: envía los códigos por SMS',
+      data: 'Tu número de teléfono y el código',
+      location: SERVICES.smsProvider,
+    },
+    {
       name: SERVICES.hosting,
       role: 'Encargado del tratamiento: aloja los archivos del sitio',
       data: 'Registros del servidor (dirección IP, páginas solicitadas, navegador)',
@@ -217,9 +289,9 @@ const inventory: InventoryText = {
     },
     { name: SERVICES.emailProvider, role: 'Encargado del tratamiento: envía los correos de la cuenta', data: 'Dirección de correo y contenido del correo', location: SERVICES.emailProvider },
     {
-      name: 'Otros jugadores',
-      role: 'Ven tu perfil público',
-      data: 'Nombre de usuario, avatar, estadísticas de juego, fecha de alta',
+      name: 'Otros jugadores y visitantes',
+      role: 'Ven tu perfil, en la medida en que lo permitan tus ajustes de privacidad',
+      data: 'Siempre tu nombre de usuario y tu avatar; con un perfil público (o, cuando existan los amigos, «Solo amigos», para tus amigos) también tu biografía, país, insignias, estadísticas, historial de partidas y fecha de alta',
       location: 'Dondequiera que se juegue a Bronze',
     },
   ],
@@ -260,11 +332,33 @@ function PrivacyPolicy() {
       <Section id="account" title="Con una cuenta">
         <p>
           La cuenta es opcional. Te permite conservar tus estadísticas y logros entre dispositivos, y será necesaria para jugar en línea cuando llegue. Solo
-          recogemos lo que la cuenta necesita: ni número de teléfono, ni fecha de nacimiento, ni ubicación.
+          recogemos lo que la cuenta necesita, y nunca te pedimos la fecha de nacimiento ni la ubicación. La biografía, el país, la imagen de avatar, el número
+          de teléfono y la verificación de tarjeta son opcionales: solo los tenemos si los añades tú.
         </p>
         <DataTable caption="Datos tratados para los titulares de una cuenta" head={HEAD} rows={dataRows(inventory.account)} />
+        <Sub title="Tu perfil y quién lo ve">
+          <p>
+            Tu perfil tiene su propia página. En Ajustes de la cuenta → Privacidad eliges quién ve tu perfil y, por separado, tu historial de partidas:{' '}
+            <strong className={strong}>Público</strong> (cualquiera, también quien no ha iniciado sesión), <strong className={strong}>Solo amigos</strong>{' '}
+            (mientras Bronze no tenga amigos, solo tú) o <strong className={strong}>Privado</strong> (solo tú). Tu nombre de usuario y tu avatar siempre son
+            visibles, para que otros jugadores te reconozcan. Las cuentas de jugadores menores de 18 años empiezan en «Solo amigos». Tu correo, tu número de
+            teléfono y los datos de tu tarjeta no se muestran nunca a nadie.
+          </p>
+        </Sub>
+        <Sub title="Verificación de tarjeta y de teléfono">
+          <p>
+            Si verificas una tarjeta, la escribes en el formulario propio de Stripe, que la envía directamente a Stripe. Stripe comprueba la tarjeta sin cobrarle
+            nada; nosotros solo recibimos que la comprobación ha salido bien, la marca de la tarjeta y sus 4 últimos dígitos. Stripe guarda su propio registro de
+            la comprobación según{' '}
+            <a href="https://stripe.com/privacy" className={link} rel="noopener">
+              su política de privacidad
+            </a>
+            . Si verificas un número de teléfono, nuestro proveedor de SMS te envía el código. Puedes quitar la verificación de tarjeta cuando quieras en Ajustes
+            de la cuenta → Seguridad.
+          </p>
+        </Sub>
         <p>
-          Cuando eliminas tu cuenta, todo lo anterior se elimina de inmediato. Pueden quedar copias en las copias de seguridad de la base de datos hasta{' '}
+          Cuando eliminas tu cuenta, todo lo anterior se elimina de inmediato, incluida cualquier imagen que hayas subido. Pueden quedar copias en las copias de seguridad de la base de datos hasta{' '}
           <Fill value={SERVICES.backupRetention} />, hasta que se sobrescriban. Si empiezas a iniciar sesión con Google pero no terminas de crear la cuenta,
           elegir «Ahora no» la elimina al momento; si no, el registro sin terminar se elimina a los 7 días. Lo mismo ocurre con un registro por correo que nunca se
           confirma.
@@ -277,7 +371,8 @@ function PrivacyPolicy() {
 
       <Section id="emails" title="Correos electrónicos">
         <p>
-          Enviamos los correos de cuenta que necesitas: confirmar tu dirección y restablecer tu contraseña. No contienen nada más. Solo enviaríamos novedades u
+          Enviamos los correos de cuenta que necesitas: confirmar tu dirección, restablecer tu contraseña y avisos de seguridad cuando cambian tu contraseña, tu
+          correo, tu número de teléfono o tu verificación en dos pasos, o se verifica una tarjeta. No contienen nada más. Solo enviaríamos novedades u
           otros correos opcionales si los activas, y nunca a menores de 18 años. Bronze todavía no envía correos opcionales. Cada correo opcional tendrá un enlace
           para darse de baja con un clic, y puedes cambiar tus elecciones en cualquier momento en Ajustes → Notificaciones.
         </p>
@@ -292,8 +387,9 @@ function PrivacyPolicy() {
         <Sub title="Transferencias fuera del EEE">
           <p>
             Supabase, Inc. tiene su sede en Estados Unidos. Los datos de tu cuenta se guardan en la región del proyecto indicada arriba; cuando se accede a ellos o
-            se transfieren fuera del Espacio Económico Europeo, están protegidos por <Fill value={SERVICES.transferSafeguards} />. Puedes pedirnos una copia de
-            estas garantías.
+            se transfieren fuera del Espacio Económico Europeo, están protegidos por <Fill value={SERVICES.transferSafeguards} />. Stripe y nuestro proveedor
+            de SMS también pueden tratar datos en Estados Unidos, protegidos por las garantías de sus propias condiciones de protección de datos (como el Marco de
+            Privacidad de Datos UE-EE. UU. o las cláusulas contractuales tipo). Puedes pedirnos una copia de estas garantías.
           </p>
         </Sub>
       </Section>
@@ -306,7 +402,7 @@ function PrivacyPolicy() {
             Descargar mis datos te da una copia en un archivo;
           </li>
           <li>
-            <strong className={strong}>rectificarlos</strong>: escríbenos o cambia tus ajustes en el juego;
+            <strong className={strong}>rectificarlos</strong>: cámbialos en Ajustes de la cuenta o escríbenos;
           </li>
           <li>
             <strong className={strong}>suprimirlos</strong>: Ajustes → Cuenta → Eliminar mi cuenta;
@@ -347,8 +443,10 @@ function PrivacyPolicy() {
 
       <Section id="security" title="Seguridad">
         <p>
-          Las conexiones están cifradas (HTTPS). Las contraseñas solo se guardan como hashes. Cada jugador solo puede leer y cambiar sus propios datos privados;
-          tras 5 contraseñas incorrectas, los inicios de sesión de ese nombre de usuario se pausan 30 segundos.
+          Las conexiones están cifradas (HTTPS). Las contraseñas y los códigos de recuperación solo se guardan como hashes. Cada jugador solo puede leer y
+          cambiar sus propios datos privados; tras 5 contraseñas incorrectas, los inicios de sesión de ese nombre de usuario se pausan 30 segundos, y las
+          contraseñas, los códigos y las denuncias solo se pueden probar unas pocas veces por hora. En Ajustes de la cuenta → Seguridad puedes activar la
+          verificación en dos pasos, ver tus inicios de sesión recientes y cerrar la sesión en tus otros dispositivos.
         </p>
       </Section>
 
@@ -506,8 +604,9 @@ function CookiePolicy() {
       title="Política de cookies"
       intro={
         <p>
-          Bronze usa una cookie y algunas entradas en el almacenamiento local y de sesión de tu navegador. Todas son de Bronze: no se comparte nada con otros
-          sitios y no hay rastreadores de publicidad, analítica ni redes sociales.
+          Bronze usa una cookie y algunas entradas en el almacenamiento local y de sesión de tu navegador. Son de Bronze: no se comparte nada con otros sitios y
+          no hay rastreadores de publicidad, analítica ni redes sociales. La única excepción es la verificación de tarjeta, que inicias tú: entonces el formulario
+          de tarjeta de Stripe pone sus propias cookies contra el fraude.
         </p>
       }
     >
@@ -522,6 +621,15 @@ function CookiePolicy() {
         <p>
           El almacenamiento esencial es necesario para lo que pides a Bronze, así que no requiere tu consentimiento. Todo lo demás espera tu consentimiento:
           hasta que permitas las Preferencias, tus ajustes solo duran hasta que cierres la página.
+        </p>
+        <p>
+          Las cookies de Stripe solo se ponen si pulsas <strong className={strong}>Verificar con una tarjeta</strong> en Ajustes de la cuenta → Seguridad, al
+          cargarse el formulario de Stripe. Son necesarias para comprobar la tarjeta de forma segura, así que cuentan como esenciales. El formulario de Stripe
+          también puede guardar cookies en los propios sitios de Stripe; consulta{' '}
+          <a href="https://stripe.com/legal/cookies-policy" className={link} rel="noopener">
+            la política de cookies de Stripe
+          </a>
+          .
         </p>
       </Section>
 

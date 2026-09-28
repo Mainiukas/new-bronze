@@ -535,11 +535,6 @@ dialog.bz-dialog--sheet-bottom {
 /* ==========================================================================
    PAINTED PAGE BACKGROUNDS (src/components/theme/PageBackground.tsx)
    ========================================================================== */
-/* Follows the mouse by up to 10 px (desktop only; the variables stay at 0 otherwise). */
-.page-bg-art {
-  transform: translate3d(var(--parallax-x, 0px), var(--parallax-y, 0px), 0);
-  transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
 /* Fades in over the soot ground once loaded, so a page never flashes. */
 .page-bg-img {
   opacity: 0;

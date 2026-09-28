@@ -15,7 +15,7 @@ export interface StorageItem {
   /** Name of the cookie or storage key (`<id>` stands for an account id). */
   key: string
   where: 'Cookie' | 'Local storage' | 'Session storage'
-  /** Who sets it. Everything is first-party: nothing is sent to other sites. */
+  /** Who sets it. Bronze's own, except Stripe's, set only during a card check the player starts. */
   provider: string
   purpose: string
   category: StorageCategory
@@ -90,6 +90,22 @@ export const STORAGE_ITEMS: StorageItem[] = [
     purpose: 'Counts wrong passwords, to pause log-ins for 30 seconds after 5 (security).',
     category: 'essential',
     duration: 'This tab only',
+  },
+  {
+    key: '__stripe_mid',
+    where: 'Cookie',
+    provider: 'Stripe',
+    purpose: 'Only if you start a card check: set by Stripe’s card form to recognise the device and prevent fraud.',
+    category: 'essential',
+    duration: '1 year',
+  },
+  {
+    key: '__stripe_sid',
+    where: 'Cookie',
+    provider: 'Stripe',
+    purpose: 'Only if you start a card check: set by Stripe’s card form to prevent fraud during the check.',
+    category: 'essential',
+    duration: '30 minutes',
   },
   {
     key: STORAGE_KEYS.match,
@@ -209,7 +225,7 @@ export interface DataItem {
 export const ACCOUNT_DATA: DataItem[] = [
   {
     what: 'Email address',
-    why: 'To log you in, and to send account emails (confirming your address, resetting your password).',
+    why: 'To log you in, and to send account emails (confirming your address, resetting your password, security notices when your password, email, phone or two-factor settings change).',
     basis: 'Contract (art. 6(1)(b))',
     retention: 'Until you delete your account',
   },
@@ -221,9 +237,21 @@ export const ACCOUNT_DATA: DataItem[] = [
   },
   {
     what: 'Username',
-    why: 'Your name in the game. Other players can see it.',
+    why: 'Your name in the game. Anyone can see it, whatever your privacy settings.',
     basis: 'Contract (art. 6(1)(b))',
     retention: 'Until you delete your account',
+  },
+  {
+    what: 'Previous usernames, and when you changed them',
+    why: 'So links to your old name lead to your profile for 30 days, and nobody else can take it (and pass as you) in that time.',
+    basis: 'Legitimate interest in preventing impersonation (art. 6(1)(f))',
+    retention: '30 days',
+  },
+  {
+    what: 'Profile details you choose to add: bio, country, avatar (a preset or a picture you upload); and your privacy settings',
+    why: 'Shown on your profile, to the people your privacy settings allow.',
+    basis: 'Contract (art. 6(1)(b))',
+    retention: 'Until you change them or delete your account',
   },
   {
     what: 'Google account details (name, email address, profile photo, Google account id), only if you sign in with Google',
@@ -251,9 +279,45 @@ export const ACCOUNT_DATA: DataItem[] = [
   },
   {
     what: 'Game record: matches, wins, best score, goods shipped, maps played, achievements and when you unlocked them, and when you joined; and a random id for each saved result',
-    why: 'Your profile and achievements. Other signed-in players can see your record. The ids make sure a result sent twice is counted once.',
+    why: 'Your profile and achievements, shown to the people your privacy settings allow. The ids make sure a result sent twice is counted once.',
     basis: 'Contract (art. 6(1)(b))',
     retention: 'Until you delete your account',
+  },
+  {
+    what: 'Match history: for each finished match, when, the map and game mode, how many players, your place, score, goods shipped, links and industries',
+    why: 'Your recent matches and statistics on your profile, shown to the people your privacy settings allow.',
+    basis: 'Contract (art. 6(1)(b))',
+    retention: 'Until you delete your account',
+  },
+  {
+    what: 'Two-factor authentication, only if you turn it on: the authenticator key (kept by Supabase) and your recovery codes (stored only as one-way hashes)',
+    why: 'To ask for a code from your phone when you log in, and to let you in with a recovery code if you lose it.',
+    basis: 'Contract (art. 6(1)(b))',
+    retention: 'Until you turn it off or delete your account',
+  },
+  {
+    what: 'Phone number, only if you verify one',
+    why: 'To show a “Phone verified” badge on your profile and, if you choose, to send two-factor codes by SMS. Only you see the number.',
+    basis: 'Contract (art. 6(1)(b))',
+    retention: 'Until you delete your account',
+  },
+  {
+    what: 'Card verification, only if you verify a card: that it is verified, when, the card brand and its last 4 digits (never the card number)',
+    why: 'To show a “Verified player” badge, as a sign you’re a real person. Nothing is charged. You type the card into Stripe’s form; it never reaches us.',
+    basis: 'Contract (art. 6(1)(b))',
+    retention: 'Until you remove the verification or delete your account',
+  },
+  {
+    what: 'Reports: when you report a player, or a player reports you: who, the reason, the note and when',
+    why: 'To look into cheating, offensive names, harassment and spam, and keep the game fair and safe.',
+    basis: 'Legitimate interest in a safe game (art. 6(1)(f))',
+    retention: '12 months; sooner if the reported account is deleted',
+  },
+  {
+    what: 'Abuse counters: your account id (or, before you log in, your IP address), which action and how many tries',
+    why: 'To limit how often passwords, codes, username checks and reports can be tried, against guessing and spam.',
+    basis: 'Legitimate interest in security (art. 6(1)(f))',
+    retention: 'Deleted after a day',
   },
   {
     what: 'Failed log-in counter: the username tried, how many wrong passwords and when',
@@ -263,7 +327,7 @@ export const ACCOUNT_DATA: DataItem[] = [
   },
   {
     what: 'Sign-in events kept by Supabase (time, IP address, browser)',
-    why: 'Security of the sign-in service.',
+    why: 'Security of the sign-in service, and your list of recent sign-ins in Account settings → Security (shown only to you).',
     basis: 'Legitimate interest in security (art. 6(1)(f))',
     retention: SERVICES.authLogRetention,
   },
@@ -301,6 +365,18 @@ export const RECIPIENTS: Recipient[] = [
     location: 'See Google’s privacy policy',
   },
   {
+    name: 'Stripe (Stripe Payments Europe, Limited, for people in the EEA)',
+    role: 'Only if you verify a card: processor for the card check, and independent controller for its own fraud prevention and legal duties',
+    data: 'The card details you type into Stripe’s form, your device and browser details, and your account id',
+    location: 'Ireland and the United States; see Stripe’s privacy policy',
+  },
+  {
+    name: SERVICES.smsProvider,
+    role: 'Processor, only if you verify a phone number: sends the SMS codes',
+    data: 'Your phone number and the code',
+    location: SERVICES.smsProvider,
+  },
+  {
     name: SERVICES.hosting,
     role: 'Processor: hosts the website’s files',
     data: 'Server logs (IP address, pages requested, browser)',
@@ -313,9 +389,9 @@ export const RECIPIENTS: Recipient[] = [
     location: SERVICES.emailProvider,
   },
   {
-    name: 'Other players',
-    role: 'Can see your public profile',
-    data: 'Username, avatar, game record, when you joined',
+    name: 'Other players and visitors',
+    role: 'Can see your profile, as your privacy settings allow',
+    data: 'Always your username and avatar; with a Public profile (or, once friends exist, Friends only, for your friends) also your bio, country, badges, game record, match history and when you joined',
     location: 'Anywhere Bronze is played',
   },
 ]

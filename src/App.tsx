@@ -9,6 +9,7 @@ import type { MatchSetup } from './components/MatchSetupPanel'
 import { MobileTabBar, MobileTopBar, MoreSheet } from './components/MobileNav'
 import type { LobbyProfile } from './components/ProfileChip'
 import { SceneBackground } from './components/SceneBackground'
+import { VerifyEmailBanner } from './components/VerifyEmail'
 import { Sidebar } from './components/Sidebar'
 import { backgroundForPage } from './components/theme/backgrounds'
 import { PageBackground } from './components/theme/PageBackground'
@@ -55,6 +56,8 @@ const LegalNotice = lazy(() => import('./pages/legal/LegalNotice').then((module)
 const DataRequest = lazy(() => import('./pages/legal/DataRequest').then((module) => ({ default: module.DataRequest })))
 const Credits = lazy(() => import('./pages/legal/Credits').then((module) => ({ default: module.Credits })))
 const Unsubscribe = lazy(() => import('./pages/legal/Unsubscribe').then((module) => ({ default: module.Unsubscribe })))
+const PublicProfile = lazy(() => import('./pages/PublicProfile').then((module) => ({ default: module.PublicProfile })))
+const AccountPage = lazy(() => import('./pages/AccountPage').then((module) => ({ default: module.AccountPage })))
 
 /** Which dialog is open. Only one at a time. */
 type Overlay = MenuAction
@@ -251,7 +254,9 @@ function AppShell() {
               </Suspense>
             }
           />
-          <Route path={PATHS.profile} element={<Profile profile={profile} stats={stats} onOpenSettings={() => setOverlay('settings')} />} />
+          <Route path={PATHS.profile} element={<Profile />} />
+          <Route path={PATHS.publicProfile} element={<PublicProfile />} />
+          <Route path={PATHS.account} element={<AccountPage />} />
           <Route path={PATHS.terms} element={<TermsOfService />} />
           <Route path={PATHS.privacy} element={<PrivacyPolicy />} />
           <Route path={PATHS.refunds} element={<RefundPolicy />} />
@@ -264,8 +269,8 @@ function AppShell() {
         <Route path="*" element={<NotFound />} />
       </Routes>
 
-      {/* A signed-in player without a username gets that step wherever they are. */}
-      {(onAuthRoute || auth.status === 'needs-username') && (
+      {/* A signed-in player without a username, or with a two-factor code still to give, gets that step wherever they are. */}
+      {(onAuthRoute || auth.status === 'needs-username' || auth.status === 'needs-mfa') && (
         <Suspense fallback={null}>
           <AuthScreen />
         </Suspense>
@@ -319,6 +324,7 @@ function LobbyLayout({ profile, onMenuAction, covered }: { profile: LobbyProfile
         className="flex flex-1 flex-col pb-[calc(3.5rem+env(safe-area-inset-bottom)+var(--cookie-banner-height,0px))] outline-none md:pb-[var(--cookie-banner-height,0px)] md:pl-[72px] lg:pl-60"
       >
         <div className="flex-1">
+          <VerifyEmailBanner />
           {/* While a page's code loads, hold a screen of space so the footer doesn't show and then jump down (layout shift). */}
           <Suspense fallback={<div className="min-h-dvh" />}>
             <Outlet />

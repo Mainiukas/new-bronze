@@ -21,6 +21,7 @@ function backendFor(user: AuthUser | null) {
       setTimeout(() => callback(user, false), 0)
       return () => undefined
     },
+    getMfaState: async () => ({ current: 'aal1', next: 'aal1', factors: [] }),
     async getProfile() {
       await profileReady
       return ada

@@ -41,6 +41,10 @@ export interface MatchSummary {
   goodsShipped: number
   links: number
   shipyards: number
+  /** 1 for the winner. */
+  placement: number
+  /** Buildings they own at the end. */
+  industries: number
 }
 
 export type AchievementId =
@@ -109,6 +113,8 @@ export function recordMatch(stats: PlayerStats, game: GameState): { stats: Playe
     goodsShipped: you.goodsShipped,
     links: Object.values(game.links).filter((link) => link.owner === 0).length,
     shipyards: game.buildings.filter((b) => b.owner === 0 && b.kind === 'shipyard').length,
+    placement: score.rank,
+    industries: game.buildings.filter((b) => b.owner === 0).length,
   }
   const next: PlayerStats = {
     matches: stats.matches + 1,

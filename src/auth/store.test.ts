@@ -1,18 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { EMPTY_STATS, type PlayerStats } from '../data/achievements'
-import { AuthError, type AuthBackend, type AuthUser, type Profile, type SignupConsent } from './backend'
+import { AuthError, type AuthBackend, type AuthUser, type MfaState, type Profile, type SignupConsent } from './backend'
 import { createAuthStore } from './store'
 
-/** An in-memory account service for the store's tests. */
-function stubBackend({ signedInAs = null as AuthUser | null, profiles = [] as Profile[], password = 'Sprocket-42' } = {}) {
+/**
+ * An in-memory account service for the store's tests. `withTwoFactor`: user
+ * ids whose accounts have an authenticator app (code 123456; recovery code
+ * abcde-23456).
+ */
+function stubBackend({ signedInAs = null as AuthUser | null, profiles = [] as Profile[], password = 'Sprocket-42', withTwoFactor = [] as string[] } = {}) {
   let user = signedInAs
+  let aal: 'aal1' | 'aal2' = 'aal1'
+  const twoFactor = new Set(withTwoFactor)
   const listeners = new Set<(user: AuthUser | null, recovery: boolean) => void>()
   let recovery = false
   const emit = () => setTimeout(() => listeners.forEach((listener) => listener(user, recovery)), 0)
   const counted = new Set<string>()
   const accounts: Record<string, AuthUser> = { 'ada@example.com': { id: 'u1', email: 'ada@example.com', displayName: 'Ada Lovelace', avatarUrl: null } }
   const calls: string[] = []
-  const backend: AuthBackend = {
+  const backend = {
     onUserChange(listener) {
       listeners.add(listener)
       setTimeout(() => listener(user, false), 0)
@@ -25,6 +31,29 @@ function stubBackend({ signedInAs = null as AuthUser | null, profiles = [] as Pr
     async signInWithPassword(email, pw) {
       if (!accounts[email] || pw !== password) throw new AuthError('invalid-credentials')
       user = accounts[email]
+      aal = 'aal1'
+      emit()
+    },
+    async getMfaState(): Promise<MfaState> {
+      const on = !!user && twoFactor.has(user.id)
+      return {
+        current: user ? aal : null,
+        next: on ? 'aal2' : 'aal1',
+        factors: on ? [{ id: 'totp-1', type: 'totp', verified: true }] : [],
+      }
+    },
+    async verifyMfaCode(factorId, code) {
+      calls.push(`mfa:${factorId}:${code}`)
+      if (code !== '123456') throw new AuthError('invalid-code')
+      aal = 'aal2'
+      emit()
+    },
+    async useRecoveryCode(code) {
+      if (!user || code.replace(/\W/g, '').toLowerCase() !== 'abcde23456') return false
+      twoFactor.delete(user.id)
+      return true
+    },
+    async refreshSession() {
       emit()
     },
     async emailForLogin(username, pw) {
@@ -104,7 +133,7 @@ function stubBackend({ signedInAs = null as AuthUser | null, profiles = [] as Pr
     setRememberMe(remember) {
       calls.push(`remember:${remember}`)
     },
-  }
+  } satisfies Partial<AuthBackend> as unknown as AuthBackend
   return { backend, calls }
 }
 
@@ -248,6 +277,50 @@ describe('auth store', () => {
     expect(profiles).toEqual([])
     expect(store.getState().status).toBe('guest')
     await settle()
+    expect(store.getState().status).toBe('guest')
+  })
+
+  it('asks for the 2FA code after the password, and only then loads the profile', async () => {
+    const { backend, calls } = stubBackend({ profiles: [ada], withTwoFactor: ['u1'] })
+    const store = createAuthStore(backend, options)
+    store.start()
+    await settle()
+    const afterPassword = await store.signIn('ada', 'Sprocket-42', true)
+    expect(afterPassword).toMatchObject({ status: 'needs-mfa', profile: null })
+    expect(afterPassword.user?.id).toBe('u1')
+
+    await expect(store.verifyMfa('000000')).rejects.toMatchObject({ code: 'invalid-code' })
+    expect(store.getState().status).toBe('needs-mfa')
+
+    const state = await store.verifyMfa('123456')
+    expect(state.status).toBe('signed-in')
+    expect(state.profile?.username).toBe('Ada')
+    expect(calls).toContain('mfa:totp-1:123456')
+  })
+
+  it('asks again for the 2FA code when a session that hasn’t passed it is restored', async () => {
+    const store = createAuthStore(stubBackend({ signedInAs: adaUser, profiles: [ada], withTwoFactor: ['u1'] }).backend, options)
+    store.start()
+    await settle()
+    expect(store.getState().status).toBe('needs-mfa')
+  })
+
+  it('lets a recovery code in instead of the 2FA code (turning 2FA off)', async () => {
+    const store = createAuthStore(stubBackend({ profiles: [ada], withTwoFactor: ['u1'] }).backend, options)
+    store.start()
+    await settle()
+    await store.signIn('ada@example.com', 'Sprocket-42', true)
+    await expect(store.useRecoveryCode('wrong-codes')).rejects.toMatchObject({ code: 'invalid-code' })
+    const state = await store.useRecoveryCode('ABCDE 23456')
+    expect(state.status).toBe('signed-in')
+  })
+
+  it('cancelling at the 2FA step logs out', async () => {
+    const store = createAuthStore(stubBackend({ profiles: [ada], withTwoFactor: ['u1'] }).backend, options)
+    store.start()
+    await settle()
+    await store.signIn('ada', 'Sprocket-42', true)
+    await store.signOut()
     expect(store.getState().status).toBe('guest')
   })
 

@@ -1,5 +1,17 @@
 import type { PlayerStats } from '../data/achievements'
-import { AuthError, type AuthBackend, type AuthUser, type EmailList, type EmailPreferences, type GuestMerge, type MatchResult, type Profile, type SignupConsent } from './backend'
+import {
+  AuthError,
+  type AuthBackend,
+  type AuthUser,
+  type EmailList,
+  type EmailPreferences,
+  type GuestMerge,
+  type MatchResult,
+  type Profile,
+  type ReportReason,
+  type SignupConsent,
+  type Visibility,
+} from './backend'
 import { authRedirectUrl } from './redirect'
 import { isEmail } from './validation'
 
@@ -8,10 +20,12 @@ import { isEmail } from './validation'
  * - loading: finding out who's signed in.
  * - guest: nobody signed in.
  * - needs-username: signed in (e.g. with Google for the first time) but no profile yet.
+ * - needs-mfa: password (or Google) accepted, but the account has two-factor
+ *   authentication and this session hasn't passed it yet.
  * - signed-in: signed in with a profile.
  * - error: signed in, but the profile couldn't be loaded (retry() tries again).
  */
-export type AuthStatus = 'unconfigured' | 'loading' | 'guest' | 'needs-username' | 'signed-in' | 'error'
+export type AuthStatus = 'unconfigured' | 'loading' | 'guest' | 'needs-username' | 'needs-mfa' | 'signed-in' | 'error'
 
 export interface AuthState {
   status: AuthStatus
@@ -23,7 +37,7 @@ export interface AuthState {
 
 const GUEST: AuthState = { status: 'guest', user: null, profile: null, passwordRecovery: false }
 
-const SETTLED: AuthStatus[] = ['signed-in', 'needs-username', 'error']
+const SETTLED: AuthStatus[] = ['signed-in', 'needs-username', 'needs-mfa', 'error']
 
 export interface AuthStoreOptions {
   /** Full URL for a return to `route` (a hash route such as /auth/callback). */
@@ -62,6 +76,10 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
     if (state.user?.id === user.id && state.profile) return set({ ...state, user, passwordRecovery })
     set({ status: 'loading', user, profile: null, passwordRecovery })
     try {
+      // Two-factor authentication on, and this session hasn't passed it: nothing else until it does.
+      const mfa = await need().getMfaState()
+      if (id !== loadId) return
+      if (mfa.next === 'aal2' && mfa.current !== 'aal2') return set({ status: 'needs-mfa', user, profile: null, passwordRecovery })
       const profile = await need().getProfile(user.id)
       if (id === loadId) set({ status: profile ? 'signed-in' : 'needs-username', user, profile, passwordRecovery })
     } catch {
@@ -72,6 +90,21 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
   /** A newer copy of the signed-in profile from the server (if it's still the same player). */
   function takeProfile(profile: Profile | null) {
     if (profile && state.profile?.id === profile.id) set({ ...state, profile })
+  }
+
+  /** Look up the signed-in user again (after passing 2FA), and wait for the result. */
+  async function reload(): Promise<AuthState> {
+    const { user } = state
+    if (!user) throw new AuthError('unknown', 'Not signed in.')
+    set({ ...state, profile: null })
+    await load(user)
+    return settled()
+  }
+
+  /** The signed-in player's user id, or an error. */
+  function userId(): string {
+    if (!state.user) throw new AuthError('unknown', 'Not signed in.')
+    return state.user.id
   }
 
   /** Resolves when a sign-in has shown up in the state (profile loaded, or known to be missing). */
@@ -215,6 +248,104 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
       if (!profile) throw new AuthError('unknown', 'Not signed in.')
       if (shown) set({ ...state, profile: { ...profile, stats: shown } })
       takeProfile(await need().mergeGuestStats(merge))
+    },
+
+    // ------------------------------------------------------------ two-factor at log-in
+    /** Pass 2FA with a 6-digit code from the authenticator app (or the given method). */
+    async verifyMfa(code: string, factorId?: string) {
+      const service = need()
+      const id = factorId ?? (await service.getMfaState()).factors.find((factor) => factor.verified && factor.type === 'totp')?.id
+      if (!id) throw new AuthError('unknown', 'No authenticator app is set up.')
+      await service.verifyMfaCode(id, code)
+      return reload()
+    },
+    /** Sends an SMS code for a phone method; returns the challenge to verify. */
+    sendMfaSms: (factorId: string) => need().sendMfaSms(factorId),
+    async verifyMfaSms(factorId: string, challengeId: string, code: string) {
+      await need().verifyMfaSms(factorId, challengeId, code)
+      return reload()
+    },
+    /** A recovery code instead: a right one turns 2FA off, so the player gets in (and should set it up again). */
+    async useRecoveryCode(code: string) {
+      const service = need()
+      if (!(await service.useRecoveryCode(code))) throw new AuthError('invalid-code')
+      await service.refreshSession()
+      return reload()
+    },
+
+    // ------------------------------------------------------------ profiles
+    getPublicProfile: (username: string) => need().getPublicProfile(username),
+    getMatchHistory: (username: string, page: number) => need().getMatchHistory(username, page),
+    reportUser: (username: string, reason: ReportReason, details: string) => need().reportUser(username, reason, details),
+    getAccount: () => need().getAccount(),
+    async updateProfileDetails(bio: string, country: string | null) {
+      takeProfile(await need().updateProfileDetails(bio, country))
+    },
+    async setAvatar(value: string | null) {
+      takeProfile(await need().setAvatar(value))
+    },
+    /** Upload an image (already resized) and make it the avatar. */
+    async uploadAvatar(image: Blob) {
+      const url = await need().uploadAvatar(userId(), image)
+      takeProfile(await need().setAvatar(url))
+    },
+    async setPrivacy(profile: Visibility, history: Visibility) {
+      takeProfile(await need().setPrivacy(profile, history))
+    },
+    async changeUsername(username: string, password: string | null) {
+      await need().changeUsername(username.trim(), password)
+      takeProfile(await need().getProfile(userId()))
+    },
+    async refreshProfile() {
+      takeProfile(await need().getProfile(userId()))
+    },
+
+    // ------------------------------------------------------------ security
+    checkPassword: (password: string) => need().checkPassword(password),
+    /** Confirmation links go to the old and the new address; the change shows as pending until then. */
+    changeEmail: (email: string) => need().changeEmail(email.trim(), redirectUrl('/auth/callback')),
+    /** Change (or set) the password, then sign out every other device. */
+    async changePassword(password: string, nonce?: string) {
+      await need().changePassword(password, nonce)
+      await need()
+        .signOutOtherDevices()
+        .catch(() => undefined)
+    },
+    sendReauthenticationCode: () => need().sendReauthenticationCode(),
+    signOutOtherDevices: () => need().signOutOtherDevices(),
+    resendVerificationEmail() {
+      const email = state.user?.email
+      if (!email) throw new AuthError('unknown', 'No email address.')
+      return need().resendVerificationEmail(email, redirectUrl('/auth/callback'))
+    },
+    recentSignIns: () => need().recentSignIns(),
+    listIdentities: () => need().listIdentities(),
+    linkGoogle: () => need().linkGoogle(redirectUrl('/auth/callback')),
+    unlinkIdentity: (identityId: string) => need().unlinkIdentity(identityId),
+    serviceSettings: () => need().serviceSettings(),
+
+    // ------------------------------------------------------------ two-factor settings
+    getMfaState: () => need().getMfaState(),
+    enrollTotp: () => need().enrollTotp(),
+    /** Confirm a new method with its first code. */
+    confirmMfaFactor: (factorId: string, code: string) => need().verifyMfaCode(factorId, code),
+    /** Confirm a new SMS method with the code it was sent. */
+    confirmMfaSmsFactor: (factorId: string, challengeId: string, code: string) => need().verifyMfaSms(factorId, challengeId, code),
+    enrollPhoneFactor: (phone: string) => need().enrollPhoneFactor(phone),
+    removeMfaFactor: (factorId: string) => need().removeMfaFactor(factorId),
+    regenerateRecoveryCodes: () => need().regenerateRecoveryCodes(),
+    clearRecoveryCodes: () => need().clearRecoveryCodes(),
+
+    // ------------------------------------------------------------ phone and card
+    notePhoneAttempt: () => need().notePhoneAttempt(),
+    startPhoneVerification: (phone: string) => need().startPhoneVerification(phone),
+    async confirmPhone(phone: string, code: string) {
+      await need().confirmPhone(phone, code)
+      takeProfile(await need().getProfile(userId()))
+    },
+    startCardVerification: () => need().startCardVerification(),
+    async removeCardVerification() {
+      takeProfile(await need().removeCardVerification())
     },
   }
 }

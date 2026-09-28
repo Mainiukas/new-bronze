@@ -4,11 +4,12 @@ import { createLazyBackend } from './lazyBackend'
 
 /** A backend that records the order of calls. */
 function recorder(log: string[]): AuthBackend {
+  // Only what these tests call; the rest of AuthBackend isn't needed.
   const call = (name: string) => async () => {
     log.push(name)
   }
   return {
-    onUserChange: (callback) => {
+    onUserChange: (callback: (user: null, recovery: boolean) => void) => {
       log.push('onUserChange')
       callback(null, false)
       return () => log.push('unsubscribed')
@@ -37,8 +38,8 @@ function recorder(log: string[]): AuthBackend {
     recordMatchResult: async () => null,
     mergeGuestStats: async () => null,
     isUsernameAvailable: async () => true,
-    setRememberMe: (remember) => void log.push(`remember:${remember}`),
-  }
+    setRememberMe: (remember: boolean) => void log.push(`remember:${remember}`),
+  } as unknown as AuthBackend
 }
 
 describe('lazy account backend', () => {

@@ -37,8 +37,12 @@ export const PATHS = {
   play: '/play',
   /** The illustrated map board and its calibration editor. */
   board: '/board',
-  /** Your account (signed in). */
+  /** Your profile: goes to /u/<your username> (signed in). */
   profile: '/profile',
+  /** A player's public profile: /u/<username>. */
+  publicProfile: '/u/:username',
+  /** Account settings: Profile, Security, Privacy, Notifications, Data (?tab=…). */
+  account: '/settings/account',
   terms: '/terms',
   privacy: '/privacy',
   refunds: '/refunds',
@@ -51,6 +55,15 @@ export const PATHS = {
   /** One-click unsubscribe from non-essential emails (?token=…&list=…). */
   unsubscribe: '/unsubscribe',
 } as const
+
+/** A player's profile page. */
+export const profilePath = (username: string) => `/u/${encodeURIComponent(username)}`
+
+export const ACCOUNT_TABS = ['profile', 'security', 'privacy', 'notifications', 'data'] as const
+export type AccountTab = (typeof ACCOUNT_TABS)[number]
+
+/** The account settings, on a tab. */
+export const accountPath = (tab: AccountTab = 'profile') => `${PATHS.account}?tab=${tab}`
 
 /** The legal pages, in footer and sidebar order. */
 export const LEGAL_LINKS: readonly NavTab[] = [

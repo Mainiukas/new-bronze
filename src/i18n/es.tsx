@@ -6,6 +6,7 @@ import type { GoodsKind, IndustryKind, LogEntry, RouteKind } from '../game/types
 import { renderWith } from './game/en'
 import game from './game/es'
 import { pluralizer } from './languages'
+import accountWords from './account/es'
 import type { Messages } from './messages'
 
 /* Todas las palabras de la pantalla en español (traducidas de en.tsx). */
@@ -645,6 +646,16 @@ const es: Messages = {
     'link-invalid': 'Este enlace no es válido o ha caducado.',
     cancelled: 'Se canceló el inicio de sesión. Vuelve a intentarlo o usa tu nombre de usuario o correo.',
     network: 'No se puede contactar con el servidor de cuentas. Revisa tu conexión y vuelve a intentarlo.',
+    'wrong-password': 'Tu contraseña actual no es correcta.',
+    'too-soon': 'Puedes cambiar tu nombre de usuario una vez cada 30 días.',
+    'same-username': 'Ese ya es tu nombre de usuario.',
+    'reauth-needed': 'Por seguridad, vuelve a iniciar sesión y prueba otra vez.',
+    'mfa-required': 'Primero introduce tu código de verificación en dos pasos.',
+    'invalid-code': 'Ese código es incorrecto o ha caducado. Revísalo y vuelve a probar.',
+    unavailable: 'Esto aún no está disponible.',
+    'last-identity': 'No puedes quitar tu único método de inicio de sesión. Primero crea una contraseña o vincula otra cuenta.',
+    'identity-taken': 'Esa cuenta ya está vinculada a otro jugador de Bronze.',
+    'invalid-input': 'Revisa lo que has escrito y vuelve a probar.',
     unknown: 'Algo ha fallado. Inténtalo de nuevo.',
   },
   validation: {
@@ -657,6 +668,9 @@ const es: Messages = {
     choosePassword: 'Elige una contraseña.',
     typeAgain: 'Vuelve a escribir la contraseña.',
     noMatch: 'Las contraseñas no coinciden.',
+    sameUsername: 'Ese ya es tu nombre de usuario.',
+    enterCurrentPassword: 'Escribe tu contraseña actual.',
+    sameAsCurrent: 'Elige una contraseña distinta de la actual.',
   },
   consents: {
     howOld: '¿Cuántos años tienes?',
@@ -779,6 +793,7 @@ const es: Messages = {
     table: (caption: string) => `${caption} (tabla)`,
     freeToPlay: 'Bronze es gratuito; no se vende nada.',
   },
+  ...accountWords,
 }
 
 export default es

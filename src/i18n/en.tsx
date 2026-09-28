@@ -5,6 +5,7 @@ import type { Quote } from '../game/engine'
 import type { GameMessage } from '../game/messages'
 import type { RULES } from '../game/rules'
 import type { GoodsKind, IndustryKind, LogEntry, RouteKind } from '../game/types'
+import accountWords from './account/en'
 import game, { renderWith } from './game/en'
 import { pluralizer } from './languages'
 
@@ -777,6 +778,7 @@ const en = {
     table: (caption: string) => `${caption} (table)`,
     freeToPlay: 'Bronze is free to play; nothing is sold.',
   },
+  ...accountWords,
 }
 
 export default en

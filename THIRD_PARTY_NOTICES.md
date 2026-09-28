@@ -11,6 +11,7 @@ packages installed in node_modules, each with the licence text shipped with it. 
 | @fontsource/barlow-condensed | 5.3.0 | OFL-1.1 |
 | @fontsource/cinzel | 5.3.0 | OFL-1.1 |
 | @remix-run/route-pattern | 0.22.1 | MIT |
+| @stripe/stripe-js | 7.10.0 | MIT |
 | @supabase/auth-js | 2.117.2 | MIT |
 | @supabase/functions-js | 2.117.2 | MIT |
 | @supabase/phoenix | 0.4.5 | MIT |
@@ -336,6 +337,34 @@ Licence: MIT · Source: https://github.com/remix-run/remix.git
 MIT License
 
 Copyright (c) 2025 Shopify Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @stripe/stripe-js 7.10.0
+
+Licence: MIT · Author: Stripe (https://www.stripe.com) · Source: github:stripe/stripe-js
+
+```
+MIT License
+
+Copyright (c) 2017 Stripe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

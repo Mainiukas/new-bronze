@@ -138,7 +138,7 @@ export function usePlayerStats() {
       const result = recordMatch(profile ? profile.stats : localStats, finished)
       if (!result.match) return []
       if (profile) {
-        const { score, won, goodsShipped } = result.match
+        const { score, won, goodsShipped, placement, links, industries, players, modeId } = result.match
         const matchResult: MatchResult = {
           id: newResultId(),
           score,
@@ -146,6 +146,11 @@ export function usePlayerStats() {
           goodsShipped,
           mapId: finished.mapId,
           achievements: result.unlocked.map((achievement) => achievement.id),
+          modeId,
+          players,
+          placement,
+          links,
+          industries,
         }
         enqueue(profile.id, { kind: 'match', result: matchResult }, result.stats)
       } else {

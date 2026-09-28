@@ -6,6 +6,7 @@ import type { GoodsKind, IndustryKind, LogEntry, RouteKind } from '../game/types
 import game from './game/de'
 import { renderWith } from './game/en'
 import { pluralizer } from './languages'
+import accountWords from './account/de'
 import type { Messages } from './messages'
 
 /* Alle Worte auf dem Bildschirm auf Deutsch (übersetzt aus en.tsx). */
@@ -645,6 +646,16 @@ const de: Messages = {
     'link-invalid': 'Dieser Link ist ungültig oder abgelaufen.',
     cancelled: 'Die Anmeldung wurde abgebrochen. Versuch es erneut oder nutze Benutzername oder E-Mail.',
     network: 'Der Kontoserver ist nicht erreichbar. Prüfe deine Verbindung und versuch es erneut.',
+    'wrong-password': 'Dein aktuelles Passwort ist falsch.',
+    'too-soon': 'Du kannst deinen Benutzernamen einmal alle 30 Tage ändern.',
+    'same-username': 'Das ist bereits dein Benutzername.',
+    'reauth-needed': 'Melde dich zu deiner Sicherheit erneut an und versuch es dann noch einmal.',
+    'mfa-required': 'Gib zuerst deinen Code für die Zwei-Faktor-Authentifizierung ein.',
+    'invalid-code': 'Der Code ist falsch oder abgelaufen. Prüfe ihn und versuch es erneut.',
+    unavailable: 'Das ist noch nicht verfügbar.',
+    'last-identity': 'Du kannst deine einzige Anmeldemethode nicht entfernen. Lege zuerst ein Passwort fest oder verknüpfe ein anderes Konto.',
+    'identity-taken': 'Dieses Konto ist bereits mit einem anderen Bronze-Spieler verknüpft.',
+    'invalid-input': 'Prüfe deine Eingabe und versuch es erneut.',
     unknown: 'Etwas ist schiefgegangen. Bitte versuch es erneut.',
   },
   validation: {
@@ -657,6 +668,9 @@ const de: Messages = {
     choosePassword: 'Wähle ein Passwort.',
     typeAgain: 'Gib das Passwort noch einmal ein.',
     noMatch: 'Die Passwörter stimmen nicht überein.',
+    sameUsername: 'Das ist bereits dein Benutzername.',
+    enterCurrentPassword: 'Gib dein aktuelles Passwort ein.',
+    sameAsCurrent: 'Wähle ein anderes Passwort als dein aktuelles.',
   },
   consents: {
     howOld: 'Wie alt bist du?',
@@ -779,6 +793,7 @@ const de: Messages = {
     table: (caption: string) => `${caption} (Tabelle)`,
     freeToPlay: 'Bronze ist kostenlos; es wird nichts verkauft.',
   },
+  ...accountWords,
 }
 
 export default de

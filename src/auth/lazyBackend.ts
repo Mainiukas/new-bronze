@@ -16,7 +16,7 @@ export function createLazyBackend(load: () => Promise<AuthBackend | null>): Auth
     return backend
   }
 
-  return {
+  const special: Pick<AuthBackend, 'onUserChange' | 'setRememberMe'> = {
     onUserChange(callback) {
       let stop: (() => void) | null = null
       let stopped = false
@@ -30,28 +30,23 @@ export function createLazyBackend(load: () => Promise<AuthBackend | null>): Auth
         stop?.()
       }
     },
-    signUp: async (input) => (await real()).signUp(input),
-    signInWithPassword: async (email, password) => (await real()).signInWithPassword(email, password),
-    emailForLogin: async (username, password) => (await real()).emailForLogin(username, password),
-    signInWithGoogle: async (redirectTo) => (await real()).signInWithGoogle(redirectTo),
-    completeRedirect: async (params) => (await real()).completeRedirect(params),
-    signOut: async () => (await real()).signOut(),
-    sendPasswordReset: async (email, redirectTo) => (await real()).sendPasswordReset(email, redirectTo),
-    updatePassword: async (password) => (await real()).updatePassword(password),
-    getProfile: async (userId) => (await real()).getProfile(userId),
-    createProfile: async (user, username, consent) => (await real()).createProfile(user, username, consent),
-    deleteAccount: async () => (await real()).deleteAccount(),
-    exportData: async () => (await real()).exportData(),
-    getEmailPreferences: async () => (await real()).getEmailPreferences(),
-    setEmailPreferences: async (preferences) => (await real()).setEmailPreferences(preferences),
-    confirmAdult: async () => (await real()).confirmAdult(),
-    unsubscribe: async (token, list) => (await real()).unsubscribe(token, list),
-    recordMatchResult: async (result) => (await real()).recordMatchResult(result),
-    mergeGuestStats: async (merge) => (await real()).mergeGuestStats(merge),
-    isUsernameAvailable: async (username) => (await real()).isUsernameAvailable(username),
     setRememberMe(remember) {
       // Runs before any call made after it (they all wait on the same load).
       void ready().then((backend) => backend?.setRememberMe(remember))
     },
   }
+
+  // Every other method: wait for the real backend, then call it with the same arguments.
+  return new Proxy(special as AuthBackend, {
+    get(target, name: string | symbol) {
+      if (name in target) return target[name as keyof typeof target]
+      if (typeof name !== 'string' || name === 'then') return undefined
+      return async (...args: unknown[]) => {
+        const backend = await real()
+        const method = backend[name as keyof AuthBackend] as unknown as ((...params: unknown[]) => unknown) | undefined
+        if (typeof method !== 'function') throw new AuthError('unknown', `No account method ${name}.`)
+        return method.apply(backend, args)
+      }
+    },
+  })
 }

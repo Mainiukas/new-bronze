@@ -47,7 +47,8 @@ export function preloadPainting(name: BackgroundName) {
 export const BACKGROUND_FOCUS: Record<BackgroundName, string> = {
   lobby: '60% 55%',
   auth: '45% 60%',
-  auth_study: '30% 55%',
+  // The oil lamp stands at the far left: at 30% phones and tablets would crop it out.
+  auth_study: '5% 55%',
   shop: '55% 60%',
   locker: '45% 55%',
   achievements: '40% 60%',
@@ -69,16 +70,16 @@ const VIGNETTE = `radial-gradient(ellipse 75% 70% at 50% 45%, transparent 35%, $
 export const BACKGROUND_OVERLAY: Record<BackgroundName, string> = {
   // Sidebar and play column on the left and centre; the social column (an iron panel) on the right.
   lobby: `${VIGNETTE}, linear-gradient(90deg, ${soot(0.78)} 0%, ${soot(0.66)} 45%, ${soot(0.5)} 72%, ${soot(0.62)} 100%), linear-gradient(0deg, ${soot(0.55)}, transparent 40%)`,
-  // The panel sits in the middle, over the lamp glow.
-  auth: `${VIGNETTE}, radial-gradient(ellipse 45% 70% at 50% 50%, ${soot(0.6)}, ${soot(0.35)} 100%)`,
-  auth_study: `${VIGNETTE}, radial-gradient(ellipse 45% 70% at 50% 50%, ${soot(0.55)}, ${soot(0.3)} 100%)`,
+  // The panel is a column in the middle, over the lamp glow (on phones the logo sits on the painting above it).
+  auth: `${VIGNETTE}, linear-gradient(90deg, ${soot(0.35)}, ${soot(0.62)} 32%, ${soot(0.62)} 68%, ${soot(0.35)})`,
+  auth_study: `${VIGNETTE}, linear-gradient(90deg, ${soot(0.3)}, ${soot(0.56)} 32%, ${soot(0.56)} 68%, ${soot(0.3)})`,
   // Title and panel in a centred column.
   shop: `${VIGNETTE}, linear-gradient(90deg, ${soot(0.5)}, ${soot(0.72)} 30%, ${soot(0.72)} 70%, ${soot(0.5)})`,
   locker: `${VIGNETTE}, linear-gradient(90deg, ${soot(0.45)}, ${soot(0.66)} 30%, ${soot(0.66)} 70%, ${soot(0.45)})`,
   achievements: `${VIGNETTE}, linear-gradient(180deg, ${soot(0.7)}, ${soot(0.55)} 40%, ${soot(0.65)})`,
   tournaments: `${VIGNETTE}, linear-gradient(90deg, ${soot(0.5)}, ${soot(0.72)} 30%, ${soot(0.72)} 70%, ${soot(0.5)})`,
-  // Logo and loader in the centre, over the molten metal.
-  splash: `${VIGNETTE}, radial-gradient(ellipse 40% 45% at 50% 50%, ${soot(0.72)}, ${soot(0.4)} 100%)`,
+  // Logo, title and loader in a band across the middle, over the molten metal. Keep in step with .splash-shade in index.html.
+  splash: `${VIGNETTE}, linear-gradient(180deg, ${soot(0.4)}, ${soot(0.66)} 30%, ${soot(0.66)} 72%, ${soot(0.45)})`,
 }
 
 /** Lobby pages with their own painting; every other lobby page shows the lobby's. */

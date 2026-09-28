@@ -53,7 +53,7 @@ export function AgeQuestion({
           </label>
         ))}
       </div>
-      <p id={`${name}-message`} aria-live="polite" className={`mt-1 mb-2 min-h-5 text-sm ${error ? 'text-rust-300' : 'text-parchment-400'}`}>
+      <p id={`${name}-message`} aria-live="polite" className={`mt-1 mb-2 min-h-5 text-sm ${error ? 'text-rust-300' : 'text-parchment-300'}`}>
         {error ?? 'We don’t ask for your birth date.'}
       </p>
     </fieldset>
@@ -100,7 +100,7 @@ export function TermsConsent({
         <a href="#/privacy" target="_blank" rel="noopener" className="font-semibold text-brass-300 underline underline-offset-2 hover:text-brass-200">
           Privacy Policy<span className="sr-only"> (opens in a new tab)</span>
         </a>
-        <span className="text-parchment-400"> (required)</span>
+        <span className="text-parchment-300"> (required)</span>
       </Checkbox>
       <p id={`${id}-message`} aria-live="polite" className="min-h-5 text-sm text-rust-300">
         {error}
@@ -113,7 +113,7 @@ export function TermsConsent({
 export function MarketingConsent({ id, checked, onChange }: { id: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <Checkbox id={id} checked={checked} onChange={onChange}>
-      Email me news about Bronze <span className="text-parchment-400">(optional; unsubscribe any time)</span>
+      Email me news about Bronze <span className="text-parchment-300">(optional; unsubscribe any time)</span>
     </Checkbox>
   )
 }

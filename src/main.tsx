@@ -14,11 +14,13 @@ import App from './App.tsx'
 import { normalizeAuthRedirect } from './auth/redirect'
 import { preloadBoardImages } from './components/board/assets'
 import { preloadPainting } from './components/theme/backgrounds'
+import { whenFirstPageSettled } from './components/theme/firstPaint'
 import './index.css'
 
-// Once the first page (and its painting) has loaded and the browser is idle, fetch what comes next: the
-// account screens' painting (index.html already preloads the lobby's), and the board's pictures and code.
+// Once the first page is on screen with its painting and the browser is idle, fetch what comes next: the
+// account screens' painting (on desktops index.html has already preloaded it), and the board's pictures and code.
 // None of it holds the first page up; opening a board or the account screens sooner loads them then.
+// (Not on the window's load event: that fires before the app has drawn anything.)
 const prefetchNext = () => {
   const run = () => {
     preloadPainting('auth')
@@ -33,8 +35,7 @@ const prefetchNext = () => {
   if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 3000 })
   else setTimeout(run, 500)
 }
-if (document.readyState === 'complete') prefetchNext()
-else window.addEventListener('load', prefetchNext, { once: true })
+void whenFirstPageSettled().then(prefetchNext)
 
 // A failed Google or email-link return can land as #error=…: turn it back into a route first.
 normalizeAuthRedirect()

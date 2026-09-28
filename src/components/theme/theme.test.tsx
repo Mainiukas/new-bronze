@@ -26,7 +26,7 @@ describe('painted backgrounds', () => {
     expect(BACKGROUND_FOCUS).toEqual({
       lobby: '60% 55%',
       auth: '45% 60%',
-      auth_study: '30% 55%',
+      auth_study: '5% 55%',
       shop: '55% 60%',
       locker: '45% 55%',
       achievements: '40% 60%',
@@ -34,8 +34,8 @@ describe('painted backgrounds', () => {
       splash: '40% 55%',
     })
     for (const name of BACKGROUND_NAMES) {
-      // Vignette to rgba(8,5,3,.75) in the corners, plus the page's own gradient.
-      expect(BACKGROUND_OVERLAY[name]).toMatch(/^radial-gradient\(ellipse .*transparent 35%, rgb\(8 5 3 \/ 0\.75\) 100%\), \w+-gradient/)
+      // Vignette to rgba(8,5,3,.75) in the corners, plus a linear gradient darkest where the page's panels sit.
+      expect(BACKGROUND_OVERLAY[name]).toMatch(/^radial-gradient\(ellipse .*transparent 35%, rgb\(8 5 3 \/ 0\.75\) 100%\), linear-gradient\(/)
     }
   })
 

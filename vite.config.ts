@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => ({
   base: './',
   plugins: [
     backgrounds(mode === 'single'),
+    ...(mode === 'single' ? [] : [preloadFonts()]),
     react(),
     tailwindcss(),
     // `npm run build:single` inlines all JS, CSS and fonts into one index.html.
@@ -34,12 +35,14 @@ function srcset(name: string, type: 'webp' | 'jpg') {
 
 /**
  * The painted backgrounds (assets/bg, see src/components/theme/backgrounds.ts):
- * - index.html preloads the lobby's painting on desktops (768 px and wider),
- *   in the size that screen will use; phones load it just after the first
- *   paint, so text comes first on slow connections. It also carries the
- *   splash's painting (loaded only if the splash shows).
- *   The account screens' painting is preloaded once the first page has
- *   loaded (main.tsx), so it never slows that page down.
+ * - index.html preloads the lobby's and the account screens' paintings on
+ *   desktops (768 px and wider), in the size that screen will use (the
+ *   1920 px file on a typical desktop). Phones load the lobby's just after
+ *   the first paint, so text comes first on slow connections, and the
+ *   account screens' once the first page is complete (main.tsx): preloading
+ *   both there costs a phone's first page about half a second (Lighthouse
+ *   mobile 80–85 instead of 90+). It also carries the splash's painting
+ *   (loaded only if the splash shows).
  * - The one-file build keeps only the 1280 px WebPs, so it stays small.
  * Paintings whose files are missing are left out.
  */
@@ -54,12 +57,24 @@ function backgrounds(single: boolean): Plugin {
       order: 'pre',
       handler() {
         if (single) return []
-        const tags: HtmlTagDescriptor[] = []
-        const lobby = srcset('lobby', 'webp')
-        if (lobby) {
+        // The see-through iron the panels are drawn with over a painting (index.css): without it they would
+        // paint untextured and then change, and the biggest panel's paint (LCP) would wait for the script.
+        const tags: HtmlTagDescriptor[] = ['iron_panel_tile_glass.webp', 'iron_panel_framed_glass.webp'].map((file) => ({
+          tag: 'link',
+          attrs: { rel: 'preload', as: 'image', type: 'image/webp', href: `/assets/ui/${file}` },
+          injectTo: 'head',
+        }))
+        // The lobby's painting (the usual first page) and the account screens' (the usual next one).
+        for (const [name, priority] of [
+          ['lobby', 'high'],
+          ['auth', 'low'],
+        ] as const) {
+          const set = srcset(name, 'webp')
+          if (!set) continue
           tags.push({
             tag: 'link',
-            attrs: { rel: 'preload', as: 'image', type: 'image/webp', imagesrcset: lobby, imagesizes: '100vw', media: '(min-width: 768px)', fetchpriority: 'high' },
+            // data-painting: preloadPainting() (backgrounds.ts) then doesn't add it again.
+            attrs: { rel: 'preload', as: 'image', type: 'image/webp', imagesrcset: set, imagesizes: '100vw', media: '(min-width: 768px)', fetchpriority: priority, 'data-painting': name },
             injectTo: 'head',
           })
         }
@@ -77,6 +92,33 @@ function backgrounds(single: boolean): Plugin {
           })
         }
         return tags
+      },
+    },
+  }
+}
+
+/** The fonts the first screen draws with (see main.tsx). */
+const FIRST_SCREEN_FONTS = /^assets\/(?:barlow-latin-(?:400|600)|barlow-condensed-latin-(?:600|700|800)|cinzel-latin-700)-normal-[\w-]+\.woff2$/
+
+/**
+ * Preloads the first screen's fonts from index.html, so they arrive with the
+ * app's script instead of after its first render: a late swap from the
+ * fallback font re-wraps the lobby's stat pills and shifts the page (CLS).
+ */
+function preloadFonts(): Plugin {
+  return {
+    name: 'bronze-preload-fonts',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(_html, { bundle }) {
+        return Object.values(bundle ?? {})
+          .filter((file) => file.type === 'asset' && FIRST_SCREEN_FONTS.test(file.fileName))
+          .map((file) => ({
+            tag: 'link',
+            attrs: { rel: 'preload', as: 'font', type: 'font/woff2', href: `./${file.fileName}`, crossorigin: '' },
+            injectTo: 'head',
+          }))
       },
     },
   }

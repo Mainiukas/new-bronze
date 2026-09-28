@@ -117,7 +117,7 @@ export function RegisterForm({ disabled, onGoogle, onRegistered, footer, autoFoc
     <form noValidate onSubmit={submit} onKeyDown={onKeyDown} aria-label="Create an account">
       <fieldset disabled={disabled} className="min-w-0">
         <GoogleButton onClick={google} busy={googleBusy} disabled={busy} />
-        <p className="mt-2 text-center text-xs text-parchment-400">With Google too, you’ll confirm your age and accept the Terms before your account is created.</p>
+        <p className="mt-2 text-center text-xs text-parchment-300">With Google too, you’ll confirm your age and accept the Terms before your account is created.</p>
         <OrDivider />
 
         <TextField

@@ -223,11 +223,12 @@ export function AuthScreen() {
         </PageBackground>
 
         <div className="relative flex min-h-full justify-center md:items-center md:px-6 md:py-10">
+          {/* Phones: the logo on the painting, the form in an iron panel below it. */}
           <section
             className={
               desktop
                 ? 'iron-framed relative w-full max-w-[29rem] animate-fade-up px-9 pt-8 pb-9'
-                : 'plate iron relative min-h-dvh w-full rounded-none border-0 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]'
+                : 'relative w-full px-3 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]'
             }
           >
             {desktop && <Corners />}
@@ -237,7 +238,14 @@ export function AuthScreen() {
                 <IconClose />
               </button>
             </header>
-            {body}
+            {desktop ? (
+              body
+            ) : (
+              <div className="plate iron relative animate-fade-up rounded-xl px-4 pt-5 pb-6">
+                <Corners />
+                {body}
+              </div>
+            )}
           </section>
         </div>
       </div>
@@ -311,7 +319,7 @@ function CheckEmail({ email, onDone, onRestart }: { email: string; onDone: () =>
       <p className="mt-3 text-parchment-200">
         Check your email to confirm your account. We sent a link to <strong className="text-parchment-50">{email}</strong>; open it in this browser to finish.
       </p>
-      <p className="mt-2 text-sm text-parchment-400">No email after a few minutes? Check your spam folder.</p>
+      <p className="mt-2 text-sm text-parchment-300">No email after a few minutes? Check your spam folder.</p>
       <button type="button" className="btn btn-primary mt-6 w-full" onClick={onDone}>
         Back to the lobby
       </button>

@@ -62,7 +62,7 @@ const TABS: { path: string; label: string; Icon: ComponentType<IconProps> }[] = 
 
 const tabClass = (active: boolean) =>
   `relative flex min-h-14 w-full flex-col items-center justify-center gap-0.5 font-display text-[0.7rem] font-bold tracking-[0.08em] uppercase transition-colors ${
-    active ? 'text-parchment-50' : 'text-parchment-400 hover:text-parchment-100'
+    active ? 'text-parchment-50' : 'text-parchment-300 hover:text-parchment-100'
   }`
 
 function ActiveBar({ active }: { active: boolean }) {

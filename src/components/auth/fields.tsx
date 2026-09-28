@@ -49,7 +49,7 @@ export function TextField({ label, value, onChange, error, hint, trailing, aside
         />
         {trailing && <div className="absolute inset-y-0 right-0 flex items-center pr-1">{trailing}</div>}
       </div>
-      <p id={messageId} aria-live="polite" className={`mt-1 mb-2 min-h-5 text-sm ${error ? 'text-rust-300' : 'text-parchment-400'}`}>
+      <p id={messageId} aria-live="polite" className={`mt-1 mb-2 min-h-5 text-sm ${error ? 'text-rust-300' : 'text-parchment-300'}`}>
         {error ?? hint}
       </p>
     </div>
@@ -116,7 +116,7 @@ export function UsernameStatus({ status }: { status: UsernameCheck }) {
       </span>
     )
   if (status === 'taken') return <span className="text-sm font-semibold text-rust-300">Taken</span>
-  if (status === 'checking') return <span className="text-sm text-parchment-400">Checking…</span>
+  if (status === 'checking') return <span className="text-sm text-parchment-300">Checking…</span>
   return null
 }
 

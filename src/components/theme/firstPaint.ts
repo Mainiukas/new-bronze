@@ -50,6 +50,31 @@ const subscribe = (listener: () => void) => {
 /** Resolves once the first frame is on screen. */
 export const whenFirstPaint = () => paintedPromise
 
+/**
+ * Resolves once the first page is complete: its first frame is on screen and
+ * its painting (if it has one) has loaded or failed, or after 5 s at most.
+ * What the next pages need waits for this, so it never competes with the page
+ * being shown.
+ */
+export function whenFirstPageSettled(): Promise<void> {
+  return paintedPromise
+    .then(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+    .then(
+      () =>
+        new Promise<void>((resolve) => {
+          const img = document.querySelector<HTMLImageElement>('img.page-bg-img')
+          if (!img || (img.complete && img.naturalWidth > 0) || img.dataset.loaded !== undefined) return resolve()
+          const timer = setTimeout(resolve, 5000)
+          const done = () => {
+            clearTimeout(timer)
+            resolve()
+          }
+          img.addEventListener('load', done, { once: true })
+          img.addEventListener('error', done, { once: true })
+        }),
+    )
+}
+
 /** True once the first frame is on screen (always false when rendered on a server or in tests). */
 export function useFirstPaintDone(): boolean {
   return useSyncExternalStore(

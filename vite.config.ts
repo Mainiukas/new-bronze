@@ -3,6 +3,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite'
 import { viteSingleFile } from 'vite-plugin-singlefile'
+import { tilesProblems } from './scripts/tiles.mjs'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -10,6 +11,7 @@ export default defineConfig(({ mode }) => ({
   // (GitHub Pages, a storage bucket, or opened straight from disk).
   base: './',
   plugins: [
+    tilesGuard(),
     backgrounds(mode === 'single'),
     ...(mode === 'single' ? [] : [preloadFonts()]),
     react(),
@@ -120,6 +122,24 @@ function preloadFonts(): Plugin {
             injectTo: 'head',
           }))
       },
+    },
+  }
+}
+
+/**
+ * The rules' numbers come from docs/TILES.md (copied from the player mat).
+ * A build stops while any are still TODO, or while src/rules/tiles.ts is out
+ * of date, so the game never ships with made-up numbers. For a local preview
+ * only, BRONZE_ALLOW_TODO_TILES=1 lets it build with the placeholder numbers
+ * (the game then says so on screen).
+ */
+function tilesGuard(): Plugin {
+  return {
+    name: 'bronze-tiles-guard',
+    apply: 'build',
+    buildStart() {
+      const problems = tilesProblems({ allowTodo: process.env.BRONZE_ALLOW_TODO_TILES === '1' })
+      if (problems.length) this.error(problems.join('\n\n'))
     },
   }
 }

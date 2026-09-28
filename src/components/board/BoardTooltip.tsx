@@ -1,6 +1,4 @@
 import {
-  GOODS_NAMES,
-  INDUSTRY_NAMES,
   isLinkActive,
   slotKey,
   type BoardData,
@@ -9,6 +7,7 @@ import {
   type BuiltState,
   type Era,
 } from '../../data/board'
+import { useT } from '../../i18n'
 import { IndustryIcon } from '../game/IndustryIcon'
 import type { GroupLayout, RouteLayout } from './layout'
 
@@ -25,10 +24,6 @@ interface BoardTooltipProps {
   target: TooltipTarget
 }
 
-/** "Ada’s", but "Your" for the local player. */
-const possessive = (name: string) => (name === 'You' ? 'Your' : `${name}’s`)
-
-const LINK_TYPE_LABEL = { canal: 'Canal', rail: 'Rail', both: 'Canal and rail' } as const
 
 /**
  * Hover card for a location or link, positioned over the board in % so it
@@ -72,11 +67,12 @@ export function BoardTooltip({ board, groups, routes, era, built, prices, player
 type DetailsProps = Omit<BoardTooltipProps, 'target' | 'groups' | 'routes'>
 
 function Connections({ board, era, location }: { board: BoardData; era: Era; location: BoardLocation }) {
+  const tt = useT().tooltip
   const name = (id: string) => board.locations.find((l) => l.id === id)?.name ?? id
   const links = board.links.filter((l) => l.from === location.id || l.to === location.id)
   return (
     <div className="mt-1.5">
-      <p className="text-parchment-400">Connections</p>
+      <p className="text-parchment-400">{tt.connections}</p>
       <ul className="grid grid-cols-[auto_auto] gap-x-3">
         {links.map((l) => {
           const active = isLinkActive(l.type, era)
@@ -84,8 +80,8 @@ function Connections({ board, era, location }: { board: BoardData; era: Era; loc
             <li key={l.id} className={`contents ${active ? '' : 'text-parchment-400'}`}>
               <span>{name(l.from === location.id ? l.to : l.from)}</span>
               <span>
-                {LINK_TYPE_LABEL[l.type]}
-                {active ? '' : ` (${l.type} era)`}
+                {tt.linkType[l.type]}
+                {active ? '' : ` (${tt.eraOnly[l.type === 'rail' ? 'rail' : 'canal']})`}
               </span>
             </li>
           )
@@ -96,17 +92,15 @@ function Connections({ board, era, location }: { board: BoardData; era: Era; loc
 }
 
 function LocationDetails({ board, era, built, prices, playerName, location, slot }: DetailsProps & { location: BoardLocation; slot?: number }) {
+  const t = useT()
+  const tt = t.tooltip
   const style =
-    location.type === 'city'
-      ? `City · ${board.regions[location.region]?.name ?? location.region}`
-      : location.type === 'stop'
-        ? 'Stop · routes pass through; no building or trade'
-        : 'Trade hub · goods are sold here'
+    location.type === 'city' ? tt.city(board.regions[location.region]?.name ?? location.region) : location.type === 'stop' ? tt.stop : tt.hub
   return (
     <>
       <p className="font-board text-sm font-bold tracking-wide text-parchment-50">{location.name}</p>
       <p className="text-parchment-400">{style}</p>
-      {location.era === 'rail' && <p className="font-semibold text-brass-200">Available in the Rail Era</p>}
+      {location.era === 'rail' && <p className="font-semibold text-brass-200">{tt.railOnly}</p>}
       {location.type === 'city' && (
         <ol className="mt-1.5 flex flex-col gap-1">
           {location.slots.map((allowed, i) => {
@@ -118,12 +112,12 @@ function LocationDetails({ board, era, built, prices, playerName, location, slot
                   <IndustryIcon key={a} kind={a} className="size-5" />
                 ))}
                 <span>
-                  {allowed.map((a) => INDUSTRY_NAMES[a]).join(' or ')}
+                  {t.or(allowed.map((a) => t.industries[a].name))}
                   {tile && (
                     <span className="text-parchment-50">
                       {' '}
-                      — {possessive(playerName(tile.player))} {INDUSTRY_NAMES[tile.industry]}
-                      {tile.industry === 'cotton' ? ` (${tile.goods ?? 0} cotton)` : ''}
+                      — {tt.owned(playerName(tile.player), tile.industry)}
+                      {tile.industry === 'cotton' ? ` (${t.amountOf(tile.goods ?? 0, 'cotton')})` : ''}
                     </span>
                   )}
                 </span>
@@ -135,16 +129,15 @@ function LocationDetails({ board, era, built, prices, playerName, location, slot
       {location.type === 'hub' && (
         <div className="mt-1.5">
           <p>
-            <span className="text-parchment-400">Buys:</span> {location.buys.map((b) => GOODS_NAMES[b]).join(', ')}
+            <span className="text-parchment-400">{tt.buys}</span> {t.list(location.buys.map((b) => t.game.goods[b]))}
           </p>
           <p>
-            <span className="text-parchment-400">Price now:</span>{' '}
-            <span className="font-semibold text-brass-200">£{prices?.[location.id] ?? location.price}</span> a unit, £1 less for each unit sold
-            {` (recovers £1 a round, up to £${location.price})`}
+            <span className="text-parchment-400">{tt.priceNow}</span>{' '}
+            <span className="font-semibold text-brass-200">£{prices?.[location.id] ?? location.price}</span> {tt.priceRule(location.price)}
           </p>
           <p className="mt-1 flex gap-1">
             {location.buys.map((b) => (
-              <IndustryIcon key={b} kind={b} className="size-6" label={GOODS_NAMES[b]} />
+              <IndustryIcon key={b} kind={b} className="size-6" label={t.game.goods[b]} />
             ))}
           </p>
         </div>
@@ -155,6 +148,7 @@ function LocationDetails({ board, era, built, prices, playerName, location, slot
 }
 
 function LinkDetails({ board, era, built, playerName, link }: DetailsProps & { link: BoardLink }) {
+  const tt = useT().tooltip
   const name = (id: string) => board.locations.find((l) => l.id === id)?.name ?? id
   const owner = built.links[link.id]
   return (
@@ -163,11 +157,11 @@ function LinkDetails({ board, era, built, playerName, link }: DetailsProps & { l
         {name(link.from)} – {name(link.to)}
       </p>
       <p className="text-parchment-400">
-        {link.type === 'both' ? `Canal and rail · a ${era === 'canal' ? 'canal' : 'railway'} in this era` : `${LINK_TYPE_LABEL[link.type]} only`}
+        {link.type === 'both' ? tt.both(era) : tt.only(link.type)}
       </p>
       {owner && (
         <p className="mt-1 text-parchment-50">
-          {era === 'canal' ? 'Canal dug' : 'Railway laid'} by {playerName(owner.player)}
+          {tt.builtBy(era, playerName(owner.player))}
         </p>
       )}
     </>

@@ -1,10 +1,11 @@
+import { Localized } from './text/Localized'
 import { Bullets, DataTable, LegalPage, Section, TextLink } from '../../components/legal/LegalPage'
 import { PATHS } from '../../data/navigation'
 import { consentStore } from '../../legal/consent'
 import { CATEGORIES, STORAGE_ITEMS } from '../../legal/inventory'
 
 /** Cookie Policy: the table is generated from legal/inventory.ts, the same list the consent banner enforces. */
-export function CookiePolicy() {
+function CookiePolicyEnglish() {
   const title = (id: string) => CATEGORIES.find((c) => c.id === id)!.title
   return (
     <LegalPage
@@ -53,4 +54,9 @@ export function CookiePolicy() {
       </Section>
     </LegalPage>
   )
+}
+
+/** In the player's language (a translation, with the English text prevailing), or in English. */
+export function CookiePolicy() {
+  return <Localized page="CookiePolicy" english={CookiePolicyEnglish} />
 }

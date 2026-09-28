@@ -14,10 +14,12 @@ import { opponentsOf, seatCount, withOpponents, type Opponents, type SavedSetup 
 import type { PlayerColor } from '../game/types'
 import { useAuth } from '../hooks/useAuth'
 import { useOpenAuth } from '../hooks/useOpenAuth'
+import { displayName, useT, type Messages } from '../i18n'
 
 /** What the Continue banner shows about the match in progress. */
 export interface SavedMatchSummary {
-  mode: string
+  modeId: GameModeId
+  /** The map's name (a proper name: the same in every language). */
   map: string
   round: number
   totalRounds: number
@@ -70,6 +72,7 @@ export function MainMenu({
   onDiscardOutdated,
   stats,
 }: MainMenuProps) {
+  const t = useT()
   const titleRef = useRef<HTMLHeadingElement>(null)
   const location = useLocation()
   const focusPlay = (location.state as PlayFocusState | null)?.focusPlay
@@ -94,11 +97,11 @@ export function MainMenu({
           {outdatedSave && (
             <div role="status" className="plate rivets iron flex flex-col gap-3 border-rust-400/50 px-5 py-4 sm:flex-row sm:items-center">
               <div className="min-w-0 flex-1">
-                <p className="eyebrow text-rust-300">Saved match can’t be continued</p>
-                <p className="mt-0.5 text-sm text-parchment-200">It was saved by an older version of Bronze, whose rules have changed.</p>
+                <p className="eyebrow text-rust-300">{t.lobby.outdatedTitle}</p>
+                <p className="mt-0.5 text-sm text-parchment-200">{t.lobby.outdatedBody}</p>
               </div>
               <button type="button" className="btn btn-ghost px-5" onClick={onDiscardOutdated}>
-                Discard it
+                {t.lobby.discard}
               </button>
             </div>
           )}
@@ -111,18 +114,18 @@ export function MainMenu({
               className="page-title flex items-center gap-3 rounded text-4xl sm:text-5xl"
             >
               <IconPlay aria-hidden="true" className="size-8 text-brass-300 sm:size-9" />
-              Play
+              {t.nav.play}
             </h1>
             <dl className="flex flex-wrap gap-2">
-              <StatPill label="Wins" value={stats.wins} />
-              <StatPill label="Best score" value={`${stats.bestScore}★`} />
-              <StatPill label="Matches" value={stats.matches} />
+              <StatPill label={t.stats.wins} value={stats.wins} />
+              <StatPill label={t.stats.bestScore} value={`${stats.bestScore}★`} />
+              <StatPill label={t.stats.matches} value={stats.matches} />
             </dl>
           </header>
 
           {/* Mode cards: side by side when there's room, stacked otherwise */}
           <fieldset className="@container">
-            <legend className="sr-only">Game mode</legend>
+            <legend className="sr-only">{t.lobby.gameMode}</legend>
             <div className="grid gap-3 @2xl:grid-cols-3 @2xl:gap-4">
               {GAME_MODES.map((gameMode, index) => (
                 <ModeCard
@@ -154,7 +157,7 @@ export function MainMenu({
       </section>
 
       {/* Right: social column (full height beside the centre on desktop, stacked below it otherwise) */}
-      <aside aria-label="Friends and progress" className="relative min-w-0 lg:sticky lg:top-0 lg:h-dvh">
+      <aside aria-label={t.lobby.social} className="relative min-w-0 lg:sticky lg:top-0 lg:h-dvh">
         <div aria-hidden="true" className="plate iron absolute inset-0 hidden rounded-none border-y-0 border-r-0 lg:block" />
         <div className="no-scrollbar relative flex flex-col gap-4 px-4 pb-8 sm:px-6 md:grid md:grid-cols-2 md:items-start lg:flex lg:items-stretch lg:h-full lg:overflow-y-auto lg:p-4">
           <div className="md:row-span-2">
@@ -179,6 +182,7 @@ function StatPill({ label, value }: { label: string; value: number | string }) {
 
 /** "Continue match": the saved match (mode, map, round, era, players) with Resume and Abandon. */
 function ContinueBanner({ match, onContinue, onAbandon }: { match: SavedMatchSummary; onContinue: () => void; onAbandon: () => void }) {
+  const t = useT()
   return (
     <section
       aria-labelledby="continue-title"
@@ -191,39 +195,39 @@ function ContinueBanner({ match, onContinue, onAbandon }: { match: SavedMatchSum
             className="grid size-10 place-items-center rounded-full border-2 border-soot-900 font-display text-sm font-extrabold text-soot-950 uppercase"
             style={{ background: PLAYER_STYLE[player.color].hex }}
           >
-            {player.name.trim().charAt(0)}
+            {displayName(t, player.name).trim().charAt(0)}
           </span>
         ))}
       </div>
       <div className="min-w-0 flex-1">
         <p id="continue-title" className="eyebrow">
-          Continue match
+          {t.lobby.continueMatch}
         </p>
         <p className="mt-0.5 font-display text-xl leading-tight font-bold tracking-[0.06em] text-parchment-50">
-          {match.mode} · {match.map}
+          {t.modes[match.modeId].name} · {match.map}
         </p>
         <p className="text-sm text-parchment-300">
-          Round {match.round}/{match.totalRounds}
-          {match.era && <> · {match.era === 'canal' ? 'Canal era' : 'Rail era'}</>} · {match.players.map((p) => p.name).join(', ')}
+          {t.match.roundOf(match.round, match.totalRounds)}
+          {match.era && <> · {t.match.era[match.era]}</>} · {match.players.map((p) => displayName(t, p.name)).join(', ')}
         </p>
       </div>
       <div className="flex gap-2">
         <button type="button" className="btn btn-ghost px-4" onClick={onAbandon}>
-          Abandon
+          {t.lobby.abandon}
         </button>
         <button type="button" className="btn btn-primary px-6" onClick={onContinue}>
           <IconPlay className="size-4" />
-          Resume
+          {t.lobby.resume}
         </button>
       </div>
     </section>
   )
 }
 
-const OPPONENT_OPTIONS: { value: Exclude<Opponents, 'mixed'> | 'online'; label: string; Icon: ComponentType<IconProps> }[] = [
-  { value: 'computer', label: 'vs Computer', Icon: IconComputer },
-  { value: 'pass', label: 'Pass & Play', Icon: IconUsers },
-  { value: 'online', label: 'Online', Icon: IconGlobe },
+const OPPONENT_OPTIONS: { value: keyof Messages['lobby']['opponents']; Icon: ComponentType<IconProps> }[] = [
+  { value: 'computer', Icon: IconComputer },
+  { value: 'pass', Icon: IconUsers },
+  { value: 'online', Icon: IconGlobe },
 ]
 
 /**
@@ -232,16 +236,18 @@ const OPPONENT_OPTIONS: { value: Exclude<Opponents, 'mixed'> | 'online'; label: 
  * so it is disabled and marked "Coming soon".
  */
 function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (value: Exclude<Opponents, 'mixed'>) => void }) {
+  const t = useT()
   const { signedIn } = useAuth()
   const openAuth = useOpenAuth()
   return (
     <fieldset className="@container animate-fade-up [animation-delay:160ms]">
       <legend className="mb-2 flex w-full items-baseline justify-between gap-3">
-        <span className="font-display text-lg font-extrabold tracking-[0.1em] text-parchment-50 uppercase">Opponents</span>
-        {value === 'mixed' && <span className="text-xs text-parchment-400">Custom: a mix of humans and computers (see Seats)</span>}
+        <span className="font-display text-lg font-extrabold tracking-[0.1em] text-parchment-50 uppercase">{t.lobby.opponentsTitle}</span>
+        {value === 'mixed' && <span className="text-xs text-parchment-400">{t.lobby.mixed}</span>}
       </legend>
       <div className="plate iron grid grid-cols-3 gap-1 rounded-xl p-1">
-        {OPPONENT_OPTIONS.map(({ value: option, label, Icon }) => {
+        {OPPONENT_OPTIONS.map(({ value: option, Icon }) => {
+          const label = t.lobby.opponents[option]
           const online = option === 'online'
           const checked = !online && value === option
           // Guests: Online needs an account first, so it's a lock that opens the log-in screen.
@@ -255,9 +261,9 @@ function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (va
               >
                 <Icon className="size-5 shrink-0" />
                 <span className="leading-tight">{label}</span>
-                <span className="inline-flex items-center gap-1 rounded-full border border-brass-300/50 bg-soot-950/80 px-2 py-0.5 text-[0.62rem] leading-none tracking-[0.14em] whitespace-nowrap text-brass-200">
+                <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-brass-300/50 bg-soot-950/80 px-2 py-0.5 text-[0.62rem] leading-tight tracking-[0.1em] text-balance text-brass-200">
                   <IconLock className="size-3" strokeWidth={2.4} />
-                  Log in to use this
+                  {t.common.logInToUse}
                 </span>
               </button>
             )
@@ -265,7 +271,7 @@ function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (va
           return (
             <label
               key={option}
-              title={online ? 'Online play needs a game server, which Bronze doesn’t have yet' : undefined}
+              title={online ? t.lobby.onlineNeedsServer : undefined}
               className={`relative flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-center font-display text-sm font-bold tracking-[0.08em] uppercase transition has-focus-visible:outline-2 has-focus-visible:outline-ember-400 @xl:flex-row @xl:gap-2 @xl:text-base ${
                 online
                   ? 'cursor-not-allowed text-parchment-500'
@@ -280,12 +286,12 @@ function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (va
                 value={option}
                 checked={checked}
                 disabled={online}
-                onChange={() => !online && onChange(option)}
+                onChange={() => option !== 'online' && onChange(option)}
                 className="sr-only"
               />
               <Icon className={`size-5 shrink-0 ${checked ? 'text-brass-300' : ''}`} />
               <span className="leading-tight">{label}</span>
-              {online && signedIn && <span className="soon-tag">Coming soon</span>}
+              {online && signedIn && <span className="soon-tag">{t.common.comingSoon}</span>}
             </label>
           )
         })}

@@ -2,9 +2,7 @@
  * Player settings: shape, defaults, and validation of saved values.
  */
 
-export const LANGUAGES = [{ code: 'en', label: 'English' }] as const
-
-export type LanguageCode = (typeof LANGUAGES)[number]['code']
+import { detectLanguage, isLanguageCode, type LanguageCode } from '../i18n/languages'
 
 export const ANIMATION_SPEEDS = ['slow', 'normal', 'fast', 'off'] as const
 export type AnimationSpeed = (typeof ANIMATION_SPEEDS)[number]
@@ -40,9 +38,8 @@ export const DEFAULT_SETTINGS: GameSettings = {
   showLog: true,
 }
 
-function isLanguageCode(value: unknown): value is LanguageCode {
-  return LANGUAGES.some((language) => language.code === value)
-}
+/** The defaults for this visitor: in their browser's language when Bronze has it, English otherwise. */
+export const defaultSettings = (): GameSettings => ({ ...DEFAULT_SETTINGS, language: detectLanguage() })
 
 function toVolume(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value)
@@ -62,7 +59,7 @@ const bool = (value: unknown, fallback: boolean) => (typeof value === 'boolean' 
 export function parseSettings(raw: unknown): GameSettings | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined
   const saved = raw as Partial<Record<keyof GameSettings, unknown>>
-  const d = DEFAULT_SETTINGS
+  const d = defaultSettings()
   return {
     soundOn: bool(saved.soundOn, d.soundOn),
     masterVolume: toVolume(saved.masterVolume, d.masterVolume),

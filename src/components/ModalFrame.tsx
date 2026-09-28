@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { useT } from '../i18n'
 import { Dialog } from './Dialog'
 import { IconClose } from './icons'
 import { Corners } from './theme/Ornaments'
@@ -19,6 +20,7 @@ interface ModalFrameProps {
 
 /** Standard riveted modal with brass corners: header with title and close button, scrolling body, optional footer. */
 export function ModalFrame({ open, onClose, id, title, icon, children, footer, wide = false }: ModalFrameProps) {
+  const t = useT()
   const titleId = `${id}-title`
   // The body (and its pictures) is only built once the dialog first opens, then kept for the close animation.
   const [opened, setOpened] = useState(open)
@@ -31,7 +33,7 @@ export function ModalFrame({ open, onClose, id, title, icon, children, footer, w
           <h2 id={titleId} className="metal-text flex-1 font-display text-3xl font-extrabold tracking-[0.12em] uppercase">
             {title}
           </h2>
-          <button type="button" onClick={onClose} className="icon-btn size-10 text-base" aria-label={`Close ${title}`}>
+          <button type="button" onClick={onClose} className="icon-btn size-10 text-base" aria-label={t.common.closeNamed(title)}>
             <IconClose />
           </button>
         </header>

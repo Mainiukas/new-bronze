@@ -1,9 +1,10 @@
+import { Localized } from './text/Localized'
 import { Bullets, Email, Fill, LegalPage, Section, TextLink } from '../../components/legal/LegalPage'
 import { PATHS } from '../../data/navigation'
 import { MIN_ACCOUNT_AGE, OPERATOR } from '../../legal/operator'
 
 /** Terms of Service (a template for the operator to review). */
-export function TermsOfService() {
+function TermsOfServiceEnglish() {
   return (
     <LegalPage
       title="Terms of Service"
@@ -112,4 +113,9 @@ export function TermsOfService() {
       </Section>
     </LegalPage>
   )
+}
+
+/** In the player's language (a translation, with the English text prevailing), or in English. */
+export function TermsOfService() {
+  return <Localized page="TermsOfService" english={TermsOfServiceEnglish} />
 }

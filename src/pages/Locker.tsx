@@ -1,14 +1,16 @@
 import { ComingSoon } from '../components/ComingSoon'
+import { useT } from '../i18n'
 import { IconTopHat } from '../components/icons'
 
 export function Locker() {
+  const t = useT()
   return (
     <ComingSoon
-      title="Locker"
-      empty="Your locker stands empty — win a match to earn your first fittings."
+      title={t.pages.locker.title}
+      empty={t.pages.locker.empty}
       icon={<IconTopHat />}
-      blurb="Outfit your industrialist and choose your player tokens, board trims and banners."
-      locked="Your locker belongs to your account: log in so what you collect stays yours."
+      blurb={t.pages.locker.blurb}
+      locked={t.pages.locker.locked}
     />
   )
 }

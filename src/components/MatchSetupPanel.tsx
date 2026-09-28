@@ -4,6 +4,7 @@ import { getMap, MAPS, type MapId } from '../data/maps'
 import { MAX_NAME, placeholderName, seatCount, toSeatSetups, withColor, withController, type SavedSetup, type SeatDraft } from '../data/matchSetup'
 import { MAX_PLAYERS, MIN_PLAYERS } from '../game/engine'
 import { AI_LEVELS, PLAYER_COLORS, type AILevel, type SeatSetup } from '../game/types'
+import { displayName, useT } from '../i18n'
 import { randomSeed } from '../lib/random'
 import { PLAYER_STYLE } from './game/glyphs'
 import { IconCheck, IconChevronDown, IconPlay } from './icons'
@@ -41,6 +42,7 @@ interface MatchSetupPanelProps {
  * above it.
  */
 export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChange, replacesMatch, onStart }: MatchSetupPanelProps) {
+  const t = useT()
   const map = getMap(mapId)
   const mode = getGameMode(modeId)
   const [seedText, setSeedText] = useState('')
@@ -61,32 +63,32 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
       <Corners />
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 id="setup-title" className="font-display text-2xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-          Match setup
+          {t.setup.title}
         </h2>
         <p className="text-sm text-parchment-300">
-          {mode.name} · {mode.rounds} rounds · £{mode.startingMoney} each
-          {map.style === 'illustrated' && <> · rail era from round {Math.floor(mode.rounds / 2) + 1}</>}
+          {t.modes[modeId].name} · {t.setup.rounds(mode.rounds)} · {t.setup.moneyEach(mode.startingMoney)}
+          {map.style === 'illustrated' && <> · {t.setup.railFrom(Math.floor(mode.rounds / 2) + 1)}</>}
         </p>
       </header>
 
       <div className="mt-5 flex flex-col gap-6">
         {/* Map */}
         <fieldset>
-          <legend className="eyebrow mb-2">Map</legend>
+          <legend className="eyebrow mb-2">{t.setup.map}</legend>
           <div className="grid gap-2 @2xl:grid-cols-3">
             {MAPS.map((m) => (
               <MapCard key={m.id} map={m} selected={m.id === mapId} onSelect={() => onMapChange(m.id)} />
             ))}
           </div>
           <p className="mt-2 text-sm text-parchment-300">
-            {map.flavor}
-            {map.style === 'schematic' && <span className="text-parchment-400"> Practice map, no eras.</span>}
+            {t.maps[mapId].flavor}
+            {map.style === 'schematic' && <span className="text-parchment-400"> {t.setup.practiceMap}</span>}
           </p>
         </fieldset>
 
         {/* Player count */}
         <fieldset>
-          <legend className="eyebrow mb-2">Players</legend>
+          <legend className="eyebrow mb-2">{t.setup.players}</legend>
           <div className="flex max-w-sm gap-2">
             {Array.from({ length: MAX_PLAYERS - MIN_PLAYERS + 1 }, (_, i) => MIN_PLAYERS + i).map((n) => {
               const allowed = n >= map.players.min && n <= map.players.max
@@ -100,7 +102,7 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
                         ? 'cursor-pointer border-brass-300/80 bg-bronze-500/25 text-parchment-50'
                         : 'cursor-pointer border-bronze-500/30 bg-soot-950/60 text-parchment-300 hover:border-ember-400/60'
                   }`}
-                  title={allowed ? undefined : `${map.name} takes ${map.players.min}–${map.players.max} players`}
+                  title={allowed ? undefined : t.setup.mapTakes(map.name, map.players.min, map.players.max)}
                 >
                   <input
                     type="radio"
@@ -120,7 +122,7 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
 
         {/* Seats */}
         <fieldset>
-          <legend className="eyebrow mb-2">Seats</legend>
+          <legend className="eyebrow mb-2">{t.setup.seats}</legend>
           <ul className="flex flex-col gap-2">
             {active.map((seat, i) => (
               <li key={i} className="flex flex-col gap-2 rounded-xl border border-bronze-500/20 bg-soot-950/55 p-3">
@@ -133,29 +135,29 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
                     {i + 1}
                   </span>
                   <label className="sr-only" htmlFor={`seat-name-${i}`}>
-                    Seat {i + 1} name
+                    {t.setup.seatName(i + 1)}
                   </label>
                   <input
                     id={`seat-name-${i}`}
                     type="text"
-                    value={seat.name}
+                    value={displayName(t, seat.name)}
                     maxLength={MAX_NAME}
-                    placeholder={placeholderName(i, seat.isAI)}
+                    placeholder={displayName(t, placeholderName(i, seat.isAI))}
                     onChange={(event) => updateSeat(i, (s) => ({ ...s, name: event.target.value }))}
                     className="min-h-11 min-w-0 flex-1 basis-36 rounded-lg border border-bronze-500/30 bg-soot-950/70 px-3 text-parchment-50 placeholder:text-parchment-400 focus:border-ember-400/70"
                   />
                   <Segmented
-                    label={`Seat ${i + 1} is played by`}
+                    label={t.setup.playedBy(i + 1)}
                     options={[
-                      ['human', 'Human'],
-                      ['ai', 'AI'],
+                      ['human', t.setup.human],
+                      ['ai', t.setup.ai],
                     ]}
                     value={seat.isAI ? 'ai' : 'human'}
                     onChange={(v) => updateSeat(i, (s) => withController(s, i, v === 'ai'))}
                   />
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div role="radiogroup" aria-label={`Seat ${i + 1} colour`} className="flex flex-wrap gap-1.5">
+                  <div role="radiogroup" aria-label={t.setup.seatColour(i + 1)} className="flex flex-wrap gap-1.5">
                     {PLAYER_COLORS.map((color) => {
                       const takenBy = active.findIndex((other, j) => j !== i && other.color === color)
                       const style = PLAYER_STYLE[color]
@@ -167,8 +169,8 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
                           type="button"
                           role="radio"
                           aria-checked={chosen}
-                          aria-label={`${style.name}${takenBy >= 0 ? ` (swap with seat ${takenBy + 1})` : ''}`}
-                          title={takenBy >= 0 ? `${style.name}: taken by seat ${takenBy + 1}; picking it swaps colours` : style.name}
+                          aria-label={takenBy >= 0 ? t.setup.colourSwapLabel(t.colors[color], takenBy + 1) : t.colors[color]}
+                          title={takenBy >= 0 ? t.setup.colourSwapTitle(t.colors[color], takenBy + 1) : t.colors[color]}
                           onClick={() => onSetupChange((prev) => ({ ...prev, seats: withColor(prev.seats, i, color) }))}
                           className={`relative grid h-11 w-12 place-items-center rounded-lg border transition sm:w-14 ${
                             chosen
@@ -194,8 +196,8 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
                   </div>
                   {seat.isAI && (
                     <Segmented
-                      label={`Seat ${i + 1} difficulty`}
-                      options={AI_LEVELS.map((level) => [level, level[0].toUpperCase() + level.slice(1)] as const)}
+                      label={t.setup.difficulty(i + 1)}
+                      options={AI_LEVELS.map((level) => [level, t.aiLevels[level]] as const)}
                       value={seat.aiLevel}
                       onChange={(v) => updateSeat(i, (s) => ({ ...s, aiLevel: v as AILevel }))}
                     />
@@ -204,18 +206,18 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-parchment-400">Human seats take turns on this device (pass & play).</p>
+          <p className="mt-2 text-xs text-parchment-400">{t.setup.humanSeats}</p>
         </fieldset>
 
         {/* Seed */}
         <details className="group rounded-xl border border-bronze-500/20 bg-soot-950/40">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-3 font-display text-sm font-bold tracking-[0.14em] text-parchment-300 uppercase hover:text-parchment-50 [&::-webkit-details-marker]:hidden">
-            Advanced: seed
+            {t.setup.advancedSeed}
             <IconChevronDown className="size-4 transition-transform group-open:rotate-180" />
           </summary>
           <div className="px-3 pb-3">
             <label htmlFor="setup-seed" className="eyebrow mb-2 block">
-              Seed (optional)
+              {t.setup.seedLabel}
             </label>
             <input
               id="setup-seed"
@@ -223,15 +225,13 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
               inputMode="numeric"
               value={seedText}
               onChange={(event) => setSeedText(event.target.value)}
-              placeholder="Random"
+              placeholder={t.setup.random}
               aria-invalid={!seedValid}
               aria-describedby="setup-seed-help"
               className="min-h-11 w-full rounded-lg border border-bronze-500/30 bg-soot-950/70 px-3 text-parchment-50 placeholder:text-parchment-400 focus:border-ember-400/70 aria-invalid:border-rust-400"
             />
             <p id="setup-seed-help" className={`mt-1 text-xs ${seedValid ? 'text-parchment-400' : 'text-rust-300'}`}>
-              {seedValid
-                ? 'The same seed and seats replay the same computer moves. Leave it empty for a new match.'
-                : 'A seed is a whole number of up to 9 digits.'}
+              {seedValid ? t.setup.seedHelp : t.setup.seedInvalid}
             </p>
           </div>
         </details>
@@ -239,12 +239,12 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
         <div className="flex flex-col gap-3">
           {replacesMatch && (
             <p className="rounded-lg border border-dashed border-bronze-500/40 px-3 py-2 text-sm text-parchment-300">
-              Starting a new match replaces the match in progress.
+              {t.setup.replaces}
             </p>
           )}
           <button type="button" className="btn-brass min-h-16 w-full text-2xl" onClick={start} disabled={!seedValid}>
             <IconPlay className="size-6" />
-            Start match
+            {t.setup.start}
           </button>
         </div>
       </div>

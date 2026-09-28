@@ -1,3 +1,4 @@
+import { Localized } from './text/Localized'
 import { Email, LegalPage, Section } from '../../components/legal/LegalPage'
 import { OPERATOR } from '../../legal/operator'
 
@@ -5,7 +6,7 @@ import { OPERATOR } from '../../legal/operator'
  * Refund Policy. Bronze sells nothing for real money and has no in-game currency, so this is short.
  * Before any real-money sale, replace it with the EU 14-day withdrawal terms (see CHECKLIST.md, item 3).
  */
-export function RefundPolicy() {
+function RefundPolicyEnglish() {
   return (
     <LegalPage
       title="Refund Policy"
@@ -29,4 +30,9 @@ export function RefundPolicy() {
       </Section>
     </LegalPage>
   )
+}
+
+/** In the player's language (a translation, with the English text prevailing), or in English. */
+export function RefundPolicy() {
+  return <Localized page="RefundPolicy" english={RefundPolicyEnglish} />
 }

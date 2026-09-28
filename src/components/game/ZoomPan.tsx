@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { useT } from '../../i18n'
 
 interface View {
   scale: number
@@ -17,7 +18,8 @@ const DRAG = 6
  * counts as a click on what's underneath. At normal size a one-finger swipe
  * still scrolls the page.
  */
-export function ZoomPan({ children, label = 'Board' }: { children: ReactNode; label?: string }) {
+export function ZoomPan({ children, label }: { children: ReactNode; label?: string }) {
+  const t = useT()
   const ref = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<View>({ scale: 1, x: 0, y: 0 })
   const viewRef = useRef(view)
@@ -142,15 +144,15 @@ export function ZoomPan({ children, label = 'Board' }: { children: ReactNode; la
       >
         <div style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: '0 0' }}>{children}</div>
       </div>
-      <div className="absolute right-2 bottom-2 flex flex-col-reverse gap-1.5" role="group" aria-label={`${label} zoom`}>
-        <button type="button" className="icon-btn size-10 text-xl" aria-label="Zoom in" onClick={() => zoomButton(1.5)} disabled={view.scale >= MAX}>
+      <div className="absolute right-2 bottom-2 flex flex-col-reverse gap-1.5" role="group" aria-label={t.zoom.group(label ?? t.match.board)}>
+        <button type="button" className="icon-btn size-10 text-xl" aria-label={t.zoom.in} onClick={() => zoomButton(1.5)} disabled={view.scale >= MAX}>
           +
         </button>
-        <button type="button" className="icon-btn size-10 text-xl" aria-label="Zoom out" onClick={() => zoomButton(1 / 1.5)} disabled={!zoomed}>
+        <button type="button" className="icon-btn size-10 text-xl" aria-label={t.zoom.out} onClick={() => zoomButton(1 / 1.5)} disabled={!zoomed}>
           −
         </button>
         {zoomed && (
-          <button type="button" className="icon-btn size-10 text-sm" aria-label="Show the whole board" onClick={() => apply({ scale: 1, x: 0, y: 0 })}>
+          <button type="button" className="icon-btn size-10 text-sm" aria-label={t.zoom.reset} onClick={() => apply({ scale: 1, x: 0, y: 0 })}>
             ⤢
           </button>
         )}

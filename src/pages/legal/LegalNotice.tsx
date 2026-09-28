@@ -1,10 +1,11 @@
+import { Localized } from './text/Localized'
 import { Link } from 'react-router'
 import { Email, Fill, LegalPage, Section } from '../../components/legal/LegalPage'
 import { LEGAL_LINKS, PATHS } from '../../data/navigation'
 import { OPERATOR, SERVICES } from '../../legal/operator'
 
 /** Business details: who runs Bronze, and the index of the legal pages. */
-export function LegalNotice() {
+function LegalNoticeEnglish() {
   const details: [string, string][] = [
     ['Operator', OPERATOR.name],
     ['Legal form', OPERATOR.legalForm],
@@ -47,4 +48,9 @@ export function LegalNotice() {
       </Section>
     </LegalPage>
   )
+}
+
+/** In the player's language (a translation, with the English text prevailing), or in English. */
+export function LegalNotice() {
+  return <Localized page="LegalNotice" english={LegalNoticeEnglish} />
 }

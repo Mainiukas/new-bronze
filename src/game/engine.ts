@@ -8,7 +8,9 @@
 import { BOARD, type BoardData } from '../data/board'
 import { getGameMode, type GameModeConfig, type GameModeId } from '../data/gameModes'
 import { getMap, type MapId, type SchematicMapConfig } from '../data/maps'
-import { GOODS_NAMES, INDUSTRIES, INDUSTRY_ORDER, LINK_COST, MAX_LOG_ENTRIES, RULES, type Cost } from './rules'
+import { english } from '../i18n/game/en'
+import type { GameMessage } from './messages'
+import { INDUSTRIES, INDUSTRY_ORDER, LINK_COST, MAX_LOG_ENTRIES, RULES, type Cost } from './rules'
 import {
   GAME_VERSION,
   PLAYER_COLORS,
@@ -29,7 +31,16 @@ import {
 } from './types'
 
 /** Thrown when an action isn't allowed. The message is shown to the player. */
-export class IllegalActionError extends Error {}
+/** A move the rules don't allow. `detail` says why, in any language (its English is the error's message). */
+export class IllegalActionError extends Error {
+  readonly detail: GameMessage
+  constructor(detail: GameMessage) {
+    super(english(detail))
+    this.detail = detail
+  }
+}
+
+const internal = (text: string): GameMessage => ({ key: 'internal', text })
 
 /* ------------------------------------------------------------------------ */
 /* Setup                                                                     */
@@ -175,14 +186,7 @@ export function createGame({ mapId, modeId, seats, seed }: NewGameOptions): Game
     seed: seed >>> 0,
     nextId: 1,
   }
-  addLog(
-    state,
-    null,
-    'round',
-    board.eras
-      ? `Round 1 of ${mode.rounds} begins in the canal era. The rail era begins in round ${state.railEraRound}.`
-      : `Round 1 of ${mode.rounds} begins.`,
-  )
+  addLog(state, null, 'round', { key: 'matchStart', rounds: mode.rounds, railRound: board.eras ? state.railEraRound : null })
   return state
 }
 
@@ -204,13 +208,13 @@ export function findTown(state: GameState, townId: string): BoardTown | undefine
 
 export function getTown(state: GameState, townId: string): BoardTown {
   const town = findTown(state, townId)
-  if (!town) throw new IllegalActionError(`There is no town "${townId}" in this match`)
+  if (!town) throw new IllegalActionError(internal(`There is no town "${townId}" in this match`))
   return town
 }
 
 export function getRoute(state: GameState, routeId: string): BoardRoute {
   const route = state.board.routes.find((r) => r.id === routeId)
-  if (!route) throw new IllegalActionError(`There is no route "${routeId}" in this match`)
+  if (!route) throw new IllegalActionError(internal(`There is no route "${routeId}" in this match`))
   return route
 }
 
@@ -278,21 +282,8 @@ export function canAfford(player: PlayerState, cost: Cost): boolean {
   return quote(player, cost).total <= player.money
 }
 
-/** "−£6, −1 iron" */
-export function formatPayment(q: Quote): string {
-  const parts = [`−£${q.total}`]
-  if (q.coalUsed) parts.push(`−${q.coalUsed} coal`)
-  if (q.ironUsed) parts.push(`−${q.ironUsed} iron`)
-  return parts.join(', ')
-}
-
-/** "£6 + 1 iron" */
-export function formatCost(cost: Cost): string {
-  const parts = [`£${cost.money}`]
-  if (cost.coal) parts.push(`${cost.coal} coal`)
-  if (cost.iron) parts.push(`${cost.iron} iron`)
-  return parts.join(' + ')
-}
+/** What a quote takes from the player, for the log. */
+const paid = (q: Quote) => ({ money: q.total, coal: q.coalUsed, iron: q.ironUsed })
 
 export interface Plot {
   townId: string
@@ -315,17 +306,17 @@ export function buildTargets(state: GameState, kind: IndustryKind, playerId = cu
 }
 
 /** Why this industry can't be built now, or null if it can (the reasons the UI shows on disabled buttons). */
-export function buildBlocker(state: GameState, kind: IndustryKind, playerId = currentPlayerId(state)): string | null {
+export function buildBlocker(state: GameState, kind: IndustryKind, playerId = currentPlayerId(state)): GameMessage | null {
   const plots = state.board.towns.filter((town) => town.slots.some((allowed) => allowed.includes(kind)))
-  if (plots.length === 0) return 'Not on this map'
+  if (plots.length === 0) return { key: 'notOnMap' }
   if (buildTargets(state, kind, playerId).length === 0) {
     const free = plots.filter((town) => town.slots.some((allowed, slot) => allowed.includes(kind) && !buildingAt(state, town.id, slot)))
-    if (free.length === 0) return 'Every plot is taken'
-    if (state.era === 'canal' && free.every((town) => town.railOnly)) return 'Opens in the rail era'
-    return 'No free plot in your network'
+    if (free.length === 0) return { key: 'plotsTaken' }
+    if (state.era === 'canal' && free.every((town) => town.railOnly)) return { key: 'opensInRail' }
+    return { key: 'noPlotInNetwork' }
   }
   const q = quote(state.players[playerId], INDUSTRIES[kind].cost)
-  return q.total > state.players[playerId].money ? `Needs £${q.total}` : null
+  return q.total > state.players[playerId].money ? { key: 'needsMoney', amount: q.total } : null
 }
 
 /** What this route would be built as right now, or null if it doesn't exist in the current era. */
@@ -352,12 +343,12 @@ export function linkTargets(state: GameState, playerId = currentPlayerId(state))
 }
 
 /** Why no link can be built now, or null if at least one can. */
-export function linkBlocker(state: GameState, playerId = currentPlayerId(state)): string | null {
+export function linkBlocker(state: GameState, playerId = currentPlayerId(state)): GameMessage | null {
   const targets = linkTargets(state, playerId)
-  if (targets.length === 0) return 'No free route touches your network'
+  if (targets.length === 0) return { key: 'noRoute' }
   const player = state.players[playerId]
   const cheapest = Math.min(...targets.map((route) => quote(player, linkCost(state, route)).total))
-  return cheapest > player.money ? `Needs £${cheapest}` : null
+  return cheapest > player.money ? { key: 'needsMoney', amount: cheapest } : null
 }
 
 export interface Path {
@@ -418,7 +409,10 @@ export interface MarketPoint {
   /** Town id for a hub, `port:<buildingId>` for a port. */
   id: string
   townId: string
+  /** English: "Bristol", "Gloucester port". */
   name: string
+  /** A port (in the town `townId`) rather than a hub. */
+  port: boolean
   /** Price of the next unit sold here. */
   price: number
   /** Port owner; null for hubs. */
@@ -430,13 +424,13 @@ export function marketsFor(state: GameState, goods: GoodsKind): MarketPoint[] {
   const points: MarketPoint[] = []
   for (const town of state.board.towns) {
     if (town.market?.buys.includes(goods)) {
-      points.push({ id: town.id, townId: town.id, name: town.name, price: state.prices[town.id], owner: null })
+      points.push({ id: town.id, townId: town.id, name: town.name, port: false, price: state.prices[town.id], owner: null })
     }
   }
   if (goods === RULES.portBuys) {
     for (const b of state.buildings) {
       if (!INDUSTRIES[b.kind].market) continue
-      points.push({ id: `port:${b.id}`, townId: b.townId, name: `${getTown(state, b.townId).name} port`, price: RULES.portPrice, owner: b.owner })
+      points.push({ id: `port:${b.id}`, townId: b.townId, name: `${getTown(state, b.townId).name} port`, port: true, price: RULES.portPrice, owner: b.owner })
     }
   }
   return points
@@ -528,14 +522,14 @@ export function shipSources(state: GameState, playerId = currentPlayerId(state))
 }
 
 /** Why nothing can be shipped now, or null if something can. */
-export function shipBlocker(state: GameState, playerId = currentPlayerId(state)): string | null {
+export function shipBlocker(state: GameState, playerId = currentPlayerId(state)): GameMessage | null {
   const own = state.buildings.filter((b) => b.owner === playerId && INDUSTRIES[b.kind].ships)
-  if (own.length === 0) return 'Build a mill, mine or iron works first'
+  if (own.length === 0) return { key: 'buildSourceFirst' }
   const loaded = own.filter((b) => (shipment(state, b)?.amount ?? 0) > 0)
-  if (loaded.length === 0) return 'Nothing to ship yet'
+  if (loaded.length === 0) return { key: 'nothingToShip' }
   const reachable = loaded.filter((b) => shipOptions(state, b.id).length > 0)
-  if (reachable.length === 0) return 'Not reachable'
-  return reachable.some((b) => shipQuotes(state, b.id).length > 0) ? null : 'Can’t afford the tolls'
+  if (reachable.length === 0) return { key: 'notReachable' }
+  return reachable.some((b) => shipQuotes(state, b.id).length > 0) ? null : { key: 'cantAffordTolls' }
 }
 
 /** Every action the current player may take right now. The AI only ever picks from these. */
@@ -585,54 +579,52 @@ export function finalScores(state: GameState): FinalScore[] {
 /* Actions                                                                   */
 /* ------------------------------------------------------------------------ */
 
-function addLog(state: GameState, player: number | null, kind: LogKind, text: string) {
-  state.log.push({ id: state.nextId++, round: state.round, kind, player, text })
+function addLog(state: GameState, player: number | null, kind: LogKind, msg: GameMessage) {
+  state.log.push({ id: state.nextId++, round: state.round, kind, player, text: english(msg), msg })
   if (state.log.length > MAX_LOG_ENTRIES) state.log.splice(0, state.log.length - MAX_LOG_ENTRIES)
 }
 
 function pay(player: PlayerState, cost: Cost): Quote {
   const q = quote(player, cost)
-  if (q.total > player.money) throw new IllegalActionError(`Needs £${q.total}; you have £${player.money}`)
+  if (q.total > player.money) throw new IllegalActionError({ key: 'cantPay', amount: q.total, have: player.money })
   player.money -= q.total
   player.coal -= q.coalUsed
   player.iron -= q.ironUsed
   return q
 }
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
-/** "a Coal mine", "an Iron works" */
-const withArticle = (name: string) => `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`
 
 function checkBuild(s: GameState, playerId: number, kind: IndustryKind, townId: string, slot: number) {
   const def = INDUSTRIES[kind]
-  if (!def) throw new IllegalActionError(`Unknown industry "${kind}"`)
+  if (!def) throw new IllegalActionError(internal(`Unknown industry "${kind}"`))
   const town = getTown(s, townId)
-  if (town.slots.length === 0) throw new IllegalActionError(`${town.name} has no building plots`)
+  if (town.slots.length === 0) throw new IllegalActionError({ key: 'noPlots', town: town.name })
   const allowed = town.slots[slot]
-  if (!allowed) throw new IllegalActionError(`${town.name} has no plot ${slot + 1}`)
-  if (buildingAt(s, townId, slot)) throw new IllegalActionError(`That plot in ${town.name} is taken`)
-  if (!allowed.includes(kind)) throw new IllegalActionError(`${withArticle(def.name).replace(/^a/, 'A')} can’t be built on that plot`)
-  if (town.railOnly && s.era === 'canal') throw new IllegalActionError(`${town.name} opens in the rail era`)
+  if (!allowed) throw new IllegalActionError({ key: 'noSuchPlot', town: town.name, plot: slot + 1 })
+  if (buildingAt(s, townId, slot)) throw new IllegalActionError({ key: 'plotTaken', town: town.name })
+  if (!allowed.includes(kind)) throw new IllegalActionError({ key: 'wrongPlot', industry: kind })
+  if (town.railOnly && s.era === 'canal') throw new IllegalActionError({ key: 'townOpensInRail', town: town.name })
   if (!buildsAnywhere(s, playerId) && !networkTowns(s, playerId).has(townId)) {
-    throw new IllegalActionError(`${town.name} isn’t in your network`)
+    throw new IllegalActionError({ key: 'notInNetwork', town: town.name })
   }
 }
 
 function checkLink(s: GameState, playerId: number, routeId: string): RouteKind {
   const route = getRoute(s, routeId)
-  if (route.id in s.links) throw new IllegalActionError(`${routeName(s, route)} is already built`)
+  const ends = { from: getTown(s, route.from).name, to: getTown(s, route.to).name }
+  if (route.id in s.links) throw new IllegalActionError({ key: 'linkBuilt', ...ends })
   const kind = linkKindNow(s, route)
-  if (!kind) throw new IllegalActionError(`${routeName(s, route)} doesn’t exist in the ${s.era} era`)
+  if (!kind) throw new IllegalActionError({ key: 'linkNotInEra', ...ends, era: s.era })
   if (!buildsAnywhere(s, playerId)) {
     const network = networkTowns(s, playerId)
-    if (!network.has(route.from) && !network.has(route.to)) throw new IllegalActionError(`${routeName(s, route)} doesn’t touch your network`)
+    if (!network.has(route.from) && !network.has(route.to)) throw new IllegalActionError({ key: 'linkOffNetwork', ...ends })
   }
   return kind
 }
 
 /** Apply an action for the current player and return the new state. */
 export function applyAction(state: GameState, action: GameAction): GameState {
-  if (state.status !== 'playing') throw new IllegalActionError('The match is over')
+  if (state.status !== 'playing') throw new IllegalActionError({ key: 'matchOver' })
   const s = structuredClone(state)
   const playerId = currentPlayerId(s)
   const player = s.players[playerId]
@@ -646,7 +638,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       player.prestige += def.prestige
       player.hasBuilt = true
       s.buildings.push({ id: s.nextId++, kind: action.kind, owner: playerId, townId: town.id, slot: action.slot, goods: 0 })
-      addLog(s, playerId, 'build', `${player.name} built ${withArticle(def.name)} in ${town.name} (${formatPayment(q)}, +${def.prestige}★)`)
+      addLog(s, playerId, 'build', { key: 'built', player: player.name, industry: action.kind, town: town.name, payment: paid(q), prestige: def.prestige })
       s.lastEvent = { type: 'build', player: playerId, townId: town.id, slot: action.slot }
       break
     }
@@ -659,12 +651,15 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       player.prestige += RULES.linkPrestige
       player.hasBuilt = true
       player.linksBuilt += 1
-      addLog(
-        s,
-        playerId,
-        'link',
-        `${player.name} ${kind === 'canal' ? 'dug the' : 'laid the'} ${routeName(s, route)} ${kind === 'canal' ? 'canal' : 'railway'} (${formatPayment(q)}, +${RULES.linkPrestige}★)`,
-      )
+      addLog(s, playerId, 'link', {
+        key: 'linked',
+        player: player.name,
+        kind,
+        from: getTown(s, route.from).name,
+        to: getTown(s, route.to).name,
+        payment: paid(q),
+        prestige: RULES.linkPrestige,
+      })
       s.lastEvent = { type: 'link', player: playerId, routeId: route.id }
       break
     }
@@ -672,21 +667,20 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'ship': {
       const source = s.buildings.find((b) => b.id === action.buildingId)
       const load = source && source.owner === playerId ? shipment(s, source) : null
-      if (!source || !load) throw new IllegalActionError('Pick one of your mills, coal mines or iron works')
-      const sourceName = INDUSTRIES[source.kind].name
+      if (!source || !load) throw new IllegalActionError({ key: 'pickSource' })
       if (load.amount === 0) {
-        throw new IllegalActionError(load.goods === 'cotton' ? `The ${sourceName} has no cotton yet` : `Your ${load.goods} store is empty`)
+        throw new IllegalActionError(load.goods === 'cotton' ? { key: 'noCottonYet', industry: source.kind } : { key: 'storeEmpty', goods: load.goods })
       }
       const buyer = marketsFor(s, load.goods).find((m) => m.id === action.marketId)
       if (!buyer) {
         const town = findTown(s, action.marketId)
         throw new IllegalActionError(
-          action.marketId.startsWith('port:') ? `Ports only buy ${RULES.portBuys}` : `${town?.name ?? 'That place'} doesn’t buy ${load.goods}`,
+          action.marketId.startsWith('port:') ? { key: 'portsOnlyBuy', goods: RULES.portBuys } : { key: 'doesntBuy', town: town?.name ?? null, goods: load.goods },
         )
       }
       const q = shipOptions(s, source.id).find((option) => option.marketId === action.marketId)
-      if (!q) throw new IllegalActionError(`${buyer.name} isn’t reachable over built links`)
-      if (!q.affordable) throw new IllegalActionError(`You can’t afford the £${q.tollTotal + q.fee} in tolls and fees`)
+      if (!q) throw new IllegalActionError({ key: 'unreachable', market: { town: buyer.port ? getTown(s, buyer.townId).name : buyer.name, port: buyer.port } })
+      if (!q.affordable) throw new IllegalActionError({ key: 'cantAffordFees', amount: q.tollTotal + q.fee })
       player.money += q.net
       for (const [owner, count] of Object.entries(q.tollsByOwner)) s.players[Number(owner)].money += count * RULES.toll
       if (q.feeOwner !== null) s.players[q.feeOwner].money += q.fee
@@ -696,16 +690,18 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       if (load.goods === 'cotton') source.goods = 0
       else if (load.goods === 'coal') player.coal = 0
       else player.iron = 0
-      const extras = [
-        ...Object.entries(q.tollsByOwner).map(([owner, count]) => `£${count * RULES.toll} toll to ${s.players[Number(owner)].name}`),
-        ...(q.feeOwner !== null ? [`£${q.fee} port fee to ${s.players[q.feeOwner].name}`] : []),
-      ].join(', ')
-      const goods = `${q.amount} ${GOODS_NAMES[q.goods]}`
-      const where =
-        source.townId === q.marketTownId
-          ? `sold ${goods} at ${q.marketName}`
-          : `shipped ${goods} from ${getTown(s, source.townId).name} to ${q.marketName}`
-      addLog(s, playerId, 'ship', `${player.name} ${where} (+£${q.revenue}${extras ? `, ${extras}` : ''}, +${q.prestige}★)`)
+      addLog(s, playerId, 'ship', {
+        key: 'shipped',
+        player: player.name,
+        goods: q.goods,
+        amount: q.amount,
+        from: source.townId === q.marketTownId ? null : getTown(s, source.townId).name,
+        market: { town: q.portOwner === null ? q.marketName : getTown(s, q.marketTownId).name, port: q.portOwner !== null },
+        revenue: q.revenue,
+        tolls: Object.entries(q.tollsByOwner).map(([owner, count]) => ({ owner: s.players[Number(owner)].name, amount: count * RULES.toll })),
+        fee: q.feeOwner !== null ? { owner: s.players[q.feeOwner].name, amount: q.fee } : null,
+        prestige: q.prestige,
+      })
       s.lastEvent = {
         type: 'ship',
         player: playerId,
@@ -721,7 +717,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
 
     case 'raiseFunds': {
       player.money += RULES.raiseFunds
-      addLog(s, playerId, 'funds', `${player.name} raised funds (+£${RULES.raiseFunds})`)
+      addLog(s, playerId, 'funds', { key: 'raisedFunds', player: player.name, amount: RULES.raiseFunds })
       s.lastEvent = { type: 'raiseFunds', player: playerId }
       break
     }
@@ -733,8 +729,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
         playerId,
         'turn',
         action.timedOut
-          ? `${player.name} ran out of time (${plural(lost, 'action')} lost)`
-          : `${player.name} ended the turn${lost < RULES.actionsPerTurn ? ' early' : ' without acting'}`,
+          ? { key: 'timedOut', player: player.name, lost }
+          : { key: 'endedTurn', player: player.name, early: lost < RULES.actionsPerTurn },
       )
       s.lastEvent = { type: 'endTurn', player: playerId, timedOut: action.timedOut ?? false }
       s.actionsLeft = 0
@@ -742,7 +738,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     }
 
     default:
-      throw new IllegalActionError('Unknown action')
+      throw new IllegalActionError({ key: 'unknownAction' })
   }
 
   if (action.type !== 'endTurn') s.actionsLeft -= 1
@@ -788,14 +784,14 @@ function produce(s: GameState) {
 
 function endRound(s: GameState) {
   produce(s)
-  addLog(s, null, 'round', `Round ${s.round} ends: industries produce and everyone collects £${RULES.baseIncome}.`)
+  addLog(s, null, 'round', { key: 'roundEnds', round: s.round, income: RULES.baseIncome })
   if (s.round >= s.totalRounds) {
     s.status = 'finished'
     s.actionsLeft = 0
     s.turnIndex = 0
     s.scores = finalScores(s)
     const winners = s.scores.filter((score) => score.rank === 1).map((score) => s.players[score.player].name)
-    addLog(s, null, 'end', winners.length > 1 ? `Shared victory: ${winners.join(' and ')}.` : `${winners[0]} won the match.`)
+    addLog(s, null, 'end', { key: 'won', winners })
     return
   }
   s.round += 1
@@ -804,7 +800,7 @@ function endRound(s: GameState) {
   s.turnOrder = s.players.map((_, i) => (start + i) % n)
   s.turnIndex = 0
   if (s.era === 'canal' && s.railEraRound !== null && s.round >= s.railEraRound) startRailEra(s)
-  addLog(s, null, 'round', `Round ${s.round} of ${s.totalRounds} begins.`)
+  addLog(s, null, 'round', { key: 'roundBegins', round: s.round, total: s.totalRounds })
 }
 
 /** The canals close: every canal link comes off the board (owners keep the ★ they earned; industries stay). */
@@ -813,15 +809,10 @@ function startRailEra(s: GameState) {
   const canals = Object.keys(s.links).filter((id) => s.links[id].kind === 'canal')
   for (const id of canals) delete s.links[id]
   s.eraChange = { round: s.round, removed: canals.length }
-  addLog(
-    s,
-    null,
-    'era',
-    `The Rail Era begins — the canals close${canals.length ? ` and ${plural(canals.length, 'canal link')} ${canals.length === 1 ? 'is' : 'are'} removed` : ''}. Railways can now be laid.`,
-  )
+  addLog(s, null, 'era', { key: 'railEra', removed: canals.length })
   for (const player of s.players) {
     if (player.hasBuilt && networkTowns(s, player.id).size === 0) {
-      addLog(s, player.id, 'reset', `${player.name} has no network left and may build anywhere again.`)
+      addLog(s, player.id, 'reset', { key: 'networkReset', player: player.name })
     }
   }
 }

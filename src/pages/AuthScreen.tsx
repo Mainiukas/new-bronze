@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import type { Profile } from '../auth/backend'
-import { NOT_CONFIGURED } from '../auth/messages'
 import { rememberReturnTo, takeReturnTo } from '../auth/redirect'
 import type { AuthState } from '../auth/store'
 import { ChooseUsername } from '../components/auth/ChooseUsername'
@@ -19,12 +18,13 @@ import { useAuth } from '../hooks/useAuth'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import type { AuthLocationState, AuthMode } from '../hooks/useOpenAuth'
 import { useToast } from '../hooks/useToast'
+import { useT, type Messages } from '../i18n'
 
 type View = keyof typeof AUTH_PATHS
 
 const VIEWS = Object.fromEntries(Object.entries(AUTH_PATHS).map(([view, path]) => [path, view])) as Record<string, View>
 
-const welcome = (profile: Profile | null, isNew: boolean) => (profile ? `${isNew ? 'Welcome' : 'Welcome back'}, ${profile.username}!` : 'Welcome!')
+const welcome = (t: Messages, profile: Profile | null, isNew: boolean) => t.auth.welcome(profile?.username ?? null, isNew)
 /** A profile made in the last ten minutes: this is their first visit. */
 const isFresh = (profile: Profile | null) => !!profile && Date.now() - Date.parse(profile.createdAt) < 10 * 60_000
 
@@ -38,6 +38,8 @@ const isFresh = (profile: Profile | null) => !!profile && Date.now() - Date.pars
  * A signed-in player without a username always gets the username step.
  */
 export function AuthScreen() {
+  const t = useT()
+  const a = t.auth
   const auth = useAuth()
   const notify = useToast()
   const navigate = useNavigate()
@@ -80,11 +82,11 @@ export function AuthScreen() {
   const decline = async () => {
     try {
       await auth.declineSignup()
-      notify('Sign-up cancelled. Nothing was kept.')
+      notify(a.signupCancelled)
     } catch {
       // Couldn't reach the server: at least log out here. The unfinished sign-up is deleted automatically within 7 days.
       await auth.logOut().catch(() => undefined)
-      notify('Logged out. The unfinished sign-up will be deleted automatically.')
+      notify(a.signupLoggedOut)
     }
     navigate(PATHS.mainMenu, { replace: true })
   }
@@ -105,9 +107,9 @@ export function AuthScreen() {
 
   const notice = !auth.configured && view !== 'username' && (
     <div className="mb-5">
-      <FormAlert tone="info" message={`${NOT_CONFIGURED} You can keep playing as a guest; nothing here will sign you in.`} />
+      <FormAlert tone="info" message={a.notConfigured} />
       <button type="button" className="btn btn-ghost w-full" onClick={leave}>
-        Keep playing as a guest
+        {a.keepPlaying}
       </button>
     </div>
   )
@@ -119,7 +121,7 @@ export function AuthScreen() {
     body = (
       <ChooseUsername
         onChosen={(profile) => {
-          notify(welcome(profile, true))
+          notify(welcome(t, profile, true))
           if (onAuthRoute) navigate(takeReturnTo(), { replace: true })
         }}
         onDecline={() => void decline()}
@@ -136,7 +138,7 @@ export function AuthScreen() {
         onBack={() => switchMode('login')}
         onDone={() => {
           navigate(PATHS.mainMenu, { replace: true })
-          notify('Password updated')
+          notify(a.passwordUpdated)
         }}
       />
     )
@@ -146,7 +148,7 @@ export function AuthScreen() {
       <CallbackView
         onSignedIn={(signedIn: AuthState) => {
           navigate(takeReturnTo(), { replace: true })
-          notify(welcome(signedIn.profile, isFresh(signedIn.profile)))
+          notify(welcome(t, signedIn.profile, isFresh(signedIn.profile)))
         }}
         onNeedsUsername={() => navigate(AUTH_PATHS.username, { replace: true })}
         onBack={() => navigate('/auth?mode=login', { replace: true })}
@@ -165,9 +167,9 @@ export function AuthScreen() {
         onRegistered={({ needsConfirmation, username, email }) => {
           if (needsConfirmation) return setConfirmSentTo(email)
           leave()
-          notify(`Welcome, ${username}!`)
+          notify(a.welcome(username, true))
         }}
-        footer={!desktop && <SwitchLink prompt="" action="I already have an account" onClick={() => switchMode('login')} />}
+        footer={!desktop && <SwitchLink prompt="" action={a.haveAccount} onClick={() => switchMode('login')} />}
       />
     )
     const login = (
@@ -180,9 +182,9 @@ export function AuthScreen() {
         onLoggedIn={(signedIn) => {
           if (signedIn.status === 'needs-username') return
           leave()
-          notify(signedIn.status === 'signed-in' ? welcome(signedIn.profile, false) : 'Logged in, but your profile couldn’t be loaded.')
+          notify(signedIn.status === 'signed-in' ? welcome(t, signedIn.profile, false) : a.profileFailed)
         }}
-        footer={!desktop && <SwitchLink prompt="New here?" action="Create an account" onClick={() => switchMode('register')} />}
+        footer={!desktop && <SwitchLink prompt={a.newHere} action={a.register.title} onClick={() => switchMode('register')} />}
       />
     )
     body = desktop ? (
@@ -190,7 +192,7 @@ export function AuthScreen() {
         <ModePill mode={mode} onChange={switchMode} />
         <div role="tabpanel" id="auth-tabpanel" aria-labelledby={`auth-tab-${mode}`} className="mt-6">
           <h2 id="auth-title" className="sr-only">
-            {mode === 'register' ? 'Create an account' : 'Log in'}
+            {mode === 'register' ? a.register.title : t.common.logIn}
           </h2>
           {notice}
           {mode === 'register' ? register : login}
@@ -199,10 +201,10 @@ export function AuthScreen() {
     ) : (
       <>
         <h2 id="auth-title" className="mb-1 font-display text-3xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-          {mode === 'register' ? 'Create account' : 'Log in'}
+          {mode === 'register' ? a.register.create : t.common.logIn}
         </h2>
         <p className="mb-5 text-sm text-parchment-300">
-          {mode === 'register' ? 'Save your record, and be ready for friends and online play.' : 'Welcome back, industrialist.'}
+          {mode === 'register' ? a.register.intro : a.login.intro}
         </p>
         {notice}
         {mode === 'register' ? register : login}
@@ -211,7 +213,7 @@ export function AuthScreen() {
   }
 
   const painting = view === 'forgot' || view === 'reset' || view === 'username' ? 'auth_study' : 'auth'
-  const closeLabel = view === 'username' ? 'Cancel sign-up' : 'Close'
+  const closeLabel = view === 'username' ? a.cancelSignup : t.common.close
   const onClose = view === 'username' ? () => void decline() : leave
 
   return (
@@ -255,9 +257,10 @@ export function AuthScreen() {
 
 /** Desktop's [ Register | Log in ] switch: a brass highlight slides to the chosen side. */
 function ModePill({ mode, onChange }: { mode: AuthMode; onChange: (mode: AuthMode, withKeyboard?: boolean) => void }) {
+  const t = useT()
   const modes: [AuthMode, string][] = [
-    ['register', 'Register'],
-    ['login', 'Log in'],
+    ['register', t.common.register],
+    ['login', t.common.logIn],
   ]
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
@@ -267,7 +270,7 @@ function ModePill({ mode, onChange }: { mode: AuthMode; onChange: (mode: AuthMod
     document.getElementById(`auth-tab-${next}`)?.focus()
   }
   return (
-    <div role="tablist" aria-label="Register or log in" onKeyDown={onKeyDown} className="relative grid grid-cols-2 rounded-full border border-bronze-500/40 bg-soot-950/80 p-1 shadow-[inset_0_2px_6px_rgb(0_0_0/0.7)]">
+    <div role="tablist" aria-label={t.auth.registerOrLogIn} onKeyDown={onKeyDown} className="relative grid grid-cols-2 rounded-full border border-bronze-500/40 bg-soot-950/80 p-1 shadow-[inset_0_2px_6px_rgb(0_0_0/0.7)]">
       <span
         aria-hidden="true"
         className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full border border-brass-200/60 bg-linear-to-b from-brass-200 via-brass-400 to-bronze-500 shadow-[inset_0_1px_0_rgb(255_255_255/0.5),0_2px_8px_-2px_rgb(255_157_77/0.6)] transition-transform duration-200 ease-out motion-reduce:transition-none ${
@@ -311,21 +314,20 @@ function SwitchLink({ prompt, action, onClick }: { prompt: string; action: strin
 
 /** After registering with email confirmation on. */
 function CheckEmail({ email, onDone, onRestart }: { email: string; onDone: () => void; onRestart: () => void }) {
+  const c = useT().auth.checkEmail
   return (
     <div role="status" aria-labelledby="auth-title">
       <h2 id="auth-title" className="font-display text-2xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-        Check your email
+        {c.title}
       </h2>
-      <p className="mt-3 text-parchment-200">
-        Check your email to confirm your account. We sent a link to <strong className="text-parchment-50">{email}</strong>; open it in this browser to finish.
-      </p>
-      <p className="mt-2 text-sm text-parchment-300">No email after a few minutes? Check your spam folder.</p>
+      <p className="mt-3 text-parchment-200">{c.body(<strong className="text-parchment-50">{email}</strong>)}</p>
+      <p className="mt-2 text-sm text-parchment-300">{c.spam}</p>
       <button type="button" className="btn btn-primary mt-6 w-full" onClick={onDone}>
-        Back to the lobby
+        {c.back}
       </button>
       <p className="mt-4 text-center">
         <button type="button" onClick={onRestart} className="min-h-11 px-2 text-sm font-semibold text-brass-300 hover:text-brass-200 hover:underline">
-          Wrong address? Register again
+          {c.again}
         </button>
       </p>
     </div>

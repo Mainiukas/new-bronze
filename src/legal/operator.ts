@@ -52,5 +52,5 @@ export function unfilledPlaceholders(): string[] {
   return [...Object.values(OPERATOR), ...Object.values(SERVICES)].filter(isPlaceholder)
 }
 
-export const formatLegalDate = (iso: string) =>
-  new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+export const formatLegalDate = (iso: string, locale = 'en-GB') =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })

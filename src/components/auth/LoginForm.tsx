@@ -3,6 +3,7 @@ import { AuthError } from '../../auth/backend'
 import { authErrorMessage } from '../../auth/messages'
 import type { AuthState } from '../../auth/store'
 import { useAuth } from '../../hooks/useAuth'
+import { useT } from '../../i18n'
 import { Checkbox, FormAlert, GoogleButton, OrDivider, PasswordField, SubmitButton, TextField } from './fields'
 
 const MAX_FAILURES = 5
@@ -47,6 +48,8 @@ interface LoginFormProps {
 
 /** Log in with Google, or a username or email and password. Five wrong tries pause it for 30 seconds. */
 export function LoginForm({ disabled, onGoogle, onForgot, onLoggedIn, footer, autoFocus = true }: LoginFormProps) {
+  const t = useT()
+  const l = t.auth.login
   const auth = useAuth()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -76,8 +79,8 @@ export function LoginForm({ disabled, onGoogle, onForgot, onLoggedIn, footer, au
   }, [failures.until])
 
   const errors = {
-    identifier: identifier.trim() ? null : 'Enter your username or email.',
-    password: password ? null : 'Enter your password.',
+    identifier: identifier.trim() ? null : l.enterIdentifier,
+    password: password ? null : l.enterPassword,
   }
   const valid = !errors.identifier && !errors.password
 
@@ -106,11 +109,11 @@ export function LoginForm({ disabled, onGoogle, onForgot, onLoggedIn, footer, au
         setNow(Date.now())
         setError(
           next.until
-            ? `${authErrorMessage(failure)} Too many tries: wait ${COOLDOWN_MS / 1000} seconds before trying again.`
-            : authErrorMessage(failure),
+            ? `${authErrorMessage(failure, t.authErrors)} ${l.tooMany(COOLDOWN_MS / 1000)}`
+            : authErrorMessage(failure, t.authErrors),
         )
       } else {
-        setError(authErrorMessage(failure))
+        setError(authErrorMessage(failure, t.authErrors))
       }
       setBusy(false)
     }
@@ -122,23 +125,23 @@ export function LoginForm({ disabled, onGoogle, onForgot, onLoggedIn, footer, au
     try {
       await onGoogle(remember)
     } catch (failure) {
-      setError(authErrorMessage(failure))
+      setError(authErrorMessage(failure, t.authErrors))
       setGoogleBusy(false)
     }
   }
 
   return (
-    <form noValidate onSubmit={submit} aria-label="Log in">
+    <form noValidate onSubmit={submit} aria-label={t.common.logIn}>
       <fieldset disabled={disabled} className="min-w-0">
         <GoogleButton onClick={google} busy={googleBusy} disabled={busy} />
         <OrDivider />
 
         <TextField
-          label="Username or email"
+          label={l.identifier}
           inputRef={firstRef}
           value={identifier}
           onChange={setIdentifier}
-          onBlur={() => setTouched((t) => ({ ...t, identifier: true }))}
+          onBlur={() => setTouched((prev) => ({ ...prev, identifier: true }))}
           error={touched.identifier ? errors.identifier : null}
           autoComplete="username"
           autoCapitalize="none"
@@ -146,11 +149,11 @@ export function LoginForm({ disabled, onGoogle, onForgot, onLoggedIn, footer, au
           required
         />
         <PasswordField
-          label="Password"
+          label={t.auth.password}
           inputRef={passwordRef}
           value={password}
           onChange={setPassword}
-          onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+          onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
           error={touched.password ? errors.password : null}
           autoComplete="current-password"
           required
@@ -158,17 +161,17 @@ export function LoginForm({ disabled, onGoogle, onForgot, onLoggedIn, footer, au
         />
         <div className="flex items-center justify-between gap-3">
           <Checkbox id="login-remember" checked={remember} onChange={setRemember}>
-            Remember me
+            {l.remember}
           </Checkbox>
           <button type="button" onClick={onForgot} className="min-h-11 text-sm font-semibold text-brass-300 underline-offset-2 hover:text-brass-200 hover:underline">
-            Forgot password?
+            {l.forgot}
           </button>
         </div>
 
         <div className="mt-3">
           <FormAlert message={error} />
           <SubmitButton busy={busy} disabled={waitSeconds > 0}>
-            {waitSeconds > 0 ? `Try again in ${waitSeconds}s` : busy ? 'Logging in…' : 'Log in'}
+            {waitSeconds > 0 ? l.tryAgainIn(waitSeconds) : busy ? l.loggingIn : t.common.logIn}
           </SubmitButton>
         </div>
       </fieldset>

@@ -5,15 +5,17 @@ import { authParams, clearAuthParams, hasAuthResult } from '../../auth/redirect'
 import type { AuthState } from '../../auth/store'
 import { validateConfirmation, validateEmail, validatePassword } from '../../auth/validation'
 import { useAuth } from '../../hooks/useAuth'
+import { useT } from '../../i18n'
 import { FormAlert, PasswordField, PasswordHint, Spinner, SubmitButton, TextField } from './fields'
 
 const RESEND_SECONDS = 60
 
 function BackToLogIn({ onClick }: { onClick: () => void }) {
+  const t = useT()
   return (
     <p className="mt-5 text-center">
       <button type="button" onClick={onClick} className="min-h-11 px-2 text-sm font-semibold text-brass-300 underline-offset-2 hover:text-brass-200 hover:underline">
-        ← Back to log in
+        ← {t.auth.backToLogIn}
       </button>
     </p>
   )
@@ -21,6 +23,8 @@ function BackToLogIn({ onClick }: { onClick: () => void }) {
 
 /** /auth/forgot: ask for a reset link. The answer never says whether the email has an account. */
 export function ForgotPasswordView({ disabled, onBack }: { disabled: boolean; onBack: () => void }) {
+  const t = useT()
+  const f = t.auth.forgot
   const auth = useAuth()
   const [email, setEmail] = useState('')
   const [touched, setTouched] = useState(false)
@@ -42,7 +46,7 @@ export function ForgotPasswordView({ disabled, onBack }: { disabled: boolean; on
   }, [resendAt])
 
   const wait = Math.max(0, Math.ceil((resendAt - now) / 1000))
-  const emailError = validateEmail(email)
+  const emailError = validateEmail(email, t.validation)
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -60,7 +64,7 @@ export function ForgotPasswordView({ disabled, onBack }: { disabled: boolean; on
       setResendAt(Date.now() + RESEND_SECONDS * 1000)
       setNow(Date.now())
     } catch (failure) {
-      setError(authErrorMessage(failure))
+      setError(authErrorMessage(failure, t.authErrors))
     }
     setBusy(false)
   }
@@ -68,12 +72,12 @@ export function ForgotPasswordView({ disabled, onBack }: { disabled: boolean; on
   return (
     <form noValidate onSubmit={submit} aria-labelledby="forgot-title">
       <h2 id="forgot-title" className="font-display text-2xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-        Forgot password
+        {f.title}
       </h2>
-      <p className="mt-1 mb-5 text-sm text-parchment-300">Enter the email you registered with and we’ll send you a link to set a new password.</p>
+      <p className="mt-1 mb-5 text-sm text-parchment-300">{f.intro}</p>
       <fieldset disabled={disabled} className="min-w-0">
         <TextField
-          label="Email"
+          label={t.auth.email}
           inputRef={inputRef}
           type="email"
           inputMode="email"
@@ -86,10 +90,10 @@ export function ForgotPasswordView({ disabled, onBack }: { disabled: boolean; on
           spellCheck={false}
           required
         />
-        <FormAlert tone="info" message={sent ? 'If an account exists for that email, we’ve sent a reset link. Check your inbox (and spam).' : null} />
+        <FormAlert tone="info" message={sent ? f.sent : null} />
         <FormAlert message={error} />
         <SubmitButton busy={busy} disabled={wait > 0}>
-          {wait > 0 ? `Resend in ${wait}s` : sent ? 'Resend link' : 'Send reset link'}
+          {wait > 0 ? f.resendIn(wait) : sent ? f.resend : f.send}
         </SubmitButton>
       </fieldset>
       <BackToLogIn onClick={onBack} />
@@ -106,6 +110,8 @@ function finishOnce(key: string, run: () => Promise<unknown>) {
 
 /** /auth/reset: the email link lands here; set a new password. */
 export function ResetPasswordView({ disabled, onBack, onDone }: { disabled: boolean; onBack: () => void; onDone: () => void }) {
+  const t = useT()
+  const rs = t.auth.reset
   const auth = useAuth()
   const [phase, setPhase] = useState<'checking' | 'ready' | 'invalid'>(() => (hasAuthResult(authParams()) ? 'checking' : 'ready'))
   const [linkError, setLinkError] = useState<string | null>(null)
@@ -130,14 +136,14 @@ export function ResetPasswordView({ disabled, onBack, onDone }: { disabled: bool
       (failure) => {
         clearAuthParams()
         if (!alive) return
-        setLinkError(authErrorMessage(failure))
+        setLinkError(authErrorMessage(failure, t.authErrors))
         setPhase('invalid')
       },
     )
     return () => {
       alive = false
     }
-  }, [finishRedirect])
+  }, [finishRedirect, t.authErrors])
 
   const signedIn = status === 'signed-in' || status === 'needs-username' || status === 'error'
   const view = phase === 'ready' && !signedIn && status !== 'loading' && status !== 'unconfigured' ? 'invalid' : phase
@@ -148,7 +154,7 @@ export function ResetPasswordView({ disabled, onBack, onDone }: { disabled: bool
     return () => window.clearTimeout(timer)
   }, [view])
 
-  const errors = { password: validatePassword(password), confirm: validateConfirmation(password, confirm) }
+  const errors = { password: validatePassword(password, t.validation), confirm: validateConfirmation(password, confirm, t.validation) }
   const valid = !errors.password && !errors.confirm
 
   const submit = async (event: FormEvent) => {
@@ -165,7 +171,7 @@ export function ResetPasswordView({ disabled, onBack, onDone }: { disabled: bool
       await auth.setNewPassword(password)
       onDone()
     } catch (failure) {
-      setError(authErrorMessage(failure))
+      setError(authErrorMessage(failure, t.authErrors))
       setBusy(false)
     }
   }
@@ -173,45 +179,43 @@ export function ResetPasswordView({ disabled, onBack, onDone }: { disabled: bool
   return (
     <div aria-labelledby="reset-title" role="group">
       <h2 id="reset-title" className="font-display text-2xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-        Set a new password
+        {rs.title}
       </h2>
       {view === 'checking' || status === 'loading' ? (
         <p className="mt-6 flex items-center gap-3 text-parchment-300" role="status">
-          <Spinner /> Checking your link…
+          <Spinner /> {rs.checking}
         </p>
       ) : view === 'invalid' ? (
         <div className="mt-4">
-          <FormAlert message={linkError ?? 'This reset link is invalid or has expired.'} />
-          <p className="text-sm text-parchment-300">
-            Reset links work once, for a limited time, in the browser you asked for them in. Ask for a new one and open it here.
-          </p>
+          <FormAlert message={linkError ?? rs.invalid} />
+          <p className="text-sm text-parchment-300">{rs.howLinksWork}</p>
           <BackToLogIn onClick={onBack} />
         </div>
       ) : (
         <form noValidate onSubmit={submit} className="mt-5">
           <fieldset disabled={disabled} className="min-w-0">
             <PasswordField
-              label="New password"
+              label={rs.newPassword}
               inputRef={inputRef}
               value={password}
               onChange={setPassword}
-              onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+              onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
               error={touched.password ? errors.password : null}
               hint={<PasswordHint password={password} />}
               autoComplete="new-password"
               required
             />
             <PasswordField
-              label="Confirm new password"
+              label={rs.confirmNew}
               value={confirm}
               onChange={setConfirm}
-              onBlur={() => setTouched((t) => ({ ...t, confirm: true }))}
+              onBlur={() => setTouched((prev) => ({ ...prev, confirm: true }))}
               error={touched.confirm ? errors.confirm : null}
               autoComplete="new-password"
               required
             />
             <FormAlert message={error} />
-            <SubmitButton busy={busy}>Set new password</SubmitButton>
+            <SubmitButton busy={busy}>{rs.submit}</SubmitButton>
           </fieldset>
           <BackToLogIn onClick={onBack} />
         </form>
@@ -233,6 +237,8 @@ export function CallbackView({
   onNeedsUsername: () => void
   onBack: () => void
 }) {
+  const t = useT()
+  const cb = t.auth.callback
   const auth = useAuth()
   const [params] = useState(authParams)
   const hasResult = hasAuthResult(params)
@@ -262,16 +268,14 @@ export function CallbackView({
         if (!alive) return
         const linkProblem = error instanceof AuthError && error.code === 'link-invalid'
         setFailure(
-          linkProblem
-            ? 'This sign-in link can’t be used here: it may have expired, been used already, or been opened in a different browser. If you just confirmed your email, log in now.'
-            : authErrorMessage(error),
+          linkProblem ? cb.linkProblem : authErrorMessage(error, t.authErrors),
         )
       },
     )
     return () => {
       alive = false
     }
-  }, [hasResult, params, finishRedirect])
+  }, [hasResult, params, finishRedirect, t.authErrors, cb.linkProblem])
 
   // Nothing to finish (e.g. reloaded after it finished): carry on once the session is known.
   const settledSignedIn = !hasResult && (status === 'signed-in' || status === 'needs-username')
@@ -279,12 +283,12 @@ export function CallbackView({
     if (settledSignedIn) carryOnWithCurrent()
   }, [settledSignedIn])
 
-  const error = failure ?? (!hasResult && status !== 'loading' && !settledSignedIn ? 'There’s nothing to finish here. Try logging in again.' : null)
+  const error = failure ?? (!hasResult && status !== 'loading' && !settledSignedIn ? cb.nothing : null)
 
   return (
     <div role="group" aria-labelledby="callback-title">
       <h2 id="callback-title" className="font-display text-2xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-        {error ? 'Couldn’t sign you in' : 'Signing you in'}
+        {error ? cb.failed : cb.signingIn}
       </h2>
       {error ? (
         <div className="mt-4">
@@ -293,7 +297,7 @@ export function CallbackView({
         </div>
       ) : (
         <p className="mt-6 flex items-center gap-3 text-parchment-300" role="status">
-          <Spinner /> One moment…
+          <Spinner /> {cb.moment}
         </p>
       )}
     </div>

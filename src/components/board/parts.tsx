@@ -25,6 +25,7 @@ import {
   type HubParts,
   type StopParts,
 } from './layout'
+import { useT } from '../../i18n'
 import { BOARD_COLORS as C, DEF } from './style'
 
 const f = (n: number) => Math.round(n * 100) / 100
@@ -489,12 +490,13 @@ export function PriceBadge({ rect, price }: { rect: Rect; price: number }) {
 
 /** "Available in the Rail Era": a locomotive silhouette in a bronze circle on the plaque's top-right corner. */
 export function RailEraBadge({ at }: { at: Point }) {
+  const t = useT()
   const art = TOKEN_ART_URLS.rail
   const w = RAIL_BADGE_R * 1.7
   const h = w * (296 / 766)
   return (
     <g>
-      <title>Available in the Rail Era</title>
+      <title>{t.tooltip.railOnly}</title>
       <circle cx={at.x} cy={at.y} r={RAIL_BADGE_R} fill={C.bronze} stroke={C.ink} strokeWidth={1} />
       {imageOk(art) ? (
         <image href={art} x={at.x - w / 2} y={at.y - h / 2} width={w} height={h} filter={`url(#${DEF.silhouette})`} />

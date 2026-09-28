@@ -3,13 +3,11 @@ import '@fontsource/cinzel/latin-800.css'
 import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import {
   EMPTY_BUILT,
-  INDUSTRY_NAMES,
   MAX_BEND_POINTS,
   slotKey,
   type BoardData,
   type BuiltState,
   type Era,
-  type Industry,
 } from '../../data/board'
 import { seatColor, SEATS } from '../game/glyphs'
 import { hubPhotoUrl, imageOk, MAP_URL, TEXTURE_URLS, TOKEN_URLS, useBoardImagesReady, type TokenColor } from './assets'
@@ -46,6 +44,7 @@ import {
   SlotTile,
   StopPlaque,
 } from './parts'
+import { useT } from '../../i18n'
 import { samplePath } from './sampling'
 import { BOARD_COLORS, DEF } from './style'
 
@@ -167,11 +166,6 @@ function asButton(label: string, onActivate: () => void) {
   }
 }
 
-/** "Birmingham, slot 3: cotton mill or iron works, free" */
-function slotLabel(name: string, index: number, allowed: Industry[], owner: string | null, built?: Industry): string {
-  const kinds = allowed.map((a) => INDUSTRY_NAMES[a].toLowerCase()).join(' or ')
-  return `${name}, slot ${index + 1}: ${kinds}, ${built && owner ? `built: ${owner}’s ${INDUSTRY_NAMES[built].toLowerCase()}` : 'free'}`
-}
 
 /**
  * The illustrated map board: the painted map with an SVG overlay (viewBox
@@ -191,7 +185,7 @@ export function IllustratedBoard({
   built = EMPTY_BUILT,
   selected = null,
   playerColor = seatColor,
-  playerName = (player) => `Player ${player + 1}`,
+  playerName,
   playerMark,
   onSelectLocation,
   onSelectSlot,
@@ -206,6 +200,7 @@ export function IllustratedBoard({
   motion = 1,
   className = '',
 }: IllustratedBoardProps) {
+  const t = useT()
   const imagesReady = useBoardImagesReady()
   const fontsReady = useFontsReady(FONTS)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -260,16 +255,18 @@ export function IllustratedBoard({
 
   const locations = useMemo(() => new Map(board.locations.map((l) => [l.id, l])), [board.locations])
   const name = (id: string) => locations.get(id)?.name ?? id
+  const nameOf = (player: number) => playerName?.(player) ?? t.common.player(player + 1)
   const recentPath = new Set(recent?.path ?? [])
   const isShut = (id: string) => closed?.has(id) ?? false
   const routeShut = (route: RouteLayout) => isShut(route.link.from) || isShut(route.link.to)
-  const linkLabel = (route: RouteLayout, extra?: string | null) =>
-    `${name(route.link.from)} to ${name(route.link.to)} (${era === 'canal' ? 'canal' : 'railway'})${extra ? `: ${extra}` : ''}`
+  const linkLabel = (route: RouteLayout, extra?: string | null) => t.boardLabels.link(name(route.link.from), name(route.link.to), era, extra ?? null)
   const labelForSlot = (locationId: string, index: number) => {
     const location = locations.get(locationId)
     if (location?.type !== 'city') return locationId
     const tile = built.slots[slotKey(locationId, index)]
-    return slotLabel(location.name, index, location.slots[index] ?? [], tile ? playerName(tile.player) : null, tile?.industry)
+    return tile
+      ? t.boardLabels.slotBuilt(location.name, index + 1, nameOf(tile.player), tile.industry, null)
+      : t.boardLabels.slotFree(location.name, index + 1, location.slots[index] ?? [])
   }
 
   // Links to glow: this era's links touching the hovered or selected location, or the hovered/selected link.
@@ -455,7 +452,7 @@ export function IllustratedBoard({
     return g?.parts.type === 'city' ? g.parts.tiles[Number(index)] : undefined
   }
 
-  const map = <img src={MAP_URL} alt="Illustrated map of Wales, the Midlands and the South West" className="absolute inset-0 size-full" draggable={false} />
+  const map = <img src={MAP_URL} alt={t.boardLabels.mapAlt} className="absolute inset-0 size-full" draggable={false} />
   if (!imagesReady || !layout || !routesLayout) {
     return (
       <div className={`relative grid aspect-square w-full place-items-center overflow-hidden bg-soot-900 select-none ${className}`}>
@@ -480,7 +477,7 @@ export function IllustratedBoard({
         // Exact glyph widths at any zoom, matching how plates were measured.
         textRendering="geometricPrecision"
         role="group"
-        aria-label="Map board"
+        aria-label={t.nav.board}
         aria-describedby={editable ? undefined : keyHelpId}
         onPointerMove={onPointerMove}
         onKeyDown={onBoardKeyDown}
@@ -538,7 +535,7 @@ export function IllustratedBoard({
                   opacity={shut ? CLOSED_OPACITY.link : 1}
                   pointerEvents={shut ? 'none' : undefined}
                   className={clickable ? 'cursor-pointer' : undefined}
-                  {...(clickable ? asButton(linkLabel(route, owner ? `built by ${playerName(owner.player)}` : 'not built yet'), () => onSelectLink!(link.id)) : {})}
+                  {...(clickable ? asButton(linkLabel(route, owner ? t.boardLabels.builtBy(nameOf(owner.player)) : t.boardLabels.notBuilt), () => onSelectLink!(link.id)) : {})}
                   {...(shut ? {} : hoverHandlers({ type: 'link', id: link.id }))}
                 >
                   <circle cx={marker.x} cy={marker.y} r={20} fill="transparent" />
@@ -889,7 +886,7 @@ export function IllustratedBoard({
         Tab through the board’s slots, links and locations; arrow keys move to the nearest one in that direction; Enter or Space picks it.
       </p>
       {hover && !editable && !drag && (
-        <BoardTooltip board={board} groups={groups} routes={routesLayout.routes} era={era} built={built} prices={prices} playerName={playerName} target={hover} />
+        <BoardTooltip board={board} groups={groups} routes={routesLayout.routes} era={era} built={built} prices={prices} playerName={nameOf} target={hover} />
       )}
     </div>
   )

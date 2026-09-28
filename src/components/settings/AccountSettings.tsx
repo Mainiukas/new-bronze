@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import type { EmailPreferences } from '../../auth/backend'
 import { authErrorMessage } from '../../auth/messages'
 import { useAuth } from '../../hooks/useAuth'
+import { useT } from '../../i18n'
 import { consentStore } from '../../legal/consent'
 import { AUTH_STORAGE_KEY, CONSENT_STORAGE_KEY } from '../../legal/inventory'
 import { readStorage, STORAGE_KEYS } from '../../lib/storage'
@@ -57,6 +58,8 @@ const note = 'block text-sm text-parchment-400'
  * data from the server plus this device's; guests: this device only.
  */
 export function AccountSection({ onDone, notify }: { onDone: () => void; notify: (message: string) => void }) {
+  const t = useT()
+  const a = t.account
   const auth = useAuth()
   const [busy, setBusy] = useState<'export' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -72,13 +75,13 @@ export function AccountSection({ onDone, notify }: { onDone: () => void; notify:
       const stamp = new Date().toISOString().slice(0, 10)
       download(`bronze-data-${profile?.username ?? 'guest'}-${stamp}.json`, {
         exportedAt: new Date().toISOString(),
-        note: 'Everything Bronze stores about you. Matches are played in your browser, so there is no match history on the server.',
+        note: a.exportNote,
         account,
         device: deviceData(),
       })
-      notify('Your data is downloading.')
+      notify(a.downloading)
     } catch (failure) {
-      setError(authErrorMessage(failure))
+      setError(authErrorMessage(failure, t.authErrors))
     } finally {
       setBusy(null)
     }
@@ -88,40 +91,39 @@ export function AccountSection({ onDone, notify }: { onDone: () => void; notify:
     <div className="flex flex-col gap-4">
       {profile ? (
         <p className="text-sm text-parchment-300">
-          Logged in as <strong className="text-parchment-50">{profile.username}</strong>
-          {auth.user?.email ? ` (${auth.user.email})` : ''}.
+          {a.loggedInAs(<strong className="text-parchment-50">{profile.username}</strong>, auth.user?.email ?? null)}
         </p>
       ) : (
         <p className="text-sm text-parchment-300">
-          You’re playing as a guest: nothing about you is stored on our servers. Your settings, record and match stay in this browser.
+          {a.guest}
         </p>
       )}
       <div className={row}>
         <div>
-          <span className="block font-medium text-parchment-100">Download my data</span>
-          <span className={note}>{profile ? 'Your profile, record, consents and email choices, plus this device’s data, as a file.' : 'What Bronze keeps in this browser, as a file.'}</span>
+          <span className="block font-medium text-parchment-100">{a.download}</span>
+          <span className={note}>{profile ? a.downloadAccount : a.downloadGuest}</span>
         </div>
         <button type="button" className="btn btn-ghost" onClick={() => void exportData()} disabled={busy !== null} aria-busy={busy === 'export' || undefined}>
           {busy === 'export' ? <Spinner className="size-4" /> : <IconDownload className="size-4" />}
-          Download
+          {a.downloadButton}
         </button>
       </div>
       {profile && (
         <div className={row}>
           <div>
-            <span className="block font-medium text-parchment-100">Delete my account</span>
-            <span className={note}>Deletes your account and everything stored with it. It can’t be undone.</span>
+            <span className="block font-medium text-parchment-100">{a.delete}</span>
+            <span className={note}>{a.deleteNote}</span>
           </div>
           <button type="button" className="btn border border-rust-400/60 bg-rust-500/15 text-rust-300 hover:bg-rust-500/25" onClick={() => setDeleting(true)}>
             <IconTrash className="size-4" />
-            Delete
+            {a.deleteButton}
           </button>
         </div>
       )}
       <div className={row}>
         <div>
-          <span className="block font-medium text-parchment-100">Clear this device</span>
-          <span className={note}>Removes everything Bronze stored in this browser{profile ? ', and logs you out here' : ''}. Your account stays.</span>
+          <span className="block font-medium text-parchment-100">{a.clear}</span>
+          <span className={note}>{a.clearNote(!!profile)}</span>
         </div>
         {clearing ? (
           <div className="flex gap-2">
@@ -133,15 +135,15 @@ export function AccountSection({ onDone, notify }: { onDone: () => void; notify:
                 window.location.reload()
               }}
             >
-              Clear
+              {a.clearButton}
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => setClearing(false)}>
-              Keep
+              {a.keep}
             </button>
           </div>
         ) : (
           <button type="button" className="btn btn-ghost" onClick={() => setClearing(true)}>
-            Clear…
+            {a.clearAsk}
           </button>
         )}
       </div>
@@ -154,7 +156,7 @@ export function AccountSection({ onDone, notify }: { onDone: () => void; notify:
           onDeleted={() => {
             setDeleting(false)
             onDone()
-            notify('Your account and its data have been deleted. You’re now playing as a guest.')
+            notify(a.deleted)
           }}
         />
       )}
@@ -164,6 +166,8 @@ export function AccountSection({ onDone, notify }: { onDone: () => void; notify:
 
 /** Type your username to confirm, then the account is deleted and you're logged out. */
 function DeleteAccountDialog({ open, username, onClose, onDeleted }: { open: boolean; username: string; onClose: () => void; onDeleted: () => void }) {
+  const t = useT()
+  const d = t.account.deleteDialog
   const auth = useAuth()
   const [typed, setTyped] = useState('')
   const [busy, setBusy] = useState(false)
@@ -185,7 +189,7 @@ function DeleteAccountDialog({ open, username, onClose, onDeleted }: { open: boo
       setTyped('')
       onDeleted()
     } catch (failure) {
-      setError(authErrorMessage(failure))
+      setError(authErrorMessage(failure, t.authErrors))
     } finally {
       setBusy(false)
     }
@@ -201,20 +205,20 @@ function DeleteAccountDialog({ open, username, onClose, onDeleted }: { open: boo
         }}
       >
         <h2 id="delete-account-title" className="font-display text-2xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-          Delete your account?
+          {d.title}
         </h2>
         <div className="flex flex-col gap-2 text-sm text-parchment-200">
-          <p>This deletes, straight away and for good:</p>
+          <p>{d.intro}</p>
           <ul className="ml-5 list-disc">
-            <li>your login (email address and password, or your Google sign-in),</li>
-            <li>your username, avatar, record and achievements,</li>
-            <li>your age answer, consents and email choices.</li>
+            {d.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
           </ul>
-          <p>Matches are played in your browser, so no match history is kept on our servers. Your guest data in this browser stays until you clear it.</p>
+          <p>{d.note}</p>
         </div>
         <div>
           <label htmlFor={inputId} className="mb-1.5 block text-sm text-parchment-200">
-            Type your username, <strong className="text-parchment-50">{username}</strong>, to confirm
+            {d.typeToConfirm(<strong className="text-parchment-50">{username}</strong>)}
           </label>
           <input
             id={inputId}
@@ -229,11 +233,11 @@ function DeleteAccountDialog({ open, username, onClose, onDeleted }: { open: boo
         <FormAlert message={error} />
         <div className="grid grid-cols-2 gap-2">
           <button type="button" className="btn btn-ghost min-h-11" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </button>
           <button type="submit" className="btn min-h-11 border border-rust-400/70 bg-rust-500/25 text-rust-300 hover:bg-rust-500/35" disabled={!matches || busy} aria-busy={busy || undefined}>
             {busy && <Spinner className="size-4" />}
-            Delete my account
+            {t.account.delete}
           </button>
         </div>
       </form>
@@ -241,11 +245,6 @@ function DeleteAccountDialog({ open, username, onClose, onDeleted }: { open: boo
   )
 }
 
-const LIST_TEXT: Record<'marketing' | 'friends' | 'tournaments', { label: string; description: string }> = {
-  marketing: { label: 'News about Bronze', description: 'New features and events. Only with your consent, and never to under-18s.' },
-  friends: { label: 'Friend emails', description: 'When someone sends you a friend request.' },
-  tournaments: { label: 'Tournament emails', description: 'Reminders for tournaments you’ve joined.' },
-}
 
 /**
  * Settings → Notifications: which optional emails you want. All start off.
@@ -253,6 +252,8 @@ const LIST_TEXT: Record<'marketing' | 'friends' | 'tournaments', { label: string
  * every such email will carry a one-click unsubscribe link.
  */
 export function NotificationsSection() {
+  const t = useT()
+  const n = t.account.notifications
   const auth = useAuth()
   const [prefs, setPrefs] = useState<EmailPreferences | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -265,15 +266,15 @@ export function NotificationsSection() {
     let alive = true
     getEmailPreferences().then(
       (p) => alive && setPrefs(p),
-      (failure) => alive && setError(authErrorMessage(failure)),
+      (failure) => alive && setError(authErrorMessage(failure, t.authErrors)),
     )
     return () => {
       alive = false
     }
-  }, [signedIn, getEmailPreferences])
+  }, [signedIn, getEmailPreferences, t.authErrors])
 
-  if (!signedIn) return <p className="text-sm text-parchment-300">Log in to choose which emails you get. Guests never get emails.</p>
-  if (!prefs) return error ? <FormAlert message={error} /> : <p className="flex items-center gap-2 text-sm text-parchment-300" role="status"><Spinner className="size-4" /> Loading your email choices…</p>
+  if (!signedIn) return <p className="text-sm text-parchment-300">{n.guest}</p>
+  if (!prefs) return error ? <FormAlert message={error} /> : <p className="flex items-center gap-2 text-sm text-parchment-300" role="status"><Spinner className="size-4" /> {n.loading}</p>
 
   const change = async (next: Omit<EmailPreferences, 'adult'>) => {
     setSaving(true)
@@ -281,7 +282,7 @@ export function NotificationsSection() {
     try {
       setPrefs(await auth.setEmailPreferences(next))
     } catch (failure) {
-      setError(authErrorMessage(failure))
+      setError(authErrorMessage(failure, t.authErrors))
     } finally {
       setSaving(false)
     }
@@ -290,7 +291,7 @@ export function NotificationsSection() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-parchment-300">
-        Account emails (confirming your address, resetting your password) are always sent. Everything else is up to you; Bronze doesn’t send any of it yet.
+        {n.intro}
       </p>
       {(['marketing', 'friends', 'tournaments'] as const).map((list) => {
         const locked = list === 'marketing' && !prefs.adult
@@ -300,15 +301,15 @@ export function NotificationsSection() {
             <div>
               <span id={labelId} className="block font-medium text-parchment-100">
                 <IconMail className="mr-1.5 inline size-4 align-[-2px] text-bronze-300" />
-                {LIST_TEXT[list].label}
+                {n.lists[list].label}
               </span>
               <span id={`${labelId}-desc`} className={note}>
-                {locked ? 'Available from 18.' : LIST_TEXT[list].description}
+                {locked ? n.from18 : n.lists[list].description}
               </span>
             </div>
             {locked ? (
-              <button type="button" className="btn btn-ghost text-sm" disabled={saving} onClick={() => void auth.confirmAdult().then(setPrefs, (f) => setError(authErrorMessage(f)))}>
-                I’m 18 or over now
+              <button type="button" className="btn btn-ghost text-sm" disabled={saving} onClick={() => void auth.confirmAdult().then(setPrefs, (f) => setError(authErrorMessage(f, t.authErrors)))}>
+                {n.nowAdult}
               </button>
             ) : (
               <button
@@ -334,11 +335,12 @@ export function NotificationsSection() {
 
 /** Settings → Privacy: reopen the cookie choices (the settings dialog closes first so the banner can be used). */
 export function PrivacySection({ onClose }: { onClose: () => void }) {
+  const p = useT().account.privacy
   return (
     <div className={row}>
       <div>
-        <span className="block font-medium text-parchment-100">Cookie settings</span>
-        <span className={note}>Change what Bronze may store in this browser.</span>
+        <span className="block font-medium text-parchment-100">{p.cookies}</span>
+        <span className={note}>{p.cookiesNote}</span>
       </div>
       <button
         type="button"
@@ -349,7 +351,7 @@ export function PrivacySection({ onClose }: { onClose: () => void }) {
         }}
       >
         <IconShield className="size-4" />
-        Open
+        {p.open}
       </button>
     </div>
   )

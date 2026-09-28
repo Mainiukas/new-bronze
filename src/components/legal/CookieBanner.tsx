@@ -2,75 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { Link } from 'react-router'
 import { PATHS } from '../../data/navigation'
+import { LANGUAGES, useT, type LanguageCode } from '../../i18n'
 import { ALL, consentStore, NONE, OPTIONAL_CATEGORIES, useConsent, type OptionalCategory } from '../../legal/consent'
-
-type Lang = 'en' | 'lt'
-
-/** The banner's words, in English and Lithuanian (Bronze's operator is in Lithuania). */
-const TEXT: Record<
-  Lang,
-  {
-    title: string
-    body: string
-    accept: string
-    reject: string
-    customise: string
-    save: string
-    close: string
-    always: string
-    cookiePolicy: string
-    privacyPolicy: string
-    other: string
-    categories: Record<'essential' | OptionalCategory, { title: string; description: string }>
-  }
-> = {
-  en: {
-    title: 'Cookies and storage',
-    body: 'Bronze keeps a few things in your browser. Essential ones keep you logged in and keep your match in progress. With your consent, Bronze also remembers your settings and your guest record on this device. There are no ads, analytics or trackers.',
-    accept: 'Accept all',
-    reject: 'Reject all',
-    customise: 'Customise',
-    save: 'Save my choices',
-    close: 'Close',
-    always: 'Always on',
-    cookiePolicy: 'Cookie Policy',
-    privacyPolicy: 'Privacy Policy',
-    other: 'Lietuviškai',
-    categories: {
-      essential: { title: 'Essential', description: 'Keep you logged in, keep your match in progress and remember these choices.' },
-      preferences: { title: 'Preferences', description: 'Remember your settings, your last game mode, map and seats, and your guest record.' },
-      analytics: { title: 'Analytics', description: 'Not used today. If Bronze ever adds analytics, it will only run with this on.' },
-      marketing: { title: 'Marketing', description: 'Not used today. If Bronze ever adds marketing tools, they will only run with this on.' },
-    },
-  },
-  lt: {
-    title: 'Slapukai ir saugykla',
-    body: 'Bronze jūsų naršyklėje saugo kelis dalykus. Būtinieji leidžia likti prisijungus ir išsaugo vykstančią partiją. Jums sutikus, Bronze šiame įrenginyje taip pat įsimena jūsų nustatymus ir svečio rezultatus. Jokių reklamų, analitikos ar sekimo įrankių nėra.',
-    accept: 'Priimti visus',
-    reject: 'Atmesti visus',
-    customise: 'Pasirinkti',
-    save: 'Išsaugoti pasirinkimus',
-    close: 'Uždaryti',
-    always: 'Visada įjungti',
-    cookiePolicy: 'Slapukų politika',
-    privacyPolicy: 'Privatumo politika',
-    other: 'English',
-    categories: {
-      essential: { title: 'Būtinieji', description: 'Leidžia likti prisijungus, išsaugo vykstančią partiją ir šiuos pasirinkimus.' },
-      preferences: { title: 'Nuostatos', description: 'Įsimena jūsų nustatymus, paskutinį žaidimo režimą, žemėlapį, vietas ir svečio rezultatus.' },
-      analytics: { title: 'Analitika', description: 'Šiuo metu nenaudojama. Jei Bronze kada nors pridės analitiką, ji veiks tik tai įjungus.' },
-      marketing: { title: 'Rinkodara', description: 'Šiuo metu nenaudojama. Jei Bronze kada nors pridės rinkodaros įrankių, jie veiks tik tai įjungus.' },
-    },
-  },
-}
-
-const detectLang = (): Lang => {
-  try {
-    return (navigator.languages ?? [navigator.language]).some((l) => l?.toLowerCase().startsWith('lt')) ? 'lt' : 'en'
-  } catch {
-    return 'en'
-  }
-}
+import { IconChevronDown } from '../icons'
 
 /**
  * The cookie banner: on the first visit (and when the Cookie Policy's version
@@ -79,15 +13,14 @@ const detectLang = (): Lang => {
  * legal pages stay readable. Accept all, Reject all and Customise look the
  * same; nothing optional is stored until a choice is made.
  */
-export function CookieBanner() {
+export function CookieBanner({ language, onLanguage }: { language: LanguageCode; onLanguage: (code: LanguageCode) => void }) {
+  const t = useT().cookieBanner
   const { record, open, reopened } = useConsent()
-  const [lang, setLang] = useState<Lang>(detectLang)
   const [customising, setCustomising] = useState(false)
   const [choices, setChoices] = useState<Record<OptionalCategory, boolean>>(record?.choices ?? NONE)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const panelRef = useRef<HTMLElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
-  const t = TEXT[lang]
 
   // Reopened from "Cookie settings": start from the current choices, show them, and move focus here.
   const [seen, setSeen] = useState(reopened)
@@ -125,7 +58,6 @@ export function CookieBanner() {
   return (
     <section
       ref={panelRef}
-      lang={lang}
       aria-labelledby="cookie-banner-title"
       className="plate rivets iron fixed inset-x-2 bottom-2 z-[60] mx-auto max-w-4xl border-brass-400/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-10px_40px_-10px_rgb(0_0_0/0.9)] sm:inset-x-4 sm:bottom-4 sm:p-5"
     >
@@ -133,14 +65,22 @@ export function CookieBanner() {
         <h2 id="cookie-banner-title" ref={headingRef} tabIndex={-1} className="flex-1 font-display text-xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
           {t.title}
         </h2>
-        <button
-          type="button"
-          onClick={() => setLang(lang === 'en' ? 'lt' : 'en')}
-          lang={lang === 'en' ? 'lt' : 'en'}
-          className="min-h-11 rounded-md px-2 text-sm font-semibold text-brass-300 underline underline-offset-2 hover:text-brass-200"
-        >
-          {t.other}
-        </button>
+        {/* The whole app's language, so the banner can be read before anything is chosen. */}
+        <label className="relative">
+          <span className="sr-only">{t.language}</span>
+          <select
+            value={language}
+            onChange={(event) => onLanguage(event.target.value as LanguageCode)}
+            className="min-h-11 appearance-none rounded-md border border-bronze-500/35 bg-soot-950/70 py-1 pr-8 pl-2.5 text-sm font-semibold text-brass-200 outline-none hover:border-bronze-300/60"
+          >
+            {LANGUAGES.map((option) => (
+              <option key={option.code} value={option.code} lang={option.code}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <IconChevronDown className="pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2 text-bronze-300" />
+        </label>
         {record && (
           <button type="button" onClick={() => consentStore.dismiss()} className="min-h-11 rounded-md px-2 text-sm font-semibold text-parchment-200 hover:text-parchment-50">
             {t.close}

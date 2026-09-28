@@ -36,13 +36,13 @@ const ACCOUNT_PAGES: string[] = [PATHS.tournaments, PATHS.locker, PATHS.shop]
 export const PAGE_ITEMS = NAV_TABS.map((tab) => ({ ...tab, Icon: PAGE_ICONS[tab.path], needsAccount: ACCOUNT_PAGES.includes(tab.path) }))
 
 /** The map board: a page, listed with the dialogs below the divider. */
-export const BOARD_ITEM = { path: PATHS.board, label: 'Map board', Icon: IconMap as Icon }
+export const BOARD_ITEM = { path: PATHS.board, key: 'board', Icon: IconMap as Icon } as const
 
 /** Dialogs, with their icons. */
 export const ACTION_ITEMS = MENU_ACTIONS.map((item) => ({ ...item, Icon: ACTION_ICONS[item.action] }))
 
 /** Credits: a page, below the dialogs. */
-export const CREDITS_ITEM = { path: PATHS.credits, label: 'Credits', Icon: IconStar as Icon }
+export const CREDITS_ITEM = { path: PATHS.credits, key: 'credits', Icon: IconStar as Icon } as const
 
 /** The "Legal" group: its pages, and the icon for the group (and for the rail, where it opens the legal index). */
-export const LEGAL_ITEM = { path: PATHS.legal, label: 'Legal', Icon: IconScale as Icon, links: LEGAL_LINKS }
+export const LEGAL_ITEM = { path: PATHS.legal, key: 'legal', Icon: IconScale as Icon, links: LEGAL_LINKS } as const

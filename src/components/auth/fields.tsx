@@ -1,5 +1,6 @@
 import { useId, useState, type InputHTMLAttributes, type ReactNode, type Ref } from 'react'
 import { PASSWORD_MIN, passwordStrength, type PasswordStrength } from '../../auth/validation'
+import { useT } from '../../i18n'
 import { IconCheck, IconEye, IconEyeOff, IconGoogle } from '../icons'
 import { LabelledDivider } from '../theme/Ornaments'
 
@@ -58,6 +59,7 @@ export function TextField({ label, value, onChange, error, hint, trailing, aside
 
 /** A password field with a show/hide button. */
 export function PasswordField(props: Omit<TextFieldProps, 'type' | 'trailing'>) {
+  const t = useT()
   const [visible, setVisible] = useState(false)
   return (
     <TextField
@@ -69,7 +71,7 @@ export function PasswordField(props: Omit<TextFieldProps, 'type' | 'trailing'>) 
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
-          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-label={visible ? t.auth.hidePassword : t.auth.showPassword}
           aria-pressed={visible}
           className="grid size-10 place-items-center rounded-md text-lg text-parchment-300 hover:text-parchment-50"
         >
@@ -80,10 +82,10 @@ export function PasswordField(props: Omit<TextFieldProps, 'type' | 'trailing'>) 
   )
 }
 
-const STRENGTH: Record<PasswordStrength, { label: string; filled: number; color: string }> = {
-  weak: { label: 'Weak', filled: 1, color: 'bg-rust-400' },
-  ok: { label: 'OK', filled: 2, color: 'bg-brass-400' },
-  strong: { label: 'Strong', filled: 3, color: 'bg-verdigris-400' },
+const STRENGTH: Record<PasswordStrength, { filled: number; color: string }> = {
+  weak: { filled: 1, color: 'bg-rust-400' },
+  ok: { filled: 2, color: 'bg-brass-400' },
+  strong: { filled: 3, color: 'bg-verdigris-400' },
 }
 
 /**
@@ -91,8 +93,10 @@ const STRENGTH: Record<PasswordStrength, { label: string; filled: number; color:
  * a three-step strength bar (and the length rule while it's too short).
  */
 export function PasswordHint({ password }: { password: string }) {
-  if (!password) return `At least ${PASSWORD_MIN} characters.`
-  const strength = STRENGTH[passwordStrength(password)]
+  const t = useT()
+  if (!password) return t.validation.atLeast(PASSWORD_MIN)
+  const rating = passwordStrength(password)
+  const strength = STRENGTH[rating]
   return (
     <span className="flex items-center gap-3 pt-1.5">
       <span className="flex flex-1 gap-1" aria-hidden="true">
@@ -101,7 +105,7 @@ export function PasswordHint({ password }: { password: string }) {
         ))}
       </span>
       <span className="text-xs font-semibold text-parchment-300">
-        {password.length < PASSWORD_MIN ? `At least ${PASSWORD_MIN} characters` : `Strength: ${strength.label}`}
+        {password.length < PASSWORD_MIN ? t.validation.atLeast(PASSWORD_MIN).replace(/\.$/, '') : t.auth.strength(t.auth.strengths[rating])}
       </span>
     </span>
   )
@@ -109,14 +113,15 @@ export function PasswordHint({ password }: { password: string }) {
 
 /** "✓ Available" / "Taken" / "Checking…" next to the username label. */
 export function UsernameStatus({ status }: { status: UsernameCheck }) {
+  const t = useT()
   if (status === 'available')
     return (
       <span className="inline-flex items-center gap-1 text-sm font-semibold text-verdigris-300">
-        <IconCheck className="size-4" strokeWidth={2.6} /> Available
+        <IconCheck className="size-4" strokeWidth={2.6} /> {t.auth.available}
       </span>
     )
-  if (status === 'taken') return <span className="text-sm font-semibold text-rust-300">Taken</span>
-  if (status === 'checking') return <span className="text-sm text-parchment-300">Checking…</span>
+  if (status === 'taken') return <span className="text-sm font-semibold text-rust-300">{t.auth.taken}</span>
+  if (status === 'checking') return <span className="text-sm text-parchment-300">{t.auth.checking}</span>
   return null
 }
 
@@ -124,6 +129,7 @@ export type UsernameCheck = 'idle' | 'checking' | 'available' | 'taken' | 'error
 
 /** Google's sign-in button: white, the "G", dark text (as Google's branding asks). */
 export function GoogleButton({ onClick, disabled, busy }: { onClick: () => void; disabled?: boolean; busy?: boolean }) {
+  const t = useT()
   return (
     <button
       type="button"
@@ -132,14 +138,15 @@ export function GoogleButton({ onClick, disabled, busy }: { onClick: () => void;
       className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-[#747775] bg-white px-4 font-[Roboto,'Segoe_UI',Arial,sans-serif] text-[0.95rem] font-medium text-[#1f1f1f] shadow-[0_2px_8px_-2px_rgb(0_0_0/0.6)] transition hover:bg-[#f2f2f2] focus-visible:outline-ember-400 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
     >
       {busy ? <Spinner className="size-5 text-[#1f1f1f]" /> : <IconGoogle className="size-5" />}
-      Continue with Google
+      {t.auth.google}
     </button>
   )
 }
 
 /** Between Google and the email form: the brass divider with "or" over its cog. */
 export function OrDivider() {
-  return <LabelledDivider label="or" className="my-4" />
+  const t = useT()
+  return <LabelledDivider label={t.auth.or} className="my-4" />
 }
 
 export function Spinner({ className = 'size-5' }: { className?: string }) {

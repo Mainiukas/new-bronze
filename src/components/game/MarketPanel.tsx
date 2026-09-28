@@ -1,15 +1,18 @@
-import { GOODS_NAMES, INDUSTRIES, RULES } from '../../game/rules'
+import { INDUSTRIES, RULES } from '../../game/rules'
 import type { GameState } from '../../game/types'
+import { displayName, useT } from '../../i18n'
 import { IndustryIcon } from './IndustryIcon'
 
 /** Every hub's current price and what it buys, and the ports that are open for cotton. */
 export function MarketPanel({ game }: { game: GameState }) {
+  const t = useT()
+  const mk = t.marketsPanel
   const hubs = game.board.towns.filter((town) => town.market)
   const ports = game.buildings.filter((b) => INDUSTRIES[b.kind].market)
   const townName = (id: string) => game.board.towns.find((t) => t.id === id)?.name ?? id
   return (
-    <section className="plate rivets p-3 sm:p-4" aria-label="Markets">
-      <h2 className="eyebrow mb-2.5">Markets</h2>
+    <section className="plate rivets p-3 sm:p-4" aria-label={t.match.markets}>
+      <h2 className="eyebrow mb-2.5">{t.match.markets}</h2>
       <ul className="flex flex-col gap-1.5">
         {hubs.map((town) => {
           const price = game.prices[town.id]
@@ -19,7 +22,7 @@ export function MarketPanel({ game }: { game: GameState }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-display text-sm font-bold tracking-[0.06em] text-parchment-50">{town.name}</span>
                 <span className="text-[0.7rem] text-parchment-400">
-                  Buys {town.market!.buys.map((g) => GOODS_NAMES[g]).join(', ')}
+                  {mk.buys(t.list(town.market!.buys.map((g) => t.game.goods[g])))}
                 </span>
               </span>
               <span className="flex gap-0.5" aria-hidden="true">
@@ -31,7 +34,7 @@ export function MarketPanel({ game }: { game: GameState }) {
                 className={`min-w-11 rounded-md border px-1.5 py-0.5 text-center font-display text-base font-extrabold tabular-nums ${
                   price < base ? 'border-rust-400/50 text-rust-300' : 'border-brass-300/50 text-brass-200'
                 }`}
-                title={price < base ? `Down from £${base}; recovers £${RULES.priceRecovery} a round` : 'At its full price'}
+                title={price < base ? mk.down(base, RULES.priceRecovery) : mk.full}
               >
                 £{price}
               </span>
@@ -40,9 +43,10 @@ export function MarketPanel({ game }: { game: GameState }) {
         })}
       </ul>
       <p className="mt-2 text-xs text-parchment-400">
-        Each unit sold drops a hub’s price by £{RULES.priceDropPerGoods} (not below £{RULES.priceFloor}). Ports buy cotton at a flat £
-        {RULES.portPrice}
-        {ports.length ? `: ${ports.map((p) => `${townName(p.townId)} (${game.players[p.owner].name})`).join(', ')}.` : '; none built yet.'}
+        {mk.note(
+          RULES,
+          ports.map((p) => `${townName(p.townId)} (${displayName(t, game.players[p.owner].name)})`),
+        )}
       </p>
     </section>
   )

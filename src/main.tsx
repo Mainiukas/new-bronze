@@ -14,6 +14,9 @@ import App from './App.tsx'
 import { normalizeAuthRedirect } from './auth/redirect'
 import { preloadBoardImages } from './components/board/assets'
 import { preloadPainting } from './components/theme/backgrounds'
+import { parseSettings } from './data/settings'
+import { detectLanguage, loadMessages, setLanguage } from './i18n'
+import { readStorage, STORAGE_KEYS } from './lib/storage'
 import { whenFirstPageSettled } from './components/theme/firstPaint'
 import './index.css'
 
@@ -40,8 +43,13 @@ void whenFirstPageSettled().then(prefetchNext)
 // A failed Google or email-link return can land as #error=…: turn it back into a route first.
 normalizeAuthRedirect()
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+// The saved language (or the browser's): its words arrive before the first frame, so it never starts in English.
+const language = parseSettings(readStorage(STORAGE_KEYS.settings))?.language ?? detectLanguage()
+setLanguage(language)
+void loadMessages(language).then(() =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  ),
 )

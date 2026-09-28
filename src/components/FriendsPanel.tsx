@@ -1,4 +1,5 @@
 import { useAuth } from '../hooks/useAuth'
+import { useT } from '../i18n'
 import { IconUserPlus, IconUsers } from './icons'
 import { LockPill } from './LockPill'
 
@@ -9,29 +10,30 @@ import { LockPill } from './LockPill'
  * no requests, and no online count (it would be made up).
  */
 export function FriendsPanel() {
+  const t = useT()
   const { signedIn } = useAuth()
   return (
     <section aria-labelledby="friends-title" className="plate rivets iron flex flex-col p-4">
       <header className="flex items-center gap-2.5">
         <IconUsers className="size-5 text-bronze-300" />
         <h2 id="friends-title" className="flex-1 font-display text-lg font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-          Friends
+          {t.friends.title}
         </h2>
-        {signedIn ? <span className="soon-tag">Coming soon</span> : <LockPill />}
+        {signedIn ? <span className="soon-tag">{t.common.comingSoon}</span> : <LockPill />}
       </header>
 
       <form className="mt-3 flex gap-2" onSubmit={(event) => event.preventDefault()} aria-describedby="friends-status">
         <label htmlFor="add-friend" className="sr-only">
-          Add friend by username
+          {t.friends.addByUsername}
         </label>
         <input
           id="add-friend"
           type="text"
           disabled
-          placeholder="Add friend by username"
+          placeholder={t.friends.addByUsername}
           className="min-h-11 min-w-0 flex-1 cursor-not-allowed rounded-lg border border-bronze-500/25 bg-soot-950/60 px-3 text-sm text-parchment-50 opacity-60 outline-none placeholder:text-parchment-400"
         />
-        <button type="submit" disabled className="btn btn-ghost min-h-11 px-3" aria-label="Add friend">
+        <button type="submit" disabled className="btn btn-ghost min-h-11 px-3" aria-label={t.friends.add}>
           <IconUserPlus className="size-5" />
         </button>
       </form>
@@ -40,23 +42,21 @@ export function FriendsPanel() {
         <span className="mb-3 grid size-16 place-items-center rounded-full border border-dashed border-bronze-500/40 bg-soot-950/50">
           <IconUsers className="size-8 text-bronze-400/70" />
         </span>
-        <p className="font-display text-base font-bold tracking-[0.1em] text-parchment-100 uppercase">No friends yet</p>
+        <p className="font-display text-base font-bold tracking-[0.1em] text-parchment-100 uppercase">{t.friends.none}</p>
         <p id="friends-status" className="mt-1.5 text-sm leading-relaxed text-parchment-300">
-          {signedIn
-            ? 'Friend lists and online matches need a game server, and Bronze doesn’t have one yet. Until then, play the computer, or pass & play on this device.'
-            : 'Log in to add friends. Until then, play the computer, or pass & play on this device.'}
+          {signedIn ? t.friends.noServer : t.friends.guest}
         </p>
       </div>
 
       {/* No server, so no numbers: a dash, never a made-up count. */}
       <footer className="flex justify-between border-t border-bronze-500/20 pt-3 text-xs text-parchment-400">
         <span>
-          Online <span aria-hidden="true">—</span>
-          <span className="sr-only">not available</span>
+          {t.friends.online} <span aria-hidden="true">—</span>
+          <span className="sr-only">{t.common.notAvailable}</span>
         </span>
         <span>
-          Pending <span aria-hidden="true">—</span>
-          <span className="sr-only">not available</span>
+          {t.friends.pending} <span aria-hidden="true">—</span>
+          <span className="sr-only">{t.common.notAvailable}</span>
         </span>
       </footer>
     </section>

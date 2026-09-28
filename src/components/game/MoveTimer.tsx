@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useT } from '../../i18n'
 
 interface MoveTimerProps {
   seconds: number
@@ -36,15 +37,16 @@ export function MoveTimer({ seconds, paused, onExpire }: MoveTimerProps) {
     return () => window.clearInterval(tick)
   }, [paused])
 
+  const t = useT()
   const secs = Math.ceil(left / 1000)
   const urgent = secs <= 5
   const share = left / (seconds * 1000)
   return (
     <span
       role="timer"
-      aria-label={`${secs} seconds left in this turn${paused ? ', paused' : ''}`}
+      aria-label={t.match.timerLabel(secs, paused)}
       className={`relative grid size-11 shrink-0 place-items-center ${urgent && !paused ? 'animate-pulse' : ''}`}
-      title={paused ? 'Timer paused' : 'Time left this turn'}
+      title={paused ? t.match.timerPaused : t.match.timeLeft}
     >
       <svg viewBox="0 0 36 36" className="absolute inset-0 size-full -rotate-90" aria-hidden="true">
         <circle cx={18} cy={18} r={R} fill="none" strokeWidth={3.5} className="stroke-soot-700" />

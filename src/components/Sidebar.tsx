@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState, type ComponentType, type FocusEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router'
-import { formatRecord } from '../data/achievements'
 import { PATHS, type MenuAction } from '../data/navigation'
 import { useAuth } from '../hooks/useAuth'
+import { useT } from '../i18n'
 import { useLogOut } from '../hooks/useLogOut'
 import { useOpenAuth } from '../hooks/useOpenAuth'
 import { IconChevronDown, IconCog, IconLock, IconLogin, IconLogout, IconPlay, IconUserPlus, IconUsers, type IconProps } from './icons'
@@ -29,6 +29,7 @@ type TipHandlers = Record<'onMouseEnter' | 'onFocus', (event: MouseEvent<HTMLEle
  * whose labels show as tooltips. Hidden on phones (see MobileNav).
  */
 export function Sidebar({ profile, onPlay, onMenuAction }: SidebarProps) {
+  const t = useT()
   const auth = useAuth()
   const openAuth = useOpenAuth()
   const logOut = useLogOut()
@@ -46,36 +47,36 @@ export function Sidebar({ profile, onPlay, onMenuAction }: SidebarProps) {
 
   return (
     <aside
-      aria-label="Lobby"
+      aria-label={t.nav.lobby}
       className="plate iron fixed inset-y-0 left-0 z-30 hidden w-[72px] flex-col rounded-none border-y-0 border-l-0 pt-[env(safe-area-inset-top)] md:flex lg:w-60"
     >
       {/* Logo: the wordmark, or the cog on the icon rail */}
       <div className="flex flex-col items-center px-2 pt-5 pb-4 lg:items-start lg:px-5">
-        <Link to={PATHS.mainMenu} className="block rounded" aria-label="Bronze: main menu" {...tipFor('Main Menu')}>
+        <Link to={PATHS.mainMenu} className="block rounded" aria-label={t.brand.home} {...tipFor(t.nav.mainMenu)}>
           <Logo variant="icon" className="size-10 lg:hidden" />
           <Logo variant="wordmark" className="w-[190px] max-lg:hidden" />
         </Link>
-        <p className="mt-2 font-display text-[0.7rem] font-semibold tracking-[0.2em] whitespace-nowrap text-parchment-300 uppercase max-lg:hidden">
-          Build · Connect · Industrialize
+        <p className="mt-2 max-w-[190px] font-display text-[0.7rem] leading-snug font-semibold tracking-[0.2em] text-balance text-parchment-300 uppercase max-lg:hidden">
+          {t.brand.tagline}
         </p>
       </div>
 
       {/* PLAY */}
       <div className="px-2 lg:px-4">
-        <button type="button" onClick={onPlay} className="btn-brass w-full text-xl max-lg:min-h-12 max-lg:px-0 max-lg:[border-image-width:12px]" {...tipFor('Play')}>
+        <button type="button" onClick={onPlay} className="btn-brass w-full text-xl max-lg:min-h-12 max-lg:px-0 max-lg:[border-image-width:12px]" {...tipFor(t.nav.play)}>
           <IconPlay className="size-5 shrink-0" />
-          <span className="max-lg:sr-only">Play</span>
+          <span className="max-lg:sr-only">{t.nav.play}</span>
         </button>
       </div>
 
       {/* Pages, then the map board and dialogs */}
-      <nav aria-label="Main" className="no-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto px-2 pb-3 lg:px-3">
+      <nav aria-label={t.nav.main} className="no-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto px-2 pb-3 lg:px-3">
         <ul className="flex flex-col gap-0.5">
           {PAGE_ITEMS.map((item) => {
             const locked = guest && item.needsAccount
             return (
               <li key={item.path}>
-                <SideLink to={item.path} label={item.label} Icon={item.Icon} locked={locked} tip={tipFor(locked ? `${item.label} (log in to use)` : item.label)} />
+                <SideLink to={item.path} label={t.nav[item.key]} Icon={item.Icon} locked={locked} tip={tipFor(locked ? `${t.nav[item.key]} ${t.common.logInToUseNote}` : t.nav[item.key])} />
               </li>
             )
           })}
@@ -83,20 +84,20 @@ export function Sidebar({ profile, onPlay, onMenuAction }: SidebarProps) {
         <hr className="mx-2 my-3 border-bronze-500/25" />
         <ul className="flex flex-col gap-0.5">
           <li>
-            <SideLink to={BOARD_ITEM.path} label={BOARD_ITEM.label} Icon={BOARD_ITEM.Icon} tip={tipFor(BOARD_ITEM.label)} />
+            <SideLink to={BOARD_ITEM.path} label={t.nav.board} Icon={BOARD_ITEM.Icon} tip={tipFor(t.nav.board)} />
           </li>
-          {ACTION_ITEMS.map(({ action, label, Icon }) => (
+          {ACTION_ITEMS.map(({ action, key, Icon }) => (
             <li key={action}>
-              <button type="button" onClick={() => onMenuAction(action)} className={itemClass(false)} {...tipFor(label)}>
-                <ItemBody label={label} Icon={Icon} />
+              <button type="button" onClick={() => onMenuAction(action)} className={itemClass(false)} {...tipFor(t.nav[key])}>
+                <ItemBody label={t.nav[key]} Icon={Icon} />
               </button>
             </li>
           ))}
           <li>
-            <SideLink to={CREDITS_ITEM.path} label={CREDITS_ITEM.label} Icon={CREDITS_ITEM.Icon} tip={tipFor(CREDITS_ITEM.label)} />
+            <SideLink to={CREDITS_ITEM.path} label={t.nav.credits} Icon={CREDITS_ITEM.Icon} tip={tipFor(t.nav.credits)} />
           </li>
           <li>
-            <LegalGroup tip={tipFor(LEGAL_ITEM.label)} />
+            <LegalGroup tip={tipFor(t.nav.legal)} />
           </li>
         </ul>
       </nav>
@@ -106,21 +107,21 @@ export function Sidebar({ profile, onPlay, onMenuAction }: SidebarProps) {
         {profile ? (
           <>
             <ProfileMenu profile={profile} onSettings={() => onMenuAction('settings')} onLogOut={logOut} tip={tipFor(profile.name)} />
-            <LogOutButton rail onClick={logOut} tip={tipFor('Log out')} />
+            <LogOutButton rail onClick={logOut} tip={tipFor(t.common.logOut)} />
           </>
         ) : auth.status === 'loading' ? (
-          <div className="flex min-h-12 items-center gap-3 px-1.5 max-lg:justify-center lg:px-2" role="status" aria-label="Checking your account">
+          <div className="flex min-h-12 items-center gap-3 px-1.5 max-lg:justify-center lg:px-2" role="status" aria-label={t.nav.checkingAccount}>
             <span className="size-10 animate-pulse rounded-full bg-soot-700" />
             <span className="h-3 w-24 animate-pulse rounded bg-soot-700 max-lg:hidden" />
           </div>
         ) : auth.status === 'error' || auth.status === 'needs-username' ? (
           <>
             {auth.status === 'error' && (
-              <button type="button" onClick={() => void auth.retry()} className={itemClass(false)} {...tipFor('Retry loading your account')}>
-                <ItemBody label="Retry account" Icon={IconUsers} />
+              <button type="button" onClick={() => void auth.retry()} className={itemClass(false)} {...tipFor(t.nav.retryAccountTip)}>
+                <ItemBody label={t.nav.retryAccount} Icon={IconUsers} />
               </button>
             )}
-            <LogOutButton rail onClick={logOut} tip={tipFor('Log out')} />
+            <LogOutButton rail onClick={logOut} tip={tipFor(t.common.logOut)} />
           </>
         ) : (
           <>
@@ -128,14 +129,14 @@ export function Sidebar({ profile, onPlay, onMenuAction }: SidebarProps) {
               type="button"
               onClick={() => openAuth('register')}
               className="btn-brass w-full text-base max-lg:min-h-12 max-lg:px-0 max-lg:[border-image-width:12px]"
-              {...tipFor('Register')}
+              {...tipFor(t.common.register)}
             >
               <IconUserPlus className="size-5 shrink-0" />
-              <span className="max-lg:sr-only">Register</span>
+              <span className="max-lg:sr-only">{t.common.register}</span>
             </button>
-            <button type="button" onClick={() => openAuth('login')} className="btn btn-ghost min-h-11 w-full max-lg:px-0" {...tipFor('Log in')}>
+            <button type="button" onClick={() => openAuth('login')} className="btn btn-ghost min-h-11 w-full max-lg:px-0" {...tipFor(t.common.logIn)}>
               <IconLogin className="size-5 shrink-0" />
-              <span className="max-lg:sr-only">Log in</span>
+              <span className="max-lg:sr-only">{t.common.logIn}</span>
             </button>
           </>
         )}
@@ -162,6 +163,7 @@ function itemClass(active: boolean) {
 }
 
 function ItemBody({ label, Icon, active = false, locked = false }: { label: string; Icon: ComponentType<IconProps>; active?: boolean; locked?: boolean }) {
+  const t = useT()
   return (
     <>
       <span
@@ -178,7 +180,7 @@ function ItemBody({ label, Icon, active = false, locked = false }: { label: stri
       </span>
       <span className="max-lg:sr-only">
         {label}
-        {locked && <span className="sr-only"> (log in to use)</span>}
+        {locked && <span className="sr-only"> {t.common.logInToUseNote}</span>}
       </span>
       {locked && <IconLock aria-hidden="true" className="ml-auto size-3.5 text-brass-300/80 max-lg:hidden" />}
     </>
@@ -198,6 +200,7 @@ function SideLink({ to, label, Icon, locked = false, tip }: { to: string; label:
  * one). On the icon rail it's a link to the legal index instead.
  */
 function LegalGroup({ tip }: { tip: TipHandlers }) {
+  const t = useT()
   const { pathname } = useLocation()
   const onLegalPage = LEGAL_ITEM.links.some((link) => link.path === pathname)
   const [open, setOpen] = useState(onLegalPage)
@@ -206,10 +209,10 @@ function LegalGroup({ tip }: { tip: TipHandlers }) {
   return (
     <>
       <NavLink to={LEGAL_ITEM.path} end className={({ isActive }) => `${itemClass(isActive)} lg:hidden`} {...tip}>
-        {({ isActive }) => <ItemBody label={LEGAL_ITEM.label} Icon={LEGAL_ITEM.Icon} active={isActive || onLegalPage} />}
+        {({ isActive }) => <ItemBody label={t.nav.legal} Icon={LEGAL_ITEM.Icon} active={isActive || onLegalPage} />}
       </NavLink>
       <button type="button" aria-expanded={expanded} aria-controls={listId} onClick={() => setOpen((v) => !v)} className={`${itemClass(false)} max-lg:hidden`}>
-        <ItemBody label={LEGAL_ITEM.label} Icon={LEGAL_ITEM.Icon} />
+        <ItemBody label={t.nav.legal} Icon={LEGAL_ITEM.Icon} />
         <IconChevronDown aria-hidden="true" className={`ml-auto size-4 text-parchment-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
       </button>
       <ul id={listId} hidden={!expanded} className="mt-0.5 ml-8 flex flex-col gap-0.5 border-l border-bronze-500/25 pl-2 max-lg:hidden">
@@ -224,7 +227,7 @@ function LegalGroup({ tip }: { tip: TipHandlers }) {
                 }`
               }
             >
-              {link.label}
+              {t.nav[link.key]}
             </NavLink>
           </li>
         ))}
@@ -238,6 +241,7 @@ function LegalGroup({ tip }: { tip: TipHandlers }) {
  * Opens a small menu: Profile, Settings, Log out.
  */
 function ProfileMenu({ profile, onSettings, onLogOut, tip }: { profile: LobbyProfile; onSettings: () => void; onLogOut: () => void; tip: TipHandlers }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -293,14 +297,14 @@ function ProfileMenu({ profile, onSettings, onLogOut, tip }: { profile: LobbyPro
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
-        aria-label={`${profile.name}: ${formatRecord(profile)}. Account menu`}
+        aria-label={t.nav.accountMenu(profile.name, t.record(profile.wins, profile.matches))}
         className={`group flex min-h-12 w-full items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-soot-700/60 max-lg:justify-center lg:px-2 ${open ? 'bg-soot-700/60' : ''}`}
         {...tip}
       >
         <ProfileAvatar profile={profile} />
         <span className="flex min-w-0 flex-1 flex-col max-lg:hidden">
           <span className="truncate font-display text-base leading-tight font-bold tracking-[0.06em] text-parchment-50">{profile.name}</span>
-          <span className="truncate text-xs text-parchment-400">{formatRecord(profile)}</span>
+          <span className="truncate text-xs text-parchment-400">{t.record(profile.wins, profile.matches)}</span>
         </span>
         <IconChevronDown className={`size-4 shrink-0 text-parchment-400 transition-transform max-lg:hidden ${open ? '' : 'rotate-180'}`} />
       </button>
@@ -309,22 +313,22 @@ function ProfileMenu({ profile, onSettings, onLogOut, tip }: { profile: LobbyPro
         <div
           id={menuId}
           role="menu"
-          aria-label="Account"
+          aria-label={t.nav.account}
           onKeyDown={onMenuKeyDown}
           className="plate rivets absolute bottom-full left-0 z-40 mb-2 w-full min-w-52 bg-soot-900/[0.97] p-2 max-lg:bottom-0 max-lg:left-full max-lg:mb-0 max-lg:ml-3"
         >
           <button type="button" role="menuitem" className={`${itemRow} text-parchment-200 hover:bg-bronze-500/15 hover:text-parchment-50`} onClick={() => choose(() => navigate(PATHS.profile))}>
             <IconUsers className="size-5 text-bronze-300" />
-            Profile
+            {t.nav.profile}
           </button>
           <button type="button" role="menuitem" className={`${itemRow} text-parchment-200 hover:bg-bronze-500/15 hover:text-parchment-50`} onClick={() => choose(onSettings)}>
             <IconCog className="size-5 text-bronze-300" />
-            Settings
+            {t.nav.settings}
           </button>
           <hr className="mx-2 my-1.5 border-bronze-500/20" />
           <button type="button" role="menuitem" className={`${itemRow} text-rust-300 hover:bg-rust-500/15`} onClick={() => choose(onLogOut)}>
             <IconLogout className="size-5" />
-            Log out
+            {t.common.logOut}
           </button>
         </div>
       )}
@@ -334,6 +338,7 @@ function ProfileMenu({ profile, onSettings, onLogOut, tip }: { profile: LobbyPro
 
 /** Log out, in rust red. `rail`: icon only below 1024 px. */
 export function LogOutButton({ onClick, tip, rail = false }: { onClick: () => void; tip?: TipHandlers; rail?: boolean }) {
+  const t = useT()
   return (
     <button
       type="button"
@@ -344,7 +349,7 @@ export function LogOutButton({ onClick, tip, rail = false }: { onClick: () => vo
       {...tip}
     >
       <IconLogout className="size-5 shrink-0" />
-      <span className={rail ? 'max-lg:sr-only' : ''}>Log out</span>
+      <span className={rail ? 'max-lg:sr-only' : ''}>{t.common.logOut}</span>
     </button>
   )
 }

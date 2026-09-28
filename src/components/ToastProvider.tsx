@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useT } from '../i18n'
 import { ToastContext } from '../hooks/useToast'
 import { Gear } from './Gear'
 import { IconClose } from './icons'
@@ -58,6 +59,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastCard({ toast, onDismiss, onGone }: { toast: Toast; onDismiss: (id: number) => void; onGone: (id: number) => void }) {
+  const t = useT()
   const { id, leaving } = toast
   // Auto-dismiss, then remove the toast once its exit transition has run.
   useEffect(() => {
@@ -76,7 +78,7 @@ function ToastCard({ toast, onDismiss, onGone }: { toast: Toast; onDismiss: (id:
       <p className="flex-1 font-display text-lg leading-tight font-semibold tracking-wide text-parchment-50">{toast.message}</p>
       <button type="button" onClick={() => onDismiss(id)} className="rounded-full p-1.5 text-parchment-300 hover:text-parchment-50">
         <IconClose className="size-4" />
-        <span className="sr-only">Dismiss</span>
+        <span className="sr-only">{t.common.dismiss}</span>
       </button>
     </div>
   )

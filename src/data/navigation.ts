@@ -5,9 +5,27 @@
 
 export interface NavTab {
   readonly path: string
-  /** Display label. The sidebar renders it uppercase. */
+  /** Its name in the words catalogue (t.nav[key], src/i18n). */
+  readonly key: NavKey
+  /** English label (the catalogue has every language). */
   readonly label: string
 }
+
+/** Pages and dialogs named in the navigation (keys of t.nav). */
+export type NavKey =
+  | 'mainMenu'
+  | 'tournaments'
+  | 'locker'
+  | 'shop'
+  | 'achievements'
+  | 'privacy'
+  | 'terms'
+  | 'refunds'
+  | 'cookies'
+  | 'legalNotice'
+  | 'dataRequest'
+  | 'howToPlay'
+  | 'settings'
 
 export const PATHS = {
   mainMenu: '/',
@@ -36,12 +54,12 @@ export const PATHS = {
 
 /** The legal pages, in footer and sidebar order. */
 export const LEGAL_LINKS: readonly NavTab[] = [
-  { path: PATHS.privacy, label: 'Privacy Policy' },
-  { path: PATHS.terms, label: 'Terms of Service' },
-  { path: PATHS.refunds, label: 'Refund Policy' },
-  { path: PATHS.cookies, label: 'Cookie Policy' },
-  { path: PATHS.legal, label: 'Business details' },
-  { path: PATHS.dataRequest, label: 'Data requests' },
+  { path: PATHS.privacy, key: 'privacy', label: 'Privacy Policy' },
+  { path: PATHS.terms, key: 'terms', label: 'Terms of Service' },
+  { path: PATHS.refunds, key: 'refunds', label: 'Refund Policy' },
+  { path: PATHS.cookies, key: 'cookies', label: 'Cookie Policy' },
+  { path: PATHS.legal, key: 'legalNotice', label: 'Business details' },
+  { path: PATHS.dataRequest, key: 'dataRequest', label: 'Data requests' },
 ]
 
 /** The account screens, drawn over the page they were opened from. */
@@ -61,17 +79,17 @@ export const isAuthPath = (pathname: string) => (Object.values(AUTH_PATHS) as st
 
 /** Pages, in sidebar order. */
 export const NAV_TABS: readonly NavTab[] = [
-  { path: PATHS.mainMenu, label: 'Main Menu' },
-  { path: PATHS.tournaments, label: 'Tournaments' },
-  { path: PATHS.locker, label: 'Locker' },
-  { path: PATHS.shop, label: 'Shop' },
-  { path: PATHS.achievements, label: 'Achievements' },
+  { path: PATHS.mainMenu, key: 'mainMenu', label: 'Main Menu' },
+  { path: PATHS.tournaments, key: 'tournaments', label: 'Tournaments' },
+  { path: PATHS.locker, key: 'locker', label: 'Locker' },
+  { path: PATHS.shop, key: 'shop', label: 'Shop' },
+  { path: PATHS.achievements, key: 'achievements', label: 'Achievements' },
 ]
 
 /** Dialogs the lobby can open from the sidebar or the phone's More sheet. */
 export type MenuAction = 'how-to-play' | 'settings'
 
-export const MENU_ACTIONS: readonly { readonly action: MenuAction; readonly label: string }[] = [
-  { action: 'how-to-play', label: 'How to Play' },
-  { action: 'settings', label: 'Settings' },
+export const MENU_ACTIONS: readonly { readonly action: MenuAction; readonly key: NavKey; readonly label: string }[] = [
+  { action: 'how-to-play', key: 'howToPlay', label: 'How to Play' },
+  { action: 'settings', key: 'settings', label: 'Settings' },
 ]

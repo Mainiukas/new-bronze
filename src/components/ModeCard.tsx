@@ -1,5 +1,6 @@
 import type { ComponentType, CSSProperties } from 'react'
-import { formatDuration, formatTurnTimer, MAP_SIZE_LABELS, type GameMode, type GameModeId, type ModeIconName } from '../data/gameModes'
+import { formatDuration, formatTurnTimer, type GameMode, type GameModeId, type ModeIconName } from '../data/gameModes'
+import { useT } from '../i18n'
 import { IconBolt, IconCheck, IconClock, IconFactory, IconStopwatch, type IconProps } from './icons'
 import { backgroundUrl } from './theme/backgrounds'
 import { useFirstPaintDone } from './theme/firstPaint'
@@ -39,9 +40,10 @@ interface ModeCardProps {
  * Wide containers show a picture on top; narrow ones put it on the left.
  */
 export function ModeCard({ mode, selected, onSelect, index = 0 }: ModeCardProps) {
+  const t = useT()
   const Icon = MODE_ICONS[mode.icon]
   const painted = useFirstPaintDone()
-  const facts = `${mode.rounds} rounds · ${MAP_SIZE_LABELS[mode.mapSize]} · ${formatTurnTimer(mode.turnTimerSeconds)} per turn`
+  const facts = `${t.setup.rounds(mode.rounds)} · ${t.modes.mapSize[mode.mapSize]} · ${t.modes.perTurn(formatTurnTimer(mode.turnTimerSeconds))}`
 
   return (
     <label
@@ -80,17 +82,17 @@ export function ModeCard({ mode, selected, onSelect, index = 0 }: ModeCardProps)
 
       {/* Text */}
       <span className="flex min-w-0 flex-col gap-1 p-3.5 pr-10 @2xl:px-5 @2xl:pt-8 @2xl:pb-5">
-        <span className="flex items-baseline gap-2">
+        <span className="flex flex-wrap items-baseline gap-x-2">
           <span
             className={`font-display text-[1.7rem] leading-none font-extrabold tracking-[0.1em] uppercase transition-colors @2xl:text-3xl ${
               selected ? 'text-parchment-50' : 'text-parchment-100'
             }`}
           >
-            {mode.name}
+            {t.modes[mode.id].name}
           </span>
           <span className="text-xs font-semibold whitespace-nowrap text-bronze-200 tabular-nums @2xl:hidden">{formatDuration(mode.durationMinutes)}</span>
         </span>
-        <span className="text-sm leading-snug text-parchment-300">{mode.description}</span>
+        <span className="text-sm leading-snug text-parchment-300">{t.modes[mode.id].description}</span>
         <span className="mt-1 text-xs font-semibold tracking-wide text-brass-300/90">{facts}</span>
       </span>
 

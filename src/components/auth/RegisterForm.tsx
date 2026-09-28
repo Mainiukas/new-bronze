@@ -3,6 +3,7 @@ import { AuthError, signupConsent } from '../../auth/backend'
 import { authErrorMessage } from '../../auth/messages'
 import { validateConfirmation, validateEmail, validatePassword, validateUsername } from '../../auth/validation'
 import { useAuth } from '../../hooks/useAuth'
+import { useT } from '../../i18n'
 import { AgeQuestion, MarketingConsent, TermsConsent, UnderAgeNotice, type AgeAnswer } from './Consents'
 import { FormAlert, GoogleButton, OrDivider, PasswordField, PasswordHint, SubmitButton, TextField, UsernameStatus } from './fields'
 import { useUsernameCheck } from './useUsernameCheck'
@@ -29,6 +30,9 @@ interface RegisterFormProps {
  * over, an optional marketing box. Both boxes start unticked.
  */
 export function RegisterForm({ disabled, onGoogle, onRegistered, footer, autoFocus = true, onKeepPlaying }: RegisterFormProps) {
+  const t = useT()
+  const r = t.auth.register
+  const v = t.validation
   const auth = useAuth()
   const [values, setValues] = useState({ username: '', email: '', password: '', confirm: '' })
   const [age, setAge] = useState<AgeAnswer>(null)
@@ -54,13 +58,12 @@ export function RegisterForm({ disabled, onGoogle, onRegistered, footer, autoFoc
   const name = values.username.trim()
   const errors: Record<Field, string | null> = {
     username:
-      validateUsername(name) ??
-      (check === 'taken' || refusedName === name ? 'That username is taken.' : check === 'error' ? 'Couldn’t check this username. Try again.' : null),
-    email: validateEmail(values.email),
-    password: validatePassword(values.password),
-    confirm: validateConfirmation(values.password, values.confirm),
-    age: age === null ? 'Choose your age group.' : null,
-    agreed: agreed ? null : 'Agree to the Terms and Privacy Policy to continue.',
+      validateUsername(name, v) ?? (check === 'taken' || refusedName === name ? t.auth.usernameTaken : check === 'error' ? t.auth.usernameCheckFailed : null),
+    email: validateEmail(values.email, v),
+    password: validatePassword(values.password, v),
+    confirm: validateConfirmation(values.password, values.confirm, v),
+    age: age === null ? r.chooseAge : null,
+    agreed: agreed ? null : r.mustAgree,
   }
   const valid = FIELDS.every((field) => !errors[field]) && check === 'available' && !tooYoung
   const shown = (field: Field) => (touched[field] || (field === 'username' && check === 'taken') ? errors[field] : null)
@@ -89,7 +92,7 @@ export function RegisterForm({ disabled, onGoogle, onRegistered, footer, autoFoc
         setRefusedName(name)
         inputs.current.username?.focus()
       }
-      setServerError(authErrorMessage(error))
+      setServerError(authErrorMessage(error, t.authErrors))
       setBusy(false)
     }
   }
@@ -108,20 +111,20 @@ export function RegisterForm({ disabled, onGoogle, onRegistered, footer, autoFoc
     try {
       await onGoogle()
     } catch (error) {
-      setServerError(authErrorMessage(error))
+      setServerError(authErrorMessage(error, t.authErrors))
       setGoogleBusy(false)
     }
   }
 
   return (
-    <form noValidate onSubmit={submit} onKeyDown={onKeyDown} aria-label="Create an account">
+    <form noValidate onSubmit={submit} onKeyDown={onKeyDown} aria-label={r.title}>
       <fieldset disabled={disabled} className="min-w-0">
         <GoogleButton onClick={google} busy={googleBusy} disabled={busy} />
-        <p className="mt-2 text-center text-xs text-parchment-300">With Google too, you’ll confirm your age and accept the Terms before your account is created.</p>
+        <p className="mt-2 text-center text-xs text-parchment-300">{r.googleNote}</p>
         <OrDivider />
 
         <TextField
-          label="Username"
+          label={t.auth.username}
           inputRef={(el) => void (inputs.current.username = el)}
           value={values.username}
           onChange={(v) => {
@@ -130,7 +133,7 @@ export function RegisterForm({ disabled, onGoogle, onRegistered, footer, autoFoc
           }}
           onBlur={touch('username')}
           error={shown('username')}
-          hint="3–20 characters: letters, numbers and _."
+          hint={t.auth.usernameHint}
           aside={<UsernameStatus status={check} />}
           autoComplete="username"
           autoCapitalize="none"
@@ -139,7 +142,7 @@ export function RegisterForm({ disabled, onGoogle, onRegistered, footer, autoFoc
           required
         />
         <TextField
-          label="Email"
+          label={t.auth.email}
           inputRef={(el) => void (inputs.current.email = el)}
           type="email"
           inputMode="email"
@@ -153,7 +156,7 @@ export function RegisterForm({ disabled, onGoogle, onRegistered, footer, autoFoc
           required
         />
         <PasswordField
-          label="Password"
+          label={t.auth.password}
           inputRef={(el) => void (inputs.current.password = el)}
           value={values.password}
           onChange={set('password')}
@@ -164,7 +167,7 @@ export function RegisterForm({ disabled, onGoogle, onRegistered, footer, autoFoc
           required
         />
         <PasswordField
-          label="Confirm password"
+          label={t.auth.confirmPassword}
           inputRef={(el) => void (inputs.current.confirm = el)}
           value={values.confirm}
           onChange={set('confirm')}
@@ -206,7 +209,7 @@ export function RegisterForm({ disabled, onGoogle, onRegistered, footer, autoFoc
         <div className="mt-3">
           <FormAlert message={serverError} />
           <SubmitButton busy={busy} disabled={!valid || tooYoung}>
-            {busy ? 'Creating account…' : 'Create account'}
+            {busy ? r.creating : r.create}
           </SubmitButton>
         </div>
       </fieldset>

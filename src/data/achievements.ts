@@ -43,8 +43,21 @@ export interface MatchSummary {
   shipyards: number
 }
 
+export type AchievementId =
+  | 'first-shift'
+  | 'foreman'
+  | 'quick-draw'
+  | 'full-house'
+  | 'merchant-fleet'
+  | 'iron-web'
+  | 'engine-room'
+  | 'tycoon'
+  | 'grand-tour'
+  | 'veteran'
+
 export interface Achievement {
-  id: string
+  id: AchievementId
+  /** English name and description (every language is in t.achievements.list, src/i18n). */
   name: string
   description: string
   /** Unlocked by this match, given stats that already include it? */

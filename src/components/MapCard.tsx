@@ -1,6 +1,7 @@
 import thumbUrl from '../../assets/map-thumb.jpg'
 import { BOARD } from '../data/board'
-import { formatPlayers, type GameMap } from '../data/maps'
+import type { GameMap } from '../data/maps'
+import { useT } from '../i18n'
 import { IconCheck } from './icons'
 import { MapPreview } from './MapPreview'
 import { useFirstPaintDone } from './theme/firstPaint'
@@ -17,6 +18,7 @@ interface MapCardProps {
  * ModeCard, it wraps a visually hidden radio input.
  */
 export function MapCard({ map, selected, onSelect }: MapCardProps) {
+  const t = useT()
   const towns = map.style === 'illustrated' ? BOARD.locations.length : map.board.towns.length
   // The thumbnail is a picture: it loads once the page's text is on screen.
   const painted = useFirstPaintDone()
@@ -52,9 +54,9 @@ export function MapCard({ map, selected, onSelect }: MapCardProps) {
           {map.name}
         </span>
         <span className="text-xs text-parchment-300">
-          {formatPlayers(map.players)} · {towns} towns
+          {t.setup.playersRange(map.players.min, map.players.max)} · {t.setup.towns(towns)}
         </span>
-        <span className="font-display text-[0.65rem] font-semibold tracking-[0.18em] text-bronze-200/80 uppercase">{map.terrain}</span>
+        <span className="font-display text-[0.65rem] font-semibold tracking-[0.18em] text-bronze-200/80 uppercase">{t.maps[map.id].terrain}</span>
       </span>
 
       <span

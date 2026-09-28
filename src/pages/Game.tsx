@@ -44,6 +44,7 @@ import { INDUSTRIES, RULES } from '../game/rules'
 import type { GameAction, GameState } from '../game/types'
 import { usePersistentState } from '../hooks/usePersistentState'
 import { useToast } from '../hooks/useToast'
+import { displayName, useT } from '../i18n'
 import { playSound, startMusic, stopMusic, type SoundEffect } from '../lib/sound'
 import { STORAGE_KEYS } from '../lib/storage'
 
@@ -79,6 +80,8 @@ const FAST_FORWARD_MS = 40
  * short pause, which fast-forward shortens.
  */
 export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, settings, onOpenRules, onOpenSettings, overlayOpen }: GameProps) {
+  const t = useT()
+  const m = t.match
   const notify = useToast()
   const mode = getGameMode(game.modeId)
   const map = getMap(game.mapId)
@@ -120,7 +123,7 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
       commit(next)
     } catch (e) {
       if (!(e instanceof IllegalActionError)) throw e
-      notify(e.message)
+      notify(t.gameMessage(e.detail))
       playSound('error')
     }
   }
@@ -237,12 +240,12 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
           <div className="min-w-0 flex-1">
             <h1 className="truncate font-display text-base leading-tight font-extrabold tracking-[0.1em] text-parchment-50 uppercase sm:text-lg">{map.name}</h1>
             <p className="truncate text-xs text-parchment-400">
-              {mode.name} · {game.status === 'finished' ? 'Final' : `Round ${game.round}/${game.totalRounds}`}
+              {t.modes[game.modeId].name} · {game.status === 'finished' ? m.final : m.roundOf(game.round, game.totalRounds)}
             </p>
           </div>
           {game.era && <EraChip era={game.era} railRound={game.railEraRound} />}
           {playing && (
-            <span className="flex items-center gap-1" role="img" aria-label={`${game.actionsLeft} of ${RULES.actionsPerTurn} actions left`} title="Actions left this turn">
+            <span className="flex items-center gap-1" role="img" aria-label={m.actionsLeft(game.actionsLeft, RULES.actionsPerTurn)} title={m.actionsLeftTitle}>
               {Array.from({ length: RULES.actionsPerTurn }, (_, i) => (
                 <span key={i} className={`size-3 rounded-full border ${i < game.actionsLeft ? 'border-brass-200 bg-brass-300' : 'border-bronze-500/50 bg-soot-800'}`} />
               ))}
@@ -256,7 +259,7 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
 
       <main id="main-content" tabIndex={-1} className="mx-auto grid w-full outline-none max-w-[112rem] grid-cols-[minmax(0,1fr)] items-start gap-3 px-2 py-3 sm:px-4 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_27rem]">
         <div className="min-w-0 lg:sticky lg:top-[4.5rem]">
-          <section className="plate relative mx-auto w-full overflow-hidden p-1 lg:max-w-[calc(100dvh-5.75rem)]" aria-label="Board">
+          <section className="plate relative mx-auto w-full overflow-hidden p-1 lg:max-w-[calc(100dvh-5.75rem)]" aria-label={m.board}>
             <ZoomPan>
               {map.style === 'illustrated' ? (
                 <PaintedBoard
@@ -291,30 +294,30 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
         </div>
 
         <div className="flex min-w-0 flex-col gap-3">
-          <section className="plate rivets p-3 sm:p-4" aria-label="Actions">
+          <section className="plate rivets p-3 sm:p-4" aria-label={m.actions}>
             <TurnHeader game={game} fastForward={fastForward} onFastForward={setFastForward} />
             <div className="mt-3">
               {game.status === 'finished' ? (
                 <button type="button" className="btn btn-primary w-full" onClick={() => setResultsOpen(true)}>
-                  See results
+                  {m.seeResults}
                 </button>
               ) : humanTurn ? (
                 <ActionBar game={game} ui={ui} onUiChange={setUi} onAction={act} />
               ) : current?.isAI ? (
                 <AiStatus game={game} />
               ) : (
-                <p className="text-sm text-parchment-300">Waiting for {current?.name} to take the device…</p>
+                <p className="text-sm text-parchment-300">{m.waitingFor(displayName(t, current?.name ?? ''))}</p>
               )}
             </div>
           </section>
 
           {/* Phones and tablets: the panels open as drawers. */}
-          <nav className="grid grid-cols-3 gap-2 lg:hidden" aria-label="Match panels">
+          <nav className="grid grid-cols-3 gap-2 lg:hidden" aria-label={m.panels}>
             {(
               [
-                ['players', 'Players'],
-                ['markets', 'Markets'],
-                ...(settings.showLog ? ([['log', 'Log']] as const) : []),
+                ['players', m.players],
+                ['markets', m.markets],
+                ...(settings.showLog ? ([['log', m.log]] as const) : []),
               ] as const
             ).map(([key, text]) => (
               <button key={key} type="button" className="btn btn-ghost" onClick={() => setDrawer(key)} aria-haspopup="dialog">
@@ -331,9 +334,9 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
         <div className="flex h-full flex-col gap-3 overflow-y-auto border-r border-bronze-500/30 bg-linear-to-b from-soot-850 to-soot-950 p-3">
           <div className="flex items-center justify-between">
             <h2 id="drawer-title" className="font-display text-xl font-bold tracking-[0.12em] text-parchment-50 uppercase">
-              {drawer === 'players' ? 'Players' : drawer === 'markets' ? 'Markets' : 'Match log'}
+              {drawer === 'players' ? m.players : drawer === 'markets' ? m.markets : m.matchLog}
             </h2>
-            <button type="button" className="icon-btn size-10 text-base" aria-label="Close" onClick={() => setDrawer(null)}>
+            <button type="button" className="icon-btn size-10 text-base" aria-label={t.common.close} onClick={() => setDrawer(null)}>
               <IconClose />
             </button>
           </div>
@@ -347,15 +350,15 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
         <div className="plate rivets flex flex-col items-center gap-4 border-bronze-400/40 bg-soot-900/95 px-6 py-8 text-center">
           {current && <PlayerSwatch color={current.color} letter className="size-8 text-sm" />}
           <h2 id="handoff-title" className="font-display text-3xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-            {current?.name === 'You' ? 'Your turn' : `Pass to ${current?.name}`}
+            {current?.name === 'You' ? m.yourTurn : m.passTo(displayName(t, current?.name ?? ''))}
           </h2>
-          <p className="text-parchment-300">Hand the device over, then start the turn. The timer waits.</p>
+          <p className="text-parchment-300">{m.handOver}</p>
           <div className="flex flex-wrap justify-center gap-3">
             <button type="button" className="btn btn-ghost" onClick={onLeave}>
-              Main menu
+              {t.nav.mainMenu}
             </button>
             <button type="button" className="btn btn-primary px-8" onClick={() => setSeatAtDevice(current?.id ?? null)}>
-              {current?.name === 'You' ? 'Start your turn' : `Start ${current?.name}’s turn`}
+              {current?.name === 'You' ? m.startYourTurn : m.startTurnOf(displayName(t, current?.name ?? ''))}
             </button>
           </div>
         </div>
@@ -376,8 +379,10 @@ export function Game({ game, onGameChange, onMatchFinished, onLeave, onRematch, 
 
 /** Whose turn it is, and (with computer players) the fast-forward switch. */
 function TurnHeader({ game, fastForward, onFastForward }: { game: GameState; fastForward: boolean; onFastForward: (on: boolean) => void }) {
+  const t = useT()
+  const m = t.match
   if (game.status === 'finished') {
-    return <p className="font-display text-xl font-extrabold tracking-[0.12em] text-parchment-50 uppercase">Match over</p>
+    return <p className="font-display text-xl font-extrabold tracking-[0.12em] text-parchment-50 uppercase">{m.over}</p>
   }
   const player = currentPlayer(game)
   const hasAI = game.players.some((p) => p.isAI)
@@ -385,9 +390,10 @@ function TurnHeader({ game, fastForward, onFastForward }: { game: GameState; fas
     <div className="flex flex-wrap items-center gap-2.5">
       <PlayerSwatch color={player.color} letter className="size-5 shadow-[0_0_10px_currentColor]" />
       <p className="min-w-0 flex-1 font-display text-lg leading-tight font-extrabold tracking-[0.08em] text-parchment-50 uppercase">
-        {player.isAI ? `${player.name} is playing` : player.name === 'You' ? 'Your turn' : `${player.name}’s turn`}
+        {player.isAI ? m.isPlaying(player.name) : player.name === 'You' ? m.yourTurn : m.turnOf(displayName(t, player.name))}
         <span className="block font-body text-xs font-semibold tracking-normal text-parchment-400 normal-case">
-          action {RULES.actionsPerTurn - game.actionsLeft + 1} of {RULES.actionsPerTurn} · £{player.money} · {player.coal} coal · {player.iron} iron
+          {m.actionOf(RULES.actionsPerTurn - game.actionsLeft + 1, RULES.actionsPerTurn)} · £{player.money} · {t.amountOf(player.coal, 'coal')} ·{' '}
+          {t.amountOf(player.iron, 'iron')}
         </span>
       </p>
       {hasAI && (
@@ -396,9 +402,9 @@ function TurnHeader({ game, fastForward, onFastForward }: { game: GameState; fas
           aria-pressed={fastForward}
           onClick={() => onFastForward(!fastForward)}
           className={`btn px-3 text-sm ${fastForward ? 'btn-primary' : 'btn-ghost'}`}
-          title="Let the computer players act without pausing"
+          title={m.fastForwardTitle}
         >
-          ⏩ Fast-forward
+          ⏩ {m.fastForward}
         </button>
       )}
     </div>
@@ -407,6 +413,7 @@ function TurnHeader({ game, fastForward, onFastForward }: { game: GameState; fas
 
 /** While a computer player acts: what it just did (the board flashes it too). */
 function AiStatus({ game }: { game: GameState }) {
+  const t = useT()
   const player = currentPlayer(game)
   const last = [...game.log].reverse().find((e) => e.player !== null)
   return (
@@ -414,10 +421,10 @@ function AiStatus({ game }: { game: GameState }) {
       <Gear teeth={10} holes={0} className="size-6 shrink-0 animate-[spin_2.5s_linear_infinite] text-bronze-400" />
       <p className="min-w-0">
         <span className="font-semibold text-parchment-100">
-          {player.name} ({player.aiLevel} AI)
+          {player.name} ({t.match.aiLevel(t.aiLevels[player.aiLevel ?? 'normal'])})
         </span>{' '}
-        is choosing an action.
-        {last && <span className="block truncate text-parchment-400">Last: {last.text}</span>}
+        {t.match.choosing}
+        {last && <span className="block truncate text-parchment-400">{t.match.last(t.logEntry(last))}</span>}
       </p>
     </div>
   )
@@ -425,22 +432,24 @@ function AiStatus({ game }: { game: GameState }) {
 
 /** The era, with its vehicle. */
 function EraChip({ era, railRound }: { era: 'canal' | 'rail'; railRound: number | null }) {
+  const t = useT()
   const art = TOKEN_ART_URLS[era]
   return (
     <span
       className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 font-display text-xs font-bold tracking-[0.12em] uppercase sm:flex ${
         era === 'canal' ? 'border-verdigris-400/50 bg-board-water/25 text-verdigris-200' : 'border-brass-300/50 bg-bronze-500/20 text-brass-200'
       }`}
-      title={era === 'canal' ? `Canal era: the rail era begins in round ${railRound}` : 'Rail era: the canals have closed'}
+      title={era === 'canal' ? t.match.canalEraTitle(railRound ?? 0) : t.match.railEraTitle}
     >
       {imageOk(art) && <img src={art} alt="" aria-hidden="true" className="h-3.5 w-auto" />}
-      {era === 'canal' ? 'Canal era' : 'Rail era'}
+      {t.match.era[era]}
     </span>
   )
 }
 
 /** The match menu: rules, settings, back to the main menu (the match is saved). */
 function GameMenu({ onRules, onSettings, onLeave }: { onRules: () => void; onSettings: () => void; onLeave: () => void }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const root = useRef<HTMLDivElement>(null)
@@ -473,16 +482,16 @@ function GameMenu({ onRules, onSettings, onLeave }: { onRules: () => void; onSet
   )
   return (
     <div ref={root} className="relative">
-      <button type="button" className="icon-btn text-xl" aria-label="Match menu" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      <button type="button" className="icon-btn text-xl" aria-label={t.match.menu} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         <span aria-hidden="true">☰</span>
       </button>
       {open && (
         <div role="menu" className="plate rivets absolute top-full left-0 z-40 mt-2 w-60 bg-soot-900/[0.97] p-2">
-          {item('Rules', <IconBook className="size-5" />, onRules)}
-          {item('Settings', <IconCog className="size-5" />, onSettings)}
-          {item('Main menu', <span className="w-5 text-center">⌂</span>, onLeave)}
-          {item('Legal & privacy', <IconScale className="size-5" />, () => navigate(PATHS.legal))}
-          <p className="px-3 pt-1 text-xs text-parchment-400">The match is saved after every action.</p>
+          {item(t.rules.title, <IconBook className="size-5" />, onRules)}
+          {item(t.nav.settings, <IconCog className="size-5" />, onSettings)}
+          {item(t.nav.mainMenu, <span className="w-5 text-center">⌂</span>, onLeave)}
+          {item(t.match.legal, <IconScale className="size-5" />, () => navigate(PATHS.legal))}
+          <p className="px-3 pt-1 text-xs text-parchment-400">{t.match.saved}</p>
         </div>
       )}
     </div>
@@ -502,6 +511,7 @@ interface PaintedBoardProps {
 
 /** The match drawn on the painted board: game state translated into the board's props. */
 function PaintedBoard({ game, network, targets, selectedSource, motion, onSelectSlot, onSelectLocation, onSelectLink }: PaintedBoardProps) {
+  const t = useT()
   // Positions calibrated in the map editor (not yet pasted into board.json) apply here too.
   const [draft] = usePersistentState<BoardData | null>(STORAGE_KEYS.boardDraft, null, parseBoardData)
   const board = draft ?? BOARD
@@ -534,7 +544,7 @@ function PaintedBoard({ game, network, targets, selectedSource, motion, onSelect
       era={game.era ?? 'canal'}
       built={built}
       playerColor={(p) => colorHex(game.players[p].color)}
-      playerName={(p) => game.players[p]?.name ?? `Player ${p + 1}`}
+      playerName={(p) => displayName(t, game.players[p]?.name ?? `Player ${p + 1}`)}
       playerMark={(p) => PLAYER_STYLE[game.players[p].color].letter}
       selected={source ? { type: 'slot', locationId: source.townId, index: source.slot } : null}
       targets={targets}

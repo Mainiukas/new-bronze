@@ -1,14 +1,16 @@
 import { ComingSoon } from '../components/ComingSoon'
+import { useT } from '../i18n'
 import { IconCrate } from '../components/icons'
 
 export function Shop() {
+  const t = useT()
   return (
     <ComingSoon
-      title="Shop"
-      empty="The shelves are being restocked."
+      title={t.pages.shop.title}
+      empty={t.pages.shop.empty}
       icon={<IconCrate />}
-      blurb="Cosmetic boards, building skins and token sets, delivered fresh from the foundry."
-      locked="Purchases are tied to your account: log in to buy and keep them."
+      blurb={t.pages.shop.blurb}
+      locked={t.pages.shop.locked}
     />
   )
 }

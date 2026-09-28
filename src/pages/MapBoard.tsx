@@ -5,8 +5,6 @@ import { seatColor } from '../components/game/glyphs'
 import {
   BOARD,
   formatBoardJson,
-  GOODS_NAMES,
-  INDUSTRY_NAMES,
   isLinkActive,
   parseBoardData,
   slotKey,
@@ -17,6 +15,7 @@ import {
 import { INDUSTRIES } from '../game/rules'
 import { usePersistentState } from '../hooks/usePersistentState'
 import { useToast } from '../hooks/useToast'
+import { useT } from '../i18n'
 import { STORAGE_KEYS } from '../lib/storage'
 
 /** A few tiles so the board opens showing what built slots and links look like. */
@@ -35,7 +34,11 @@ const SAMPLE_BUILT: BuiltState = {
   },
 }
 
-const PLAYER_NAMES = ['Player 1', 'Player 2', 'Player 3', 'Player 4']
+/** Sandbox seats: the board shows four players' colours. */
+const SEATS = [0, 1, 2, 3]
+
+/** The painted board's places that open with the railways. */
+const RAIL_ONLY = BOARD.locations.filter((l) => l.era === 'rail').map((l) => l.name)
 
 /** Is edit mode requested in the URL? Works as #/board?edit=1 or ?edit=1#/board. */
 function useEditParam(): boolean {
@@ -48,6 +51,8 @@ function useEditParam(): boolean {
  * selection, sandbox tiles) and, in edit mode, the calibration draft.
  */
 export function MapBoard() {
+  const t = useT()
+  const mb = t.mapBoard
   const notify = useToast()
   const editParam = useEditParam()
   // Edit mode: always via ?edit=1; the E key toggles it in development builds.
@@ -113,14 +118,14 @@ export function MapBoard() {
       <div className="flex min-w-0 flex-col gap-4">
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="eyebrow">Map board</p>
+            <p className="eyebrow">{t.nav.board}</p>
             <h1 className="metal-text font-display text-4xl font-extrabold tracking-[0.08em] uppercase sm:text-5xl">
               Wales & the West
             </h1>
           </div>
           {editAllowed && (
             <button type="button" className={`btn ${editing ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setEditing((v) => !v)}>
-              {editing ? 'Done editing' : 'Edit map'} <kbd className="text-xs opacity-70">E</kbd>
+              {editing ? mb.doneEditing : mb.editMap} <kbd className="text-xs opacity-70">E</kbd>
             </button>
           )}
         </header>
@@ -131,7 +136,7 @@ export function MapBoard() {
             era={era}
             built={built}
             selected={selected}
-            playerName={(p) => PLAYER_NAMES[p] ?? `Player ${p + 1}`}
+            playerName={(p) => t.common.player(p + 1)}
             onSelectLocation={(id) => setSelected({ type: 'location', id })}
             onSelectSlot={(locationId, index) => {
               if (tool === 'place') placeInSlot(locationId, index)
@@ -148,7 +153,7 @@ export function MapBoard() {
         </div>
         {draft && !editing && (
           <p className="text-sm text-parchment-400">
-            Showing your unsaved calibration from this browser. Open edit mode to export or discard it.
+            {mb.draftNote}
           </p>
         )}
       </div>
@@ -156,8 +161,8 @@ export function MapBoard() {
       <aside className="flex flex-col gap-4">
         {editing && <EditorPanel board={board} hasDraft={draft !== null} onReset={() => setDraft(null)} notify={notify} />}
 
-        <Panel title="Era">
-          <div className="grid grid-cols-2 gap-1 rounded-lg border border-bronze-500/30 bg-soot-950/60 p-1" role="group" aria-label="Era">
+        <Panel title={mb.era}>
+          <div className="grid grid-cols-2 gap-1 rounded-lg border border-bronze-500/30 bg-soot-950/60 p-1" role="group" aria-label={mb.era}>
             {(['canal', 'rail'] as const).map((value) => (
               <button
                 key={value}
@@ -168,22 +173,21 @@ export function MapBoard() {
                   era === value ? 'bg-bronze-500/30 text-parchment-50' : 'text-parchment-400 hover:text-parchment-100'
                 }`}
               >
-                {value} era
+                {t.match.era[value]}
               </button>
             ))}
           </div>
           <p className="text-xs text-parchment-400">
-            Only this era’s links are drawn: {era === 'canal' ? 'canals, with “both” links as canals' : 'railways, with “both” links as railways'}.
-            The North, Taunton and Plymouth can only be reached in the rail era.
+            {mb.eraNote(era, t.list(RAIL_ONLY))}
           </p>
         </Panel>
 
-        <Panel title="Sandbox">
-          <div className="grid grid-cols-2 gap-1 rounded-lg border border-bronze-500/30 bg-soot-950/60 p-1" role="group" aria-label="Tool">
+        <Panel title={mb.sandbox}>
+          <div className="grid grid-cols-2 gap-1 rounded-lg border border-bronze-500/30 bg-soot-950/60 p-1" role="group" aria-label={mb.tool}>
             {(
               [
-                ['inspect', 'Inspect'],
-                ['place', 'Place tiles'],
+                ['inspect', mb.inspect],
+                ['place', mb.place],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -200,37 +204,34 @@ export function MapBoard() {
             ))}
           </div>
           {tool === 'place' && (
-            <div className="flex items-center gap-2" role="group" aria-label="Place tiles for">
-              {PLAYER_NAMES.map((name, i) => (
+            <div className="flex items-center gap-2" role="group" aria-label={mb.placeFor}>
+              {SEATS.map((i) => (
                 <button
-                  key={name}
+                  key={i}
                   type="button"
                   aria-pressed={player === i}
-                  aria-label={name}
+                  aria-label={t.common.player(i + 1)}
                   onClick={() => setPlayer(i)}
                   className={`size-8 rounded-full border-2 transition ${player === i ? 'scale-110 border-parchment-50' : 'border-transparent opacity-70'}`}
                   style={{ background: seatColor(i) }}
                 />
               ))}
-              <span className="text-sm text-parchment-300">{PLAYER_NAMES[player]}</span>
+              <span className="text-sm text-parchment-300">{t.common.player(player + 1)}</span>
             </div>
           )}
           <p className="text-xs text-parchment-400">
-            {tool === 'inspect'
-              ? 'Click a location, slot or link marker to see its details.'
-              : 'Click a slot to build there (click again to switch industry, then to clear), or a link marker to claim it.'}{' '}
-            This is a preview of how builds look, not a match.
+            {tool === 'inspect' ? mb.inspectHint : mb.placeHint} {mb.preview}
           </p>
           <button type="button" className="btn btn-ghost w-full" onClick={() => setBuilt({ slots: {}, links: {} })}>
-            Clear tiles
+            {mb.clear}
           </button>
         </Panel>
 
-        <Panel title="Selected">
+        <Panel title={mb.selected}>
           <SelectionDetails board={board} era={era} built={built} selected={selected} />
         </Panel>
 
-        <Panel title="Regions">
+        <Panel title={mb.regions}>
           <ul className="grid grid-cols-1 gap-1.5 text-sm">
             {Object.entries(board.regions).map(([id, region]) => (
               <li key={id} className="flex items-center gap-2 text-parchment-200">
@@ -240,11 +241,11 @@ export function MapBoard() {
             ))}
             <li className="flex items-center gap-2 text-parchment-200">
               <span className="h-3 w-6 rounded-sm border border-board-plaque-edge bg-board-plaque" />
-              Stop (no building or trade)
+              {mb.stopKey}
             </li>
             <li className="flex items-center gap-2 text-parchment-200">
               <span className="size-3.5 rounded-full border-[3px] border-board-iron bg-board-plaque ring-1 ring-board-bronze" />
-              Trade hub
+              {mb.hubKey}
             </li>
           </ul>
         </Panel>
@@ -263,8 +264,10 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function SelectionDetails({ board, era, built, selected }: { board: BoardData; era: Era; built: BuiltState; selected: BoardSelection | null }) {
+  const t = useT()
+  const mb = t.mapBoard
   const name = (id: string) => board.locations.find((l) => l.id === id)?.name ?? id
-  if (!selected) return <p className="text-sm text-parchment-400">Nothing selected yet.</p>
+  if (!selected) return <p className="text-sm text-parchment-400">{mb.nothing}</p>
 
   if (selected.type === 'link') {
     const link = board.links.find((l) => l.id === selected.id)
@@ -276,13 +279,12 @@ function SelectionDetails({ board, era, built, selected }: { board: BoardData; e
           {name(link.from)} – {name(link.to)}
         </p>
         <p className="text-parchment-400">
-          {link.type === 'both' ? 'Canal and rail' : link.type === 'canal' ? 'Canal only' : 'Rail only'} ·{' '}
-          {isLinkActive(link.type, era) ? `usable in the ${era} era` : `closed in the ${era} era`}
+          {link.type === 'both' ? t.tooltip.linkType.both : t.tooltip.only(link.type)} · {mb.usable(isLinkActive(link.type, era), era)}
         </p>
-        <p className="mt-1">{owner ? `Built by ${PLAYER_NAMES[owner.player]}` : 'Not built'}</p>
+        <p className="mt-1">{owner ? t.boardLabels.builtBy(t.common.player(owner.player + 1)) : t.boardLabels.notBuilt}</p>
         <p className="mt-1 font-mono text-xs text-parchment-400">
           id {link.id}
-          {link.points?.length ? ` · ${link.points.length} bend point${link.points.length === 1 ? '' : 's'}` : ' · automatic bend'}
+          {` · ${mb.bends(link.points?.length ?? 0)}`}
         </p>
       </div>
     )
@@ -295,19 +297,19 @@ function SelectionDetails({ board, era, built, selected }: { board: BoardData; e
     <div className="flex flex-col gap-1.5 text-sm text-parchment-200">
       <p className="font-board text-base font-bold text-parchment-50">{location.name}</p>
       <p className="text-parchment-400">
-        {location.type === 'city' ? `City · ${board.regions[location.region]?.name}` : location.type === 'stop' ? 'Stop' : 'Trade hub'} · x{' '}
+        {location.type === 'city' ? t.tooltip.city(board.regions[location.region]?.name ?? '') : location.type === 'stop' ? mb.stop : mb.hub} · x{' '}
         {location.x}% · y {location.y}%
-        {location.labelOffset ? ` · plaque offset ${location.labelOffset.x}%, ${location.labelOffset.y}%` : ''}
+        {location.labelOffset ? ` · ${mb.offset(location.labelOffset.x, location.labelOffset.y)}` : ''}
       </p>
-      {location.era === 'rail' && <p className="text-brass-200">Available in the Rail Era</p>}
+      {location.era === 'rail' && <p className="text-brass-200">{t.tooltip.railOnly}</p>}
       {location.type === 'city' && (
         <ol className="flex flex-col gap-0.5">
           {location.slots.map((allowed, i) => {
             const tile = built.slots[slotKey(location.id, i)]
             return (
               <li key={i} className={selected.type === 'slot' && selected.index === i ? 'text-brass-200' : undefined}>
-                Slot {i + 1}: {allowed.map((a) => INDUSTRY_NAMES[a]).join(' or ')}
-                {tile && <span className="text-parchment-50"> — {PLAYER_NAMES[tile.player]}</span>}
+                {t.actions.slot(i + 1)}: {t.or(allowed.map((a) => t.industries[a].name))}
+                {tile && <span className="text-parchment-50"> — {t.common.player(tile.player + 1)}</span>}
               </li>
             )
           })}
@@ -315,7 +317,7 @@ function SelectionDetails({ board, era, built, selected }: { board: BoardData; e
       )}
       {location.type === 'hub' && (
         <p>
-          Buys {location.buys.map((b) => GOODS_NAMES[b]).join(', ')} · starts at £{location.price}
+          {t.marketsPanel.buys(t.list(location.buys.map((b) => t.game.goods[b])))} · {mb.startsAt(location.price)}
         </p>
       )}
       <ul className="text-parchment-400">
@@ -323,7 +325,7 @@ function SelectionDetails({ board, era, built, selected }: { board: BoardData; e
           .filter((l) => l.from === location.id || l.to === location.id)
           .map((l) => (
             <li key={l.id}>
-              {name(l.from === location.id ? l.to : l.from)} · {l.type === 'both' ? 'canal and rail' : `${l.type} only`}
+              {name(l.from === location.id ? l.to : l.from)} · {l.type === 'both' ? t.tooltip.linkType.both : t.tooltip.only(l.type)}
             </li>
           ))}
       </ul>

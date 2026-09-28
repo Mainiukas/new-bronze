@@ -1,15 +1,17 @@
 import { currentPlayerId, scoreFor } from '../../game/engine'
 import type { GameState } from '../../game/types'
+import { displayName, useT } from '../../i18n'
 import { PlayerSwatch } from './PlayerSwatch'
 
-const LEVEL_NAME = { easy: 'Easy AI', normal: 'Normal AI', hard: 'Hard AI' } as const
 
 /** Every player: colour, name, money, coal, iron, ★, what they own, and whose turn it is. */
 export function PlayersPanel({ game, colorBlind }: { game: GameState; colorBlind: boolean }) {
+  const t = useT()
+  const p = t.playersPanel
   const active = game.status === 'playing' ? currentPlayerId(game) : null
   return (
-    <section className="plate rivets p-3 sm:p-4" aria-label="Players">
-      <h2 className="eyebrow mb-2.5">Players</h2>
+    <section className="plate rivets p-3 sm:p-4" aria-label={t.match.players}>
+      <h2 className="eyebrow mb-2.5">{t.match.players}</h2>
       <ul className="flex flex-col gap-2">
         {game.players.map((player) => {
           const score = scoreFor(game, player.id)
@@ -27,27 +29,27 @@ export function PlayersPanel({ game, colorBlind }: { game: GameState; colorBlind
               <div className="flex items-center gap-2.5">
                 <PlayerSwatch color={player.color} letter={colorBlind} className="size-4.5" />
                 <span className="min-w-0 flex-1 truncate font-display text-base font-bold tracking-[0.06em] text-parchment-50">
-                  {player.name}
+                  {displayName(t, player.name)}
                   <span className="ml-1.5 text-[0.65rem] font-semibold tracking-wider text-parchment-400 uppercase">
-                    {player.aiLevel ? LEVEL_NAME[player.aiLevel] : 'Human'}
+                    {player.aiLevel ? t.match.aiLevel(t.aiLevels[player.aiLevel]) : t.setup.human}
                   </span>
                 </span>
                 {isActive && (
                   <span className="rounded-full bg-ember-500/20 px-2 py-0.5 text-[0.62rem] font-bold tracking-[0.15em] text-ember-300 uppercase">
-                    Turn
+                    {p.turn}
                   </span>
                 )}
-                <span className="font-display text-xl font-extrabold text-brass-300 tabular-nums" title="Prestige earned so far">
+                <span className="font-display text-xl font-extrabold text-brass-300 tabular-nums" title={p.prestigeTitle}>
                   {player.prestige}★
                 </span>
               </div>
               <dl className="mt-1 grid grid-cols-6 gap-1 text-center text-xs text-parchment-300 tabular-nums">
-                <Stat label="Money" value={`£${player.money}`} />
-                <Stat label="Coal" value={player.coal} />
-                <Stat label="Iron" value={player.iron} />
-                <Stat label="Ind." value={industries} title={`${industries} industries owned`} />
-                <Stat label="Links" value={links} title={`${links} links owned now (${player.linksBuilt} built in all)`} />
-                <Stat label="If ended" value={`${score.total}★`} title={`Score if the match ended now: ${score.prestige}★ + ${score.moneyBonus} for money + ${score.hubBonus} for hubs`} />
+                <Stat label={p.money} value={`£${player.money}`} />
+                <Stat label={p.coal} value={player.coal} />
+                <Stat label={p.iron} value={player.iron} />
+                <Stat label={p.industries} value={industries} title={p.industriesTitle(industries)} />
+                <Stat label={p.links} value={links} title={p.linksTitle(links, player.linksBuilt)} />
+                <Stat label={p.ifEnded} value={`${score.total}★`} title={p.ifEndedTitle(score.prestige, score.moneyBonus, score.hubBonus)} />
               </dl>
             </li>
           )

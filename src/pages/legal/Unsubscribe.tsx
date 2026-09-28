@@ -4,13 +4,10 @@ import type { EmailList } from '../../auth/backend'
 import { LegalPage, Section, TextLink } from '../../components/legal/LegalPage'
 import { PATHS } from '../../data/navigation'
 import { useAuth } from '../../hooks/useAuth'
+import { UNSUBSCRIBE_EN } from './text/en'
+import { useLegalText } from './text/load'
 
-const LISTS: Record<EmailList | 'all', string> = {
-  marketing: 'news about Bronze',
-  friends: 'friend emails',
-  tournaments: 'tournament emails',
-  all: 'every optional email',
-}
+const LISTS: readonly (EmailList | 'all')[] = ['marketing', 'friends', 'tournaments', 'all']
 
 type Result = 'working' | 'done' | 'not-found' | 'failed' | 'unavailable'
 
@@ -24,11 +21,12 @@ const done = new Map<string, Promise<boolean>>()
  * one-click button in email apps (see SETUP.md, "Emails").
  */
 export function Unsubscribe() {
+  const w = useLegalText()?.unsubscribe ?? UNSUBSCRIBE_EN
   const [params] = useSearchParams()
   const auth = useAuth()
   const token = params.get('token') ?? ''
   const rawList = params.get('list') ?? 'all'
-  const list = (rawList in LISTS ? rawList : 'all') as EmailList | 'all'
+  const list = (LISTS as readonly string[]).includes(rawList) ? (rawList as EmailList | 'all') : 'all'
   const valid = /^[0-9a-f-]{36}$/i.test(token)
   const [result, setResult] = useState<Result>('working')
   const { configured, unsubscribe } = auth
@@ -49,19 +47,16 @@ export function Unsubscribe() {
 
   const shown: Result = !configured ? 'unavailable' : !valid ? 'not-found' : result
   return (
-    <LegalPage title="Unsubscribe">
-      <Section id="result" title={shown === 'done' ? 'You’re unsubscribed' : shown === 'working' ? 'Unsubscribing…' : 'Couldn’t unsubscribe'}>
+    <LegalPage title={w.title}>
+      <Section id="result" title={shown === 'done' ? w.done : shown === 'working' ? w.working : w.failed}>
         <p role="status">
-          {shown === 'done' && <>You won’t get {LISTS[list]} any more. It can take a few minutes for emails already on their way.</>}
-          {shown === 'working' && <>One moment…</>}
-          {shown === 'not-found' && <>This unsubscribe link isn’t valid. It may have been copied incompletely.</>}
-          {shown === 'failed' && <>Something went wrong. Please try the link again in a minute.</>}
-          {shown === 'unavailable' && <>Accounts aren’t set up on this site, so there are no emails to unsubscribe from.</>}
+          {shown === 'done' && w.doneBody(w.lists[list])}
+          {shown === 'working' && w.workingBody}
+          {shown === 'not-found' && w.notFoundBody}
+          {shown === 'failed' && w.failedBody}
+          {shown === 'unavailable' && w.unavailableBody}
         </p>
-        <p>
-          You can change all your email choices, when logged in, in Settings → Notifications. Questions:{' '}
-          <TextLink to={PATHS.dataRequest}>data requests</TextLink>.
-        </p>
+        <p>{w.more(<TextLink to={PATHS.dataRequest}>{w.dataRequests}</TextLink>)}</p>
       </Section>
     </LegalPage>
   )

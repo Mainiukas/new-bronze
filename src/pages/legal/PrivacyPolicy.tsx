@@ -1,10 +1,11 @@
+import { Localized } from './text/Localized'
 import { Bullets, DataTable, Email, Fill, LegalPage, Section, Sub, TextLink } from '../../components/legal/LegalPage'
 import { PATHS } from '../../data/navigation'
 import { ACCOUNT_DATA, RECIPIENTS, VISITOR_DATA } from '../../legal/inventory'
 import { MIN_ACCOUNT_AGE, OPERATOR, SERVICES } from '../../legal/operator'
 
 /** Privacy Policy (a template for the operator to review). Data, bases and recipients come from legal/inventory.ts. */
-export function PrivacyPolicy() {
+function PrivacyPolicyEnglish() {
   const dataRows = (items: typeof ACCOUNT_DATA) => items.map((d) => [d.what, d.why, d.basis, <Fill key="r" value={d.retention} />])
   return (
     <LegalPage
@@ -136,4 +137,9 @@ export function PrivacyPolicy() {
       </Section>
     </LegalPage>
   )
+}
+
+/** In the player's language (a translation, with the English text prevailing), or in English. */
+export function PrivacyPolicy() {
+  return <Localized page="PrivacyPolicy" english={PrivacyPolicyEnglish} />
 }

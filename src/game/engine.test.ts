@@ -26,6 +26,11 @@ import {
 } from './engine'
 import { INDUSTRIES, RULES } from './rules'
 import { GAME_VERSION, type Building, type GameState, type IndustryKind, type RouteKind, type SeatSetup } from './types'
+import { english } from '../i18n/game/en'
+import type { GameMessage } from './messages'
+
+/** A blocker in English, as the screen shows it in English. */
+const say = (message: GameMessage | null) => (message ? english(message) : null)
 
 /* ---- Helpers ---------------------------------------------------------------- */
 
@@ -145,7 +150,7 @@ describe('costs', () => {
   it('rejects what the player can’t afford', () => {
     const g = edit(newGame(), (s) => (s.players[0].money = 4))
     expectIllegal(() => applyAction(g, { type: 'build', kind: 'coal', townId: 'birmingham', slot: 3 }), /Needs £5/)
-    expect(buildBlocker(g, 'coal')).toBe('Needs £5')
+    expect(say(buildBlocker(g, 'coal'))).toBe('Needs £5')
   })
 })
 
@@ -175,7 +180,7 @@ describe('building industries', () => {
   it('keeps rail-only towns closed in the canal era', () => {
     const g = edit(newGame(), (s) => (s.players[0].money = 40))
     expectIllegal(() => applyAction(g, { type: 'build', kind: 'iron', townId: 'plymouth', slot: 0 }), /Plymouth opens in the rail era/)
-    expect(buildBlocker(g, 'shipyard')).toBe('Opens in the rail era')
+    expect(say(buildBlocker(g, 'shipyard'))).toBe('Opens in the rail era')
     expect(buildTargets(g, 'iron').some((p) => p.townId === 'plymouth')).toBe(false)
   })
 })
@@ -204,7 +209,7 @@ describe('building links', () => {
 
   it('says why no link can be built', () => {
     const g = edit(newGame(), (s) => (s.players[0].money = 2))
-    expect(linkBlocker(g)).toBe('Needs £3')
+    expect(say(linkBlocker(g))).toBe('Needs £3')
   })
 })
 
@@ -343,7 +348,7 @@ describe('shipping', () => {
     })
     expect(shipOptions(g, mill)[0]).toMatchObject({ marketId: 'london', revenue: 1, tollTotal: 3, affordable: false })
     expect(shipQuotes(g, mill)).toEqual([])
-    expect(shipBlocker(g)).toBe('Can’t afford the tolls')
+    expect(say(shipBlocker(g))).toBe('Can’t afford the tolls')
     expectIllegal(() => applyAction(g, { type: 'ship', buildingId: mill, marketId: 'london' }), /can’t afford the £3/)
   })
 
@@ -353,10 +358,10 @@ describe('shipping', () => {
       mill = place(s, 0, 'cotton', 'birmingham', 0, 2).id
     })
     expect(shipQuotes(g, mill)).toEqual([])
-    expect(shipBlocker(g)).toBe('Not reachable')
+    expect(say(shipBlocker(g))).toBe('Not reachable')
     expectIllegal(() => applyAction(g, { type: 'ship', buildingId: mill, marketId: 'london' }), /isn’t reachable/)
     const empty = edit(g, (s) => (s.buildings[0].goods = 0))
-    expect(shipBlocker(empty)).toBe('Nothing to ship yet')
+    expect(say(shipBlocker(empty))).toBe('Nothing to ship yet')
     expectIllegal(() => applyAction(empty, { type: 'ship', buildingId: mill, marketId: 'london' }), /no cotton yet/)
     expectIllegal(() => applyAction(g, { type: 'ship', buildingId: 999, marketId: 'london' }), /Pick one of your/)
   })

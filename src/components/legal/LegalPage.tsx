@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { PATHS } from '../../data/navigation'
+import { useI18n } from '../../i18n'
 import { formatLegalDate, isPlaceholder, LEGAL_LAST_UPDATED, unfilledPlaceholders } from '../../legal/operator'
 import { Corners } from '../theme/Ornaments'
 
@@ -22,6 +23,8 @@ export function LegalPage({
   updated?: string
   ornate?: boolean
 }) {
+  const { t, lang, locale } = useI18n()
+  const l = t.legal
   const missing = unfilledPlaceholders()
   return (
     <article className="mx-auto max-w-3xl animate-fade-up px-4 py-8 sm:px-6 sm:py-12" aria-labelledby="legal-title">
@@ -29,18 +32,23 @@ export function LegalPage({
         {ornate && <Corners />}
         <p className="eyebrow">
           <Link to={PATHS.legal} className="rounded underline-offset-4 hover:underline">
-            Legal
+            {t.nav.legal}
           </Link>
         </p>
         <h1 id="legal-title" className="page-title text-4xl tracking-[0.08em] sm:text-5xl">
           {title}
         </h1>
         <p className="mt-2 text-sm text-parchment-300">
-          Last updated: <time dateTime={updated}>{formatLegalDate(updated)}</time>
+          {l.lastUpdated} <time dateTime={updated}>{formatLegalDate(updated, locale)}</time>
         </p>
+        {lang !== 'en' && (
+          <p className="mt-4 rounded-lg border border-bronze-400/40 bg-soot-950/60 px-3 py-2 text-sm text-parchment-200" role="note">
+            {l.translationNote}
+          </p>
+        )}
         {missing.length > 0 && (
           <p className="mt-4 rounded-lg border border-dashed border-brass-400/60 bg-brass-500/10 px-3 py-2 text-sm text-brass-200" role="note">
-            Draft: some details of who runs Bronze aren’t filled in yet (shown like <Fill value="{{THIS}}" />).
+            {l.draft(<Fill value="{{THIS}}" />)}
           </p>
         )}
         {intro && <div className="mt-5 text-lg leading-relaxed text-parchment-100">{intro}</div>}
@@ -93,8 +101,9 @@ export function Bullets({ children }: { children: ReactNode }) {
 
 /** A data table that scrolls sideways on narrow screens instead of breaking the page. */
 export function DataTable({ caption, head, rows }: { caption: string; head: string[]; rows: ReactNode[][] }) {
+  const t = useI18n().t
   return (
-    <div className="overflow-x-auto rounded-lg border border-bronze-500/30" role="region" aria-label={`${caption} (table)`} tabIndex={0}>
+    <div className="overflow-x-auto rounded-lg border border-bronze-500/30" role="region" aria-label={t.legal.table(caption)} tabIndex={0}>
       <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead className="bg-soot-950/70">

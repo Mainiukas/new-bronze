@@ -8,36 +8,51 @@ export const USERNAME_MAX = 20
 export const USERNAME_PATTERN = /^[A-Za-z0-9_]+$/
 export const PASSWORD_MIN = 8
 
+/** What the forms say about a field, in English (each language has its own in src/i18n: t.validation). */
+export const VALIDATION_EN = {
+  chooseUsername: 'Choose a username.',
+  atLeast: (n: number) => `At least ${n} characters.`,
+  atMost: (n: number) => `At most ${n} characters.`,
+  usernameChars: 'Letters, numbers and _ only.',
+  enterEmail: 'Enter your email.',
+  validEmail: 'Enter a valid email, like name@example.com.',
+  choosePassword: 'Choose a password.',
+  typeAgain: 'Type the password again.',
+  noMatch: 'The passwords don’t match.',
+}
+
+export type ValidationWords = typeof VALIDATION_EN
+
 /** Why a username can't be used, or null when it's well-formed (availability is checked separately). */
-export function validateUsername(value: string): string | null {
+export function validateUsername(value: string, w: ValidationWords = VALIDATION_EN): string | null {
   const name = value.trim()
-  if (name.length === 0) return 'Choose a username.'
-  if (name.length < USERNAME_MIN) return `At least ${USERNAME_MIN} characters.`
-  if (name.length > USERNAME_MAX) return `At most ${USERNAME_MAX} characters.`
-  if (!USERNAME_PATTERN.test(name)) return 'Letters, numbers and _ only.'
+  if (name.length === 0) return w.chooseUsername
+  if (name.length < USERNAME_MIN) return w.atLeast(USERNAME_MIN)
+  if (name.length > USERNAME_MAX) return w.atMost(USERNAME_MAX)
+  if (!USERNAME_PATTERN.test(name)) return w.usernameChars
   return null
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/
 
-export function validateEmail(value: string): string | null {
+export function validateEmail(value: string, w: ValidationWords = VALIDATION_EN): string | null {
   const email = value.trim()
-  if (email.length === 0) return 'Enter your email.'
-  if (email.length > 254 || !EMAIL_PATTERN.test(email)) return 'Enter a valid email, like name@example.com.'
+  if (email.length === 0) return w.enterEmail
+  if (email.length > 254 || !EMAIL_PATTERN.test(email)) return w.validEmail
   return null
 }
 
 export const isEmail = (value: string) => value.includes('@')
 
-export function validatePassword(value: string): string | null {
-  if (value.length === 0) return 'Choose a password.'
-  if (value.length < PASSWORD_MIN) return `At least ${PASSWORD_MIN} characters.`
+export function validatePassword(value: string, w: ValidationWords = VALIDATION_EN): string | null {
+  if (value.length === 0) return w.choosePassword
+  if (value.length < PASSWORD_MIN) return w.atLeast(PASSWORD_MIN)
   return null
 }
 
-export function validateConfirmation(password: string, confirmation: string): string | null {
-  if (confirmation.length === 0) return 'Type the password again.'
-  if (password !== confirmation) return 'The passwords don’t match.'
+export function validateConfirmation(password: string, confirmation: string, w: ValidationWords = VALIDATION_EN): string | null {
+  if (confirmation.length === 0) return w.typeAgain
+  if (password !== confirmation) return w.noMatch
   return null
 }
 

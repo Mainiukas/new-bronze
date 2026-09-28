@@ -116,6 +116,8 @@ export type GameEvent =
   | { type: 'raiseFunds'; player: number }
   | { type: 'endTurn'; player: number; timedOut: boolean }
 
+import type { GameMessage } from './messages'
+
 export type LogKind = 'build' | 'link' | 'ship' | 'funds' | 'turn' | 'round' | 'era' | 'reset' | 'end'
 
 export interface LogEntry {
@@ -124,7 +126,10 @@ export interface LogEntry {
   kind: LogKind
   /** Acting player, or null for round events. */
   player: number | null
+  /** In English (all that saves from before translations have). */
   text: string
+  /** The same, as data, for the player's language. */
+  msg?: GameMessage
 }
 
 export interface FinalScore {

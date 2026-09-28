@@ -1,14 +1,16 @@
 import { ComingSoon } from '../components/ComingSoon'
+import { useT } from '../i18n'
 import { IconBracket } from '../components/icons'
 
 export function Tournaments() {
+  const t = useT()
   return (
     <ComingSoon
-      title="Tournaments"
-      empty="The Exhibition hall is quiet. Check back soon."
+      title={t.pages.tournaments.title}
+      empty={t.pages.tournaments.empty}
       icon={<IconBracket />}
-      blurb="Ranked brackets and seasonal cups for the most ambitious industrialists."
-      locked="Tournaments are played under your account: log in to enter."
+      blurb={t.pages.tournaments.blurb}
+      locked={t.pages.tournaments.locked}
     />
   )
 }

@@ -162,6 +162,28 @@
         var art = document.getElementById('splash-art')
         if (art) splash.appendChild(art.content.cloneNode(true))
         splash.appendChild(document.getElementById('splash-content').content.cloneNode(true))
+        // In the saved language, else the browser's (src/i18n/languages.ts has the same list).
+        var words = {
+          lt: ['Kūrenamos krosnys…', 'Kraunamas Bronze'],
+          de: ['Die Öfen werden angeheizt…', 'Bronze wird geladen'],
+          fr: ['On attise les fourneaux…', 'Chargement de Bronze'],
+          es: ['Avivando los hornos…', 'Cargando Bronze'],
+        }
+        var lang = ''
+        try {
+          lang = JSON.parse(localStorage.getItem('bronze.settings') || '{}').language || ''
+        } catch (e) {}
+        var wanted = [lang].concat(navigator.languages || [navigator.language])
+        for (var i = 0; i < wanted.length; i++) {
+          var code = String(wanted[i] || '').toLowerCase().split('-')[0]
+          if (code === 'en') break
+          if (words[code]) {
+            splash.querySelector('.splash-text').textContent = words[code][0]
+            splash.querySelector('.splash-bar').setAttribute('aria-label', words[code][1])
+            document.documentElement.lang = code
+            break
+          }
+        }
         splash.className = 'splash--on'
       }, 400)
     </script>

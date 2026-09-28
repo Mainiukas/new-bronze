@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { GameState, LogKind } from '../../game/types'
+import { useT } from '../../i18n'
 import { PLAYER_STYLE } from './glyphs'
 
 /** Small line icons for each kind of log entry (16 × 16, drawn in currentColor). */
@@ -26,6 +27,7 @@ const ICONS: Record<LogKind, string> = {
 
 /** The match log, oldest first, scrolled to the newest entry as it grows. Keeps the last 80 entries. */
 export function GameLog({ game, colorBlind }: { game: GameState; colorBlind: boolean }) {
+  const t = useT()
   const listRef = useRef<HTMLOListElement>(null)
   const last = game.log.at(-1)?.id
   useEffect(() => {
@@ -33,8 +35,8 @@ export function GameLog({ game, colorBlind }: { game: GameState; colorBlind: boo
     if (list) list.scrollTop = list.scrollHeight
   }, [last])
   return (
-    <section className="plate rivets flex min-h-0 flex-col p-3 sm:p-4" aria-label="Match log">
-      <h2 className="eyebrow mb-2.5">Match log</h2>
+    <section className="plate rivets flex min-h-0 flex-col p-3 sm:p-4" aria-label={t.match.matchLog}>
+      <h2 className="eyebrow mb-2.5">{t.match.matchLog}</h2>
       <ol ref={listRef} className="flex max-h-64 flex-col gap-1.5 overflow-y-auto pr-1 text-sm lg:max-h-80" aria-live="polite" aria-relevant="additions">
         {game.log.map((entry) => {
           const player = entry.player === null ? null : game.players[entry.player]
@@ -53,7 +55,7 @@ export function GameLog({ game, colorBlind }: { game: GameState; colorBlind: boo
               </span>
               <span className={system ? (entry.kind === 'era' ? 'font-semibold text-brass-200' : 'text-parchment-400 italic') : 'text-parchment-200'}>
                 {colorBlind && style && <span className="mr-1 font-display text-xs font-bold text-parchment-400">[{style.letter}]</span>}
-                {entry.text}
+                {t.logEntry(entry)}
               </span>
             </li>
           )

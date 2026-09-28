@@ -345,6 +345,17 @@ src/
 - **New page:** add a path to `PATHS` and an entry to `NAV_TABS` in
   `src/data/navigation.ts`, give it an icon in `src/components/navItems.ts`,
   then add a `<Route>` in `App.tsx`.
+- **Text and languages:** the site is in English, Lithuanian, German, French
+  and Spanish (Settings → Language; the browser's language is the default).
+  Every piece of interface text is in `src/i18n/en.tsx`; the other languages
+  are typed against it, so `npm run build` fails until each one has every
+  string. Game log lines are data (`src/game/messages.ts`) worded per language
+  in `src/i18n/game/`. The legal pages are translated in
+  `src/pages/legal/text/`, with a note that the English text prevails. To add
+  a language, add it to `LANGUAGES` in `src/i18n/languages.ts`, write its
+  catalogue (and its game words in `src/i18n/game/`), register it in the
+  loaders in `src/i18n/store.ts` and `src/pages/legal/text/load.ts`, and add
+  it to the splash script in `index.html`. Town, map and computer player names stay in English.
 - **Re-theme:** change the color tokens in the `@theme` block at the top of
   `src/index.css`. Each token becomes a CSS variable (`--color-bronze-400`)
   and Tailwind utilities (`bg-bronze-400`, `text-bronze-400/60`, ...).

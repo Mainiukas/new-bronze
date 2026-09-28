@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { useT } from '../i18n'
 import { Gear } from './Gear'
 import { LockedNotice } from './LockPill'
 import { PageTitle } from './theme/Ornaments'
@@ -17,6 +18,7 @@ interface ComingSoonProps {
 
 /** Shared layout for tabs that aren't built yet: the title, then a panel saying so. */
 export function ComingSoon({ title, empty, blurb, icon, locked }: ComingSoonProps) {
+  const t = useT()
   const { signedIn } = useAuth()
   return (
     <section className="mx-auto flex max-w-2xl animate-fade-up flex-col items-center px-4 py-12 text-center sm:py-16">
@@ -34,7 +36,7 @@ export function ComingSoon({ title, empty, blurb, icon, locked }: ComingSoonProp
         <p className="max-w-md font-display text-2xl leading-snug font-bold tracking-[0.04em] text-balance text-parchment-50">{empty}</p>
         <p className="mt-5 inline-flex items-center gap-3 rounded-full border border-bronze-400/40 bg-soot-950/80 px-5 py-2 font-display text-lg font-bold tracking-[0.3em] text-brass-300 uppercase shadow-[0_0_24px_-8px_rgb(255_157_77/0.6)]">
           <span className="size-2 animate-pulse rounded-full bg-ember-400 shadow-[0_0_8px_rgb(255_157_77)]" />
-          Coming soon
+          {t.common.comingSoon}
         </p>
         <p className="mt-5 max-w-md text-parchment-200">{blurb}</p>
         {locked && !signedIn && <LockedNotice>{locked}</LockedNotice>}

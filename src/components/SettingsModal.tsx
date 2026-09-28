@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { AI_SPEEDS, ANIMATION_SPEEDS, DEFAULT_SETTINGS, LANGUAGES, type GameSettings, type LanguageCode } from '../data/settings'
+import { AI_SPEEDS, ANIMATION_SPEEDS, defaultSettings, type GameSettings } from '../data/settings'
 import { useToast } from '../hooks/useToast'
+import { LANGUAGES, useT, type LanguageCode } from '../i18n'
 import { IconChevronDown, IconCog } from './icons'
 import { ModalFrame } from './ModalFrame'
 import { AccountSection, NotificationsSection, PrivacySection } from './settings/AccountSettings'
@@ -15,6 +16,8 @@ interface SettingsModalProps {
 
 /** Settings dialog. Saved between visits; changes apply at once, also in a match. */
 export function SettingsModal({ open, onClose, settings, onChange }: SettingsModalProps) {
+  const t = useT()
+  const s = t.settings
   const notify = useToast()
   const update = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) =>
     onChange({ ...settings, [key]: value })
@@ -24,74 +27,76 @@ export function SettingsModal({ open, onClose, settings, onChange }: SettingsMod
       open={open}
       onClose={onClose}
       id="settings"
-      title="Settings"
+      title={t.nav.settings}
       icon={<IconCog />}
       footer={
         <>
-          <button type="button" className="btn btn-ghost" onClick={() => onChange(DEFAULT_SETTINGS)}>
-            Reset
+          <button type="button" className="btn btn-ghost" onClick={() => onChange(defaultSettings())}>
+            {s.reset}
           </button>
           <button type="button" className="btn btn-primary px-6" onClick={onClose}>
-            Done
+            {t.common.done}
           </button>
         </>
       }
     >
       <div className="flex flex-col gap-6">
-        <SettingsGroup title="Game">
+        <SettingsGroup title={s.game}>
           <Choice
             id="animation-speed"
-            label="Animation speed"
-            description="Flashes and the shipping dot on the board."
+            label={s.animationSpeed}
+            description={s.animationHint}
             options={ANIMATION_SPEEDS}
+            optionLabel={(option) => s.speeds[option]}
             value={settings.animationSpeed}
             onChange={(value) => update('animationSpeed', value)}
           />
           <Choice
             id="ai-speed"
-            label="Computer speed"
-            description="The pause between a computer player’s actions."
+            label={s.aiSpeed}
+            description={s.aiSpeedHint}
             options={AI_SPEEDS}
+            optionLabel={(option) => s.speeds[option]}
             value={settings.aiSpeed}
             onChange={(value) => update('aiSpeed', value)}
           />
           <Toggle
             id="move-timer"
-            label="Move timer"
-            description="Each turn has a time limit; when it runs out, the rest of the turn is lost. Off: play untimed."
+            label={s.moveTimer}
+            description={s.moveTimerHint}
             checked={settings.showMoveTimer}
             onChange={(checked) => update('showMoveTimer', checked)}
           />
           <Toggle
             id="show-log"
-            label="Show the match log"
+            label={s.showLog}
             checked={settings.showLog}
             onChange={(checked) => update('showLog', checked)}
           />
         </SettingsGroup>
 
-        <SettingsGroup title="Audio">
-          <Toggle id="sound" label="Sound" checked={settings.soundOn} onChange={(checked) => update('soundOn', checked)} />
+        <SettingsGroup title={s.audio}>
+          <Toggle id="sound" label={s.sound} checked={settings.soundOn} onChange={(checked) => update('soundOn', checked)} />
           <VolumeSlider
             id="master-volume"
-            label="Master volume"
+            label={s.masterVolume}
             value={settings.masterVolume}
             disabled={!settings.soundOn}
             onChange={(value) => update('masterVolume', value)}
           />
           <VolumeSlider
             id="music-volume"
-            label="Music volume"
+            label={s.musicVolume}
             value={settings.musicVolume}
             disabled={!settings.soundOn}
             onChange={(value) => update('musicVolume', value)}
           />
         </SettingsGroup>
 
-        <SettingsGroup title="General">
+        <SettingsGroup title={s.general}>
           <div className="flex items-center justify-between gap-4">
             <label htmlFor="language" className="font-medium text-parchment-100">
-              Language
+              {s.language}
             </label>
             <div className="relative">
               <select
@@ -101,7 +106,7 @@ export function SettingsModal({ open, onClose, settings, onChange }: SettingsMod
                 className="appearance-none rounded-lg border border-bronze-500/35 bg-soot-950/70 py-2 pr-9 pl-3 text-parchment-50 transition outline-none hover:border-bronze-300/60 focus-visible:border-bronze-300/80"
               >
                 {LANGUAGES.map((language) => (
-                  <option key={language.code} value={language.code}>
+                  <option key={language.code} value={language.code} lang={language.code}>
                     {language.label}
                   </option>
                 ))}
@@ -112,15 +117,15 @@ export function SettingsModal({ open, onClose, settings, onChange }: SettingsMod
 
         </SettingsGroup>
 
-        <SettingsGroup title="Account">
+        <SettingsGroup title={s.account}>
           <AccountSection onDone={onClose} notify={notify} />
         </SettingsGroup>
 
-        <SettingsGroup title="Notifications">
+        <SettingsGroup title={s.notifications}>
           <NotificationsSection />
         </SettingsGroup>
 
-        <SettingsGroup title="Privacy">
+        <SettingsGroup title={s.privacy}>
           <PrivacySection onClose={onClose} />
         </SettingsGroup>
       </div>
@@ -146,12 +151,13 @@ interface ChoiceProps<T extends string> {
   label: string
   description?: string
   options: readonly T[]
+  optionLabel: (option: T) => string
   value: T
   onChange: (value: T) => void
 }
 
 /** A row of mutually exclusive options. */
-function Choice<T extends string>({ id, label, description, options, value, onChange }: ChoiceProps<T>) {
+function Choice<T extends string>({ id, label, description, options, optionLabel, value, onChange }: ChoiceProps<T>) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <div>
@@ -168,11 +174,11 @@ function Choice<T extends string>({ id, label, description, options, value, onCh
             role="radio"
             aria-checked={value === option}
             onClick={() => onChange(option)}
-            className={`min-h-10 px-3 text-sm font-semibold tracking-wide capitalize transition ${
+            className={`min-h-10 px-3 text-sm font-semibold tracking-wide transition ${
               value === option ? 'bg-bronze-500/35 text-parchment-50' : 'text-parchment-400 hover:text-parchment-100'
             }`}
           >
-            {option}
+            {optionLabel(option)}
           </button>
         ))}
       </div>

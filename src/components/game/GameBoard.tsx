@@ -4,6 +4,7 @@ import { INDUSTRIES } from '../../game/rules'
 import type { Board, Building, BoardTown, GameState, IndustryKind } from '../../game/types'
 import { INDUSTRY_SHORT } from '../../data/board'
 import { INDUSTRY_ICON_URLS } from '../board/assets'
+import { displayName, useT } from '../../i18n'
 
 /** Board geometry, in map units (the board is 160 × 100). */
 const PLOT = 4.6
@@ -83,6 +84,8 @@ export function GameBoard({
   onSource,
   onMarket,
 }: GameBoardProps) {
+  const t = useT()
+  const bl = t.boardLabels
   const board: Board = game.board
   const towns = new Map(board.towns.map((town) => [town.id, town]))
   const buildings = new Map(game.buildings.map((b) => [`${b.townId}#${b.slot}`, b]))
@@ -90,7 +93,7 @@ export function GameBoard({
   const shippedRoutes = new Set(event?.type === 'ship' ? event.routeIds : [])
 
   return (
-    <svg viewBox="0 0 160 100" className="block h-auto w-full select-none" role="group" aria-label="Game board">
+    <svg viewBox="0 0 160 100" className="block h-auto w-full select-none" role="group" aria-label={bl.gameBoard}>
       {/* Decoration: hills and water */}
       {decor.hills?.map((hill, i) =>
         [1, 0.68, 0.36].map((k) => (
@@ -128,7 +131,7 @@ export function GameBoard({
         const routeKind = route.kinds[0]
         const label = highlights.routes?.get(route.id)
         const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-        const name = `${a.name} to ${b.name} ${routeKind === 'canal' ? 'canal' : 'railway'}`
+        const name = bl.route(a.name, b.name, routeKind)
         return (
           <g key={route.id}>
             {!built && routeKind === 'canal' && (
@@ -177,7 +180,7 @@ export function GameBoard({
               <g
                 role="button"
                 tabIndex={0}
-                aria-label={`Build the ${name}, ${label}`}
+                aria-label={bl.buildRoute(name, label)}
                 className="group cursor-pointer outline-none"
                 onClick={() => onRoute?.(route.id)}
                 onKeyDown={activate(() => onRoute?.(route.id))}
@@ -195,7 +198,7 @@ export function GameBoard({
                 <CostTag x={mid.x} y={mid.y} text={label} />
               </g>
             )}
-            <title>{`${a.name} – ${b.name} (${routeKind === 'canal' ? 'canal' : 'railway'}${built ? `, ${game.players[owner].name}` : ''})`}</title>
+            <title>{bl.routeTitle(a.name, b.name, routeKind, built ? displayName(t, game.players[owner].name) : null)}</title>
           </g>
         )
       })}
@@ -265,7 +268,7 @@ export function GameBoard({
                 flash={event?.type === 'build' && event.townId === town.id && event.slot === slot ? game.nextId : null}
                 onPlot={onPlot}
                 onSource={onSource}
-                ownerName={(b) => game.players[b.owner].name}
+                ownerName={(b) => displayName(t, game.players[b.owner].name)}
                 colorOf={colorOf}
               />
             ))}
@@ -274,7 +277,7 @@ export function GameBoard({
               <g
                 role="button"
                 tabIndex={0}
-                aria-label={`Ship to ${town.name}: ${marketLabel}`}
+                aria-label={bl.shipTo(town.name, marketLabel)}
                 className="group cursor-pointer outline-none"
                 onClick={() => onMarket?.(town.id)}
                 onKeyDown={activate(() => onMarket?.(town.id))}
@@ -294,7 +297,7 @@ export function GameBoard({
               <circle key={game.nextId} cx={town.x} cy={town.y} r={MARKET_R + 1} className="board-flash fill-none stroke-brass-200" strokeWidth={0.8} />
             )}
             <title>
-              {`${town.name}${isMarket ? ` — market town, buys cotton, coal and iron at £${game.prices[town.id]} a unit` : ''}`}
+              {bl.townTitle(town.name, isMarket ? game.prices[town.id] : null)}
             </title>
           </g>
         )
@@ -324,7 +327,7 @@ function Plot({ town, slot, allowed, building, clickable, sourcePick, selectedSo
   const pickable = building !== undefined && (sourcePick?.has(building.id) ?? false)
   const selected = building !== undefined && building.id === selectedSource
   const isMill = building !== undefined && INDUSTRIES[building.kind].ships === 'cotton'
-  const allowedNames = allowed.map((kind) => INDUSTRIES[kind].name).join(' or ')
+  const t = useT()
 
   let content: ReactNode
   if (building) {
@@ -371,8 +374,8 @@ function Plot({ town, slot, allowed, building, clickable, sourcePick, selectedSo
   }
 
   const label = building
-    ? `${town.name}, plot ${slot + 1}: ${ownerName(building)}’s ${INDUSTRIES[building.kind].name.toLowerCase()}${isMill ? `, ${building.goods} cotton` : ''}`
-    : `${town.name}, plot ${slot + 1}: ${allowedNames.toLowerCase()}, free`
+    ? t.boardLabels.slotBuilt(town.name, slot + 1, ownerName(building), building.kind, isMill ? building.goods : null)
+    : t.boardLabels.slotFree(town.name, slot + 1, allowed)
 
   const interactive = clickable || pickable
   const handle = () => {

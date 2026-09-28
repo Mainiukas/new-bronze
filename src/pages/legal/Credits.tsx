@@ -1,3 +1,4 @@
+import { Localized } from './text/Localized'
 import { DataTable, Fill, LegalPage, Section } from '../../components/legal/LegalPage'
 import { OPERATOR } from '../../legal/operator'
 
@@ -11,7 +12,7 @@ const fileLink = (href: string, label: string) => (
  * Credits and the attributions the licences ask for. The software list with
  * full licence texts is THIRD_PARTY_NOTICES (npm run notices).
  */
-export function Credits() {
+function CreditsEnglish() {
   return (
     <LegalPage
       ornate
@@ -67,4 +68,9 @@ export function Credits() {
       </Section>
     </LegalPage>
   )
+}
+
+/** In the player's language (a translation, with the English text prevailing), or in English. */
+export function Credits() {
+  return <Localized page="Credits" english={CreditsEnglish} />
 }

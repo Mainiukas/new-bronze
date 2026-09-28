@@ -14,11 +14,11 @@ import { PageBackground } from './components/theme/PageBackground'
 import { markFirstPaint, whenFirstPaint } from './components/theme/firstPaint'
 import { hideSplash } from './components/theme/splash'
 import { ToastProvider } from './components/ToastProvider'
-import { DEFAULT_GAME_MODE_ID, getGameMode, isGameModeId } from './data/gameModes'
+import { DEFAULT_GAME_MODE_ID, isGameModeId } from './data/gameModes'
 import { DEFAULT_MAP_ID, getMap, isMapId } from './data/maps'
 import { DEFAULT_SETUP, parseSavedSetup } from './data/matchSetup'
 import { isAuthPath, PATHS, type MenuAction } from './data/navigation'
-import { ANIMATION_SCALE, DEFAULT_SETTINGS, parseSettings } from './data/settings'
+import { ANIMATION_SCALE, defaultSettings, parseSettings } from './data/settings'
 import { createGame, parseSavedGame, readSavedGame } from './game/engine'
 import type { GameState } from './game/types'
 import { useAuth } from './hooks/useAuth'
@@ -26,6 +26,7 @@ import type { AuthLocationState } from './hooks/useOpenAuth'
 import { usePersistentState } from './hooks/usePersistentState'
 import { usePlayerStats } from './hooks/usePlayerStats'
 import { useToast } from './hooks/useToast'
+import { I18nProvider, setLanguage, useT } from './i18n'
 import { setVolumes } from './lib/sound'
 import { randomSeed } from './lib/random'
 import { readStorage, removeStorage, STORAGE_KEYS } from './lib/storage'
@@ -75,17 +76,20 @@ export default function App() {
   // server-side rewrites, and inside embedded or file:// pages.
   return (
     <HashRouter>
-      <ToastProvider>
-        <AuthProvider backend={accountBackend}>
-          <AppShell />
-        </AuthProvider>
-      </ToastProvider>
+      <I18nProvider>
+        <ToastProvider>
+          <AuthProvider backend={accountBackend}>
+            <AppShell />
+          </AuthProvider>
+        </ToastProvider>
+      </I18nProvider>
     </HashRouter>
   )
 }
 
 /** App-wide state: lobby selection, match setup, settings, the saved match, stats, open dialog. */
 function AppShell() {
+  const t = useT()
   const notify = useToast()
   const navigate = useNavigate()
   const location = useLocation()
@@ -106,7 +110,8 @@ function AppShell() {
   )
   // Seats, names, colours and AI levels: edited on the Play page, and seat 1 is your profile.
   const [setup, setSetup] = usePersistentState(STORAGE_KEYS.setup, DEFAULT_SETUP, parseSavedSetup)
-  const [settings, setSettings] = usePersistentState(STORAGE_KEYS.settings, DEFAULT_SETTINGS, parseSettings)
+  const [settings, setSettings] = usePersistentState(STORAGE_KEYS.settings, defaultSettings(), parseSettings)
+  useEffect(() => setLanguage(settings.language), [settings.language])
   // A save from an older version can't be resumed: say so (once) instead of silently dropping it.
   const [outdatedSave, setOutdatedSave] = useState(() => readSavedGame(readStorage(STORAGE_KEYS.match)).status === 'outdated')
   // Saved after every action (and every state change), so Continue resumes exactly where play stopped.
@@ -155,7 +160,7 @@ function AppShell() {
   const savedMatch: SavedMatchSummary | null =
     game && game.status === 'playing'
       ? {
-          mode: getGameMode(game.modeId).name,
+          modeId: game.modeId,
           map: getMap(game.mapId).name,
           round: game.round,
           totalRounds: game.totalRounds,
@@ -179,7 +184,7 @@ function AppShell() {
     <div className="relative flex min-h-dvh flex-col">
       <SkipLink />
       {/* First in the tab order, drawn at the bottom: the cookie choice (non-blocking). */}
-      <CookieBanner />
+      <CookieBanner language={settings.language} onLanguage={(language) => setSettings((prev) => ({ ...prev, language }))} />
       <Routes location={pageLocation}>
         <Route
           path={PATHS.play}
@@ -223,7 +228,7 @@ function AppShell() {
                 onContinue={() => navigate(PATHS.play)}
                 onAbandon={() => {
                   setGame(null)
-                  notify('Match abandoned')
+                  notify(t.lobby.abandoned)
                 }}
                 outdatedSave={outdatedSave && !game}
                 onDiscardOutdated={() => {
@@ -314,7 +319,8 @@ function LobbyLayout({ profile, onMenuAction, covered }: { profile: LobbyProfile
         className="flex flex-1 flex-col pb-[calc(3.5rem+env(safe-area-inset-bottom)+var(--cookie-banner-height,0px))] outline-none md:pb-[var(--cookie-banner-height,0px)] md:pl-[72px] lg:pl-60"
       >
         <div className="flex-1">
-          <Suspense fallback={null}>
+          {/* While a page's code loads, hold a screen of space so the footer doesn't show and then jump down (layout shift). */}
+          <Suspense fallback={<div className="min-h-dvh" />}>
             <Outlet />
           </Suspense>
         </div>
@@ -328,6 +334,7 @@ function LobbyLayout({ profile, onMenuAction, covered }: { profile: LobbyProfile
 
 /** "Skip to content": the first stop for keyboard users, hidden until focused. Jumps to the page (or the match). */
 function SkipLink() {
+  const t = useT()
   return (
     <a
       href="#main-content"
@@ -339,7 +346,7 @@ function SkipLink() {
       }}
       className="btn btn-primary fixed top-2 left-2 z-[70] -translate-y-24 focus:translate-y-0 motion-reduce:transition-none"
     >
-      Skip to content
+      {t.common.skipToContent}
     </a>
   )
 }

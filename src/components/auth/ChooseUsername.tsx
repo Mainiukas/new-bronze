@@ -3,6 +3,7 @@ import { AuthError, signupConsent, type Profile } from '../../auth/backend'
 import { authErrorMessage } from '../../auth/messages'
 import { suggestUsername, validateUsername } from '../../auth/validation'
 import { useAuth } from '../../hooks/useAuth'
+import { useT } from '../../i18n'
 import { AgeQuestion, MarketingConsent, TermsConsent, UnderAgeNotice, type AgeAnswer } from './Consents'
 import { FormAlert, SubmitButton, TextField, UsernameStatus } from './fields'
 import { useUsernameCheck } from './useUsernameCheck'
@@ -14,6 +15,8 @@ import { useUsernameCheck } from './useUsernameCheck'
  * the Register form. Declining (or being under 14) deletes what Google shared.
  */
 export function ChooseUsername({ onChosen, onDecline }: { onChosen: (profile: Profile) => void; onDecline: () => void }) {
+  const t = useT()
+  const c = t.auth.choose
   const auth = useAuth()
   const [username, setUsername] = useState(() => suggestUsername(auth.user?.displayName ?? auth.user?.email?.split('@')[0]))
   const [age, setAge] = useState<AgeAnswer>(null)
@@ -35,9 +38,9 @@ export function ChooseUsername({ onChosen, onDecline }: { onChosen: (profile: Pr
   const name = username.trim()
   const check = useUsernameCheck(username, auth.isUsernameAvailable)
   const fieldError =
-    validateUsername(name) ?? (check === 'taken' || refused === name ? 'That username is taken.' : check === 'error' ? 'Couldn’t check this username. Try again.' : null)
-  const ageError = age === null ? 'Choose your age group.' : null
-  const agreeError = agreed ? null : 'Agree to the Terms and Privacy Policy to continue.'
+    validateUsername(name, t.validation) ?? (check === 'taken' || refused === name ? t.auth.usernameTaken : check === 'error' ? t.auth.usernameCheckFailed : null)
+  const ageError = age === null ? t.auth.register.chooseAge : null
+  const agreeError = agreed ? null : t.auth.register.mustAgree
   const tooYoung = age === 'under-14'
   const valid = !fieldError && check === 'available' && !ageError && !agreeError && !tooYoung
 
@@ -55,7 +58,7 @@ export function ChooseUsername({ onChosen, onDecline }: { onChosen: (profile: Pr
       onChosen(await auth.chooseUsername(name, signupConsent(age, marketing)))
     } catch (failure) {
       if (failure instanceof AuthError && failure.code === 'username-taken') setRefused(name)
-      setError(authErrorMessage(failure))
+      setError(authErrorMessage(failure, t.authErrors))
       setBusy(false)
     }
   }
@@ -68,22 +71,22 @@ export function ChooseUsername({ onChosen, onDecline }: { onChosen: (profile: Pr
         )}
         <div className="min-w-0">
           <h2 id="username-title" className="font-display text-2xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-            Finish your account
+            {c.title}
           </h2>
-          <p className="truncate text-sm text-parchment-300">Signed in with Google as {auth.user?.email ?? auth.user?.displayName ?? 'your Google account'}</p>
+          <p className="truncate text-sm text-parchment-300">{c.signedInAs(auth.user?.email ?? auth.user?.displayName ?? c.yourGoogle)}</p>
         </div>
       </div>
-      <p className="mb-4 text-sm text-parchment-300">Choose the name other players will see. Your Bronze account is only created when you continue.</p>
+      <p className="mb-4 text-sm text-parchment-300">{c.intro}</p>
       <TextField
-        label="Username"
+        label={t.auth.username}
         inputRef={inputRef}
         value={username}
         onChange={(value) => {
           setUsername(value)
           setError(null)
         }}
-        error={name ? fieldError : validateUsername(name)}
-        hint="3–20 characters: letters, numbers and _."
+        error={name ? fieldError : validateUsername(name, t.validation)}
+        hint={t.auth.usernameHint}
         aside={<UsernameStatus status={check} />}
         autoComplete="username"
         autoCapitalize="none"
@@ -102,7 +105,7 @@ export function ChooseUsername({ onChosen, onDecline }: { onChosen: (profile: Pr
         firstRef={ageRef}
       />
       {tooYoung ? (
-        <UnderAgeNotice onKeepPlaying={onDecline} keepPlayingLabel="Delete this sign-in and play as a guest" />
+        <UnderAgeNotice onKeepPlaying={onDecline} keepPlayingLabel={c.deleteAndPlay} />
       ) : (
         <>
           <TermsConsent id="google-agree" checked={agreed} onChange={setAgreed} error={tried ? agreeError : null} inputRef={agreeRef} />
@@ -110,14 +113,14 @@ export function ChooseUsername({ onChosen, onDecline }: { onChosen: (profile: Pr
           <div className="mt-3">
             <FormAlert message={error} />
             <SubmitButton busy={busy} disabled={!valid}>
-              Create account
+              {t.auth.register.create}
             </SubmitButton>
           </div>
         </>
       )}
       <p className="mt-5 text-center">
         <button type="button" onClick={onDecline} className="min-h-11 px-2 text-sm font-semibold text-parchment-200 underline-offset-2 hover:text-parchment-50 hover:underline">
-          Not now: cancel and delete what Google shared
+          {c.notNow}
         </button>
       </p>
     </form>

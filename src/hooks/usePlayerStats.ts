@@ -4,6 +4,7 @@ import type { GameState } from '../game/types'
 import { readStorage, removeStorage, STORAGE_KEYS, writeStorage } from '../lib/storage'
 import { useAuth } from './useAuth'
 import { usePersistentState } from './usePersistentState'
+import { useT } from '../i18n'
 import { useToast } from './useToast'
 
 /** An account's stats not yet confirmed saved by the server. */
@@ -22,6 +23,7 @@ const readStats = (key: string) => {
  * confirms each save, and is folded back in at the next sign-in if it didn't.
  */
 export function usePlayerStats() {
+  const t = useT()
   const auth = useAuth()
   const notify = useToast()
   const [localStats, setLocalStats] = usePersistentState(STORAGE_KEYS.stats, EMPTY_STATS, parseStats)
@@ -33,10 +35,10 @@ export function usePlayerStats() {
       writeStorage(pendingKey(profileId), stats)
       saveStats(stats).then(
         () => removeStorage(pendingKey(profileId)),
-        () => notify('Couldn’t save your record to your account. It’s kept on this device and will be saved next time you log in.'),
+        () => notify(t.stats.saveFailed),
       )
     },
-    [saveStats, notify],
+    [saveStats, notify, t],
   )
 
   // A player signed in: fold in last time's unsaved copy, and move this device's guest progress in.
@@ -53,7 +55,7 @@ export function usePlayerStats() {
       writeStorage(pendingKey(profile.id), stats)
       removeStorage(STORAGE_KEYS.stats)
       setLocalStats(EMPTY_STATS)
-      notify('Your guest progress was added to your account.')
+      notify(t.stats.guestMoved)
     }
     if (pending || moveGuest) save(profile.id, stats)
   })

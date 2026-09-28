@@ -7,6 +7,7 @@ import { renderWith } from './game/en'
 import game from './game/lt'
 import { pluralizer } from './languages'
 import accountWords from './account/lt'
+import brassWords from './brass/lt'
 import type { Messages } from './messages'
 
 /* Visi ekrano žodžiai lietuviškai (vertimas iš en.tsx). */
@@ -796,6 +797,7 @@ const lt: Messages = {
     freeToPlay: 'Bronze žaisti nemokama; niekas neparduodama.',
   },
   ...accountWords,
+  brass: brassWords,
 }
 
 export default lt

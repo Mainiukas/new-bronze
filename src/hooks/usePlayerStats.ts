@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useEffectEvent } from 'react'
 import type { GuestMerge, MatchResult } from '../auth/backend'
 import { EMPTY_STATS, hasProgress, mergeStats, parseStats, recordMatch, type Achievement, type PlayerStats } from '../data/achievements'
-import type { GameState } from '../game/types'
+import { summarizeMatch, type BrassMatch } from '../rules/match'
 import { readStorage, removeStorage, STORAGE_KEYS, writeStorage } from '../lib/storage'
 import { useAuth } from './useAuth'
 import { usePersistentState } from './usePersistentState'
@@ -134,8 +134,8 @@ export function usePlayerStats() {
 
   /** Fold a finished match into the current record. Returns the achievements it unlocked. */
   const record = useCallback(
-    (finished: GameState): Achievement[] => {
-      const result = recordMatch(profile ? profile.stats : localStats, finished)
+    (finished: BrassMatch): Achievement[] => {
+      const result = recordMatch(profile ? profile.stats : localStats, summarizeMatch(finished), finished.mapId)
       if (!result.match) return []
       if (profile) {
         const { score, won, goodsShipped, placement, links, industries, players, modeId } = result.match

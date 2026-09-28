@@ -150,7 +150,7 @@ const bubble = { x: -BUBBLE_W / 2, y: -BUBBLE_H / 2, width: BUBBLE_W, height: BU
  * and turned to it, never upside down. When it can be built it gets a
  * pulsing soft gold glow.
  */
-export function LinkBubble({ x, y, angle, glow = false }: { x: number; y: number; angle: number; glow?: boolean }) {
+export function LinkBubble({ x, y, angle, glow = false, glowColor }: { x: number; y: number; angle: number; glow?: boolean; glowColor?: string }) {
   const pad = 3
   return (
     <g transform={`translate(${f(x)} ${f(y)}) rotate(${f(upright(angle))})`}>
@@ -161,9 +161,9 @@ export function LinkBubble({ x, y, angle, glow = false }: { x: number; y: number
           width={BUBBLE_W + pad * 2}
           height={BUBBLE_H + pad * 2}
           rx={BUBBLE_H / 2 + pad}
-          fill={C.gold}
+          fill={glowColor ?? C.gold}
           fillOpacity={0.35}
-          stroke={C.gold}
+          stroke={glowColor ?? C.gold}
           strokeWidth={3}
           filter={`url(#${DEF.glow})`}
           className="board-target"
@@ -264,7 +264,15 @@ export interface BuiltTile {
   /** Cotton waiting at a mill; undefined for other industries. */
   goods?: number
   mark?: string
+  /** The tile's level (drawn as a roman numeral). */
+  level?: number
+  /** A flipped (sold or used-up) tile: drawn dark with a gold rim. */
+  flipped?: boolean
+  /** Coal or iron cubes still on it. */
+  cubes?: number
 }
+
+const ROMAN_NUMERALS = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI']
 
 /**
  * One industry slot: a charcoal square with a dark-bronze border, an inner
@@ -278,9 +286,33 @@ export function SlotTile({ rect, allowed, tile }: { rect: Rect; allowed: Industr
   if (tile) {
     return (
       <g>
-        <rect x={x} y={y} width={w} height={h} rx={2} style={{ fill: tile.color }} stroke="#000" strokeOpacity={0.6} strokeWidth={1.5} />
+        <rect x={x} y={y} width={w} height={h} rx={2} style={{ fill: tile.flipped ? C.ink : tile.color }} stroke={tile.flipped ? tile.color : '#000'} strokeOpacity={tile.flipped ? 1 : 0.6} strokeWidth={tile.flipped ? 3 : 1.5} />
         <rect x={x} y={y} width={w} height={h} rx={2} fill={`url(#${DEF.vignette})`} opacity={0.55} />
         <IndustryIcon industry={tile.industry} cx={cx} cy={cy - 1.5} size={w * 0.78} />
+        {tile.level !== undefined && (
+          <g>
+            <rect x={x + 1.5} y={y + h - 10} width={15} height={8.5} rx={2} fill={C.ink} fillOpacity={0.85} />
+            <text x={x + 9} y={y + h - 5.75} dy="0.36em" textAnchor="middle" fontSize={7} fontWeight={800} className="font-display" fill={C.gold}>
+              {ROMAN_NUMERALS[tile.level] ?? tile.level}
+            </text>
+          </g>
+        )}
+        {tile.cubes !== undefined && tile.cubes > 0 && (
+          <g>
+            {Array.from({ length: Math.min(tile.cubes, 6) }, (_, i) => (
+              <rect
+                key={i}
+                x={x + w - 6.5 - (i % 3) * 5}
+                y={y + 2 + Math.floor(i / 3) * 5}
+                width={4}
+                height={4}
+                fill={tile.industry === 'iron' ? '#d9772b' : '#161412'}
+                stroke={tile.industry === 'iron' ? '#5a2c0a' : '#8a8580'}
+                strokeWidth={0.6}
+              />
+            ))}
+          </g>
+        )}
         {tile.stars !== undefined && (
           <g>
             <rect x={x + 1.5} y={y + h - 10} width={15} height={8.5} rx={2} fill={C.ink} fillOpacity={0.85} />

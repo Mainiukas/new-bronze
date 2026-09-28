@@ -740,3 +740,31 @@ svg [role='button']:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+/* Brass player panel: UPGRADE's border pulses to guide the player; stat values flash when they change. */
+@keyframes pulse-border {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(248 216 132 / 0);
+    border-color: rgb(248 216 132 / 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgb(248 216 132 / 0.55);
+    border-color: rgb(255 240 190);
+  }
+}
+@keyframes stat-up {
+  from {
+    color: #86e08a;
+    text-shadow: 0 0 10px #4fbf55;
+  }
+}
+@keyframes stat-down {
+  from {
+    color: #ff8a73;
+    text-shadow: 0 0 10px #d9482f;
+  }
+}
+[data-animations='off'] .stat-flash {
+  animation: none !important;
+}

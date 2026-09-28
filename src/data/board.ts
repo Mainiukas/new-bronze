@@ -114,7 +114,7 @@ export interface BuiltState {
    * Key from slotKey(locationId, slotIndex). `stars` is the ★ value shown on
    * the tile; `goods` the cotton waiting at a mill (shown as pips).
    */
-  slots: Record<string, { player: number; industry: Industry; goods?: number; stars?: number }>
+  slots: Record<string, { player: number; industry: Industry; goods?: number; stars?: number; level?: number; flipped?: boolean; cubes?: number }>
   /** Link id → owner. Built links are drawn as the current era's token. */
   links: Record<string, { player: number }>
 }

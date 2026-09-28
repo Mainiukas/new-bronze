@@ -6,6 +6,7 @@ import type { GameMessage } from '../game/messages'
 import type { RULES } from '../game/rules'
 import type { GoodsKind, IndustryKind, LogEntry, RouteKind } from '../game/types'
 import accountWords from './account/en'
+import brassWords from './brass/en'
 import game, { renderWith } from './game/en'
 import { pluralizer } from './languages'
 
@@ -779,6 +780,7 @@ const en = {
     freeToPlay: 'Bronze is free to play; nothing is sold.',
   },
   ...accountWords,
+  brass: brassWords,
 }
 
 export default en

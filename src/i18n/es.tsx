@@ -7,6 +7,7 @@ import { renderWith } from './game/en'
 import game from './game/es'
 import { pluralizer } from './languages'
 import accountWords from './account/es'
+import brassWords from './brass/es'
 import type { Messages } from './messages'
 
 /* Todas las palabras de la pantalla en español (traducidas de en.tsx). */
@@ -794,6 +795,7 @@ const es: Messages = {
     freeToPlay: 'Bronze es gratuito; no se vende nada.',
   },
   ...accountWords,
+  brass: brassWords,
 }
 
 export default es

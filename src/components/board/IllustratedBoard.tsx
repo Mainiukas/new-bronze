@@ -105,6 +105,12 @@ export interface IllustratedBoardProps {
   recent?: BoardRecent | null
   /** Multiplies the length of board animations (the animation-speed setting); 0 turns the moving dot off. */
   motion?: number
+  /** Hide the empty link spaces (only built links show), as in a match until a link action is chosen. */
+  hideEmptyLinks?: boolean
+  /** Colour of the target glows (the acting player's colour); the brass glow when unset. */
+  targetColor?: string
+  /** Hide the hubs' price badges (the Brass rules have no hub prices). */
+  hidePrices?: boolean
   className?: string
 }
 
@@ -198,6 +204,9 @@ export function IllustratedBoard({
   network = null,
   recent = null,
   motion = 1,
+  hideEmptyLinks = false,
+  targetColor,
+  hidePrices = false,
   className = '',
 }: IllustratedBoardProps) {
   const t = useT()
@@ -525,6 +534,7 @@ export function IllustratedBoard({
               const { link, marker } = route
               const owner = built.links[link.id]
               if ((layer === 'tokens') !== (owner !== undefined)) return null
+              if (layer === 'spaces' && hideEmptyLinks) return null
               const shut = routeShut(route)
               // In a match, targets are clicked in the top layer instead.
               const clickable = !editable && !targets && !!onSelectLink && !shut
@@ -605,6 +615,9 @@ export function IllustratedBoard({
                                   stars: tile.stars,
                                   goods: tile.industry === 'cotton' ? (tile.goods ?? 0) : undefined,
                                   mark: playerMark?.(tile.player),
+                                  level: tile.level,
+                                  flipped: tile.flipped,
+                                  cubes: tile.cubes,
                                 }
                               : null
                           }
@@ -653,7 +666,7 @@ export function IllustratedBoard({
             const g = groups.get(location.id)!
             return (
               <g key={location.id} opacity={isShut(location.id) ? CLOSED_OPACITY.location : 1} transform={dragShift(location.id)}>
-                {location.type === 'hub' && g.parts.type === 'hub' && (
+                {location.type === 'hub' && g.parts.type === 'hub' && !hidePrices && (
                   <g pointerEvents="none">
                     <PriceBadge rect={g.parts.badge} price={prices?.[location.id] ?? location.price} />
                   </g>
@@ -682,7 +695,16 @@ export function IllustratedBoard({
               const box = inflate(rect, 3)
               return (
                 <g key={`t-${key}`}>
-                  <rect x={box.x} y={box.y} width={box.w} height={box.h} rx={3} className="board-target fill-none stroke-board-glow" strokeWidth={2.5} />
+                  <rect
+                    x={box.x}
+                    y={box.y}
+                    width={box.w}
+                    height={box.h}
+                    rx={3}
+                    className={`board-target fill-none ${targetColor ? '' : 'stroke-board-glow'}`}
+                    style={targetColor ? { stroke: targetColor, filter: `drop-shadow(0 0 4px ${targetColor})` } : undefined}
+                    strokeWidth={2.5}
+                  />
                   {text && <TargetTag x={rect.x + rect.w / 2} y={rect.y - 12} text={text} />}
                 </g>
               )
@@ -797,7 +819,7 @@ export function IllustratedBoard({
               return (
                 <g key={`hit-${id}`} className="cursor-pointer" {...asButton(linkLabel(route, targets.links?.get(id)), () => onSelectLink?.(id))} {...hoverHandlers({ type: 'link', id })}>
                   <circle cx={route.marker.x} cy={route.marker.y} r={24} fill="transparent" />
-                  <LinkBubble x={route.marker.x} y={route.marker.y} angle={route.marker.angle} glow />
+                  <LinkBubble x={route.marker.x} y={route.marker.y} angle={route.marker.angle} glow glowColor={targetColor} />
                   {hovered && (
                     <circle cx={route.marker.x} cy={route.marker.y} r={27} fill="none" className="stroke-brass-200" strokeWidth={2} />
                   )}

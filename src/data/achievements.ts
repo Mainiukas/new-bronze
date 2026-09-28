@@ -4,7 +4,6 @@
  * and reports which achievements it unlocked.
  */
 
-import type { GameState } from '../game/types'
 import { MAPS } from './maps'
 
 export interface PlayerStats {
@@ -100,28 +99,14 @@ export const ACHIEVEMENTS: Achievement[] = [
  * unlocked, and the match as the local player saw it (null if they had no
  * part in it, e.g. the match didn't finish).
  */
-export function recordMatch(stats: PlayerStats, game: GameState): { stats: PlayerStats; unlocked: Achievement[]; match: MatchSummary | null } {
-  const you = game.players[0]
-  const score = game.scores?.find((s) => s.player === 0)
-  if (!score || you.isAI) return { stats, unlocked: [], match: null }
-
-  const match: MatchSummary = {
-    won: score.rank === 1,
-    score: score.total,
-    modeId: game.modeId,
-    players: game.players.length,
-    goodsShipped: you.goodsShipped,
-    links: Object.values(game.links).filter((link) => link.owner === 0).length,
-    shipyards: game.buildings.filter((b) => b.owner === 0 && b.kind === 'shipyard').length,
-    placement: score.rank,
-    industries: game.buildings.filter((b) => b.owner === 0).length,
-  }
+export function recordMatch(stats: PlayerStats, match: MatchSummary | null, mapId: string): { stats: PlayerStats; unlocked: Achievement[]; match: MatchSummary | null } {
+  if (!match) return { stats, unlocked: [], match: null }
   const next: PlayerStats = {
     matches: stats.matches + 1,
     wins: stats.wins + (match.won ? 1 : 0),
     bestScore: Math.max(stats.bestScore, match.score),
     goodsShipped: stats.goodsShipped + match.goodsShipped,
-    mapsPlayed: stats.mapsPlayed.includes(game.mapId) ? stats.mapsPlayed : [...stats.mapsPlayed, game.mapId],
+    mapsPlayed: stats.mapsPlayed.includes(mapId) ? stats.mapsPlayed : [...stats.mapsPlayed, mapId],
     unlocked: { ...stats.unlocked },
   }
   const unlocked = ACHIEVEMENTS.filter((a) => !next.unlocked[a.id] && a.earned(match, next))

@@ -68,18 +68,6 @@ const inventory: InventoryText = {
       purpose: 'Cuenta las contraseñas incorrectas para pausar los inicios de sesión 30 segundos tras 5 fallos (seguridad).',
       duration: 'Solo esta pestaña',
     },
-    __stripe_mid: {
-      where: 'Cookie',
-      provider: 'Stripe',
-      purpose: 'Solo si inicias una verificación de tarjeta: la pone el formulario de tarjeta de Stripe para reconocer el dispositivo y prevenir el fraude.',
-      duration: '1 año',
-    },
-    __stripe_sid: {
-      where: 'Cookie',
-      provider: 'Stripe',
-      purpose: 'Solo si inicias una verificación de tarjeta: la pone el formulario de tarjeta de Stripe para prevenir el fraude durante la verificación.',
-      duration: '30 minutos',
-    },
     'bronze.match': {
       where: LOCAL,
       provider: 'Bronze',
@@ -146,7 +134,7 @@ const inventory: InventoryText = {
   account: [
     {
       what: 'Dirección de correo electrónico',
-      why: 'Para que puedas iniciar sesión, y para los correos de la cuenta (confirmar tu dirección, restablecer la contraseña, avisos de seguridad cuando cambian tu contraseña, tu correo, tu teléfono o tu verificación en dos pasos).',
+      why: 'Para que puedas iniciar sesión, y para los correos de la cuenta (confirmar tu dirección, restablecer la contraseña, avisos de seguridad cuando cambian tu contraseña, tu correo o tu verificación en dos pasos).',
       basis: CONTRACT,
       retention: UNTIL_DELETED,
     },
@@ -212,18 +200,6 @@ const inventory: InventoryText = {
       retention: 'Hasta que la desactives o elimines tu cuenta',
     },
     {
-      what: 'Número de teléfono, solo si verificas uno',
-      why: 'Para mostrar la insignia «Teléfono verificado» en tu perfil y, si quieres, enviarte los códigos de verificación en dos pasos por SMS. Solo tú ves el número.',
-      basis: CONTRACT,
-      retention: UNTIL_DELETED,
-    },
-    {
-      what: 'Verificación de tarjeta, solo si verificas una tarjeta: que está verificada, cuándo, la marca de la tarjeta y sus 4 últimos dígitos (nunca el número de la tarjeta)',
-      why: 'Para mostrar la insignia «Jugador verificado», como señal de que eres una persona real. No se cobra nada. Escribes la tarjeta en el formulario de Stripe; nunca nos llega.',
-      basis: CONTRACT,
-      retention: 'Hasta que quites la verificación o elimines tu cuenta',
-    },
-    {
       what: 'Denuncias: cuando denuncias a un jugador o un jugador te denuncia a ti: a quién, el motivo, la nota y cuándo',
       why: 'Para revisar trampas, nombres ofensivos, acoso y spam, y mantener el juego limpio y seguro.',
       basis: 'Interés legítimo en un juego seguro (art. 6.1.f RGPD)',
@@ -270,18 +246,6 @@ const inventory: InventoryText = {
       location: 'Consulta la política de privacidad de Google',
     },
     {
-      name: 'Stripe (Stripe Payments Europe, Limited, para personas en el EEE)',
-      role: 'Solo si verificas una tarjeta: encargado del tratamiento para la verificación, y responsable independiente de su propia prevención del fraude y obligaciones legales',
-      data: 'Los datos de la tarjeta que escribes en el formulario de Stripe, datos de tu dispositivo y navegador, y el identificador de tu cuenta',
-      location: 'Irlanda y Estados Unidos; consulta la política de privacidad de Stripe',
-    },
-    {
-      name: SERVICES.smsProvider,
-      role: 'Encargado del tratamiento, solo si verificas un número de teléfono: envía los códigos por SMS',
-      data: 'Tu número de teléfono y el código',
-      location: SERVICES.smsProvider,
-    },
-    {
       name: SERVICES.hosting,
       role: 'Encargado del tratamiento: aloja los archivos del sitio',
       data: 'Registros del servidor (dirección IP, páginas solicitadas, navegador)',
@@ -291,7 +255,7 @@ const inventory: InventoryText = {
     {
       name: 'Otros jugadores y visitantes',
       role: 'Ven tu perfil, en la medida en que lo permitan tus ajustes de privacidad',
-      data: 'Siempre tu nombre de usuario y tu avatar; con un perfil público (o, cuando existan los amigos, «Solo amigos», para tus amigos) también tu biografía, país, insignias, estadísticas, historial de partidas y fecha de alta',
+      data: 'Siempre tu nombre de usuario y tu avatar; con un perfil público (o, cuando existan los amigos, «Solo amigos», para tus amigos) también tu biografía, país, estadísticas, historial de partidas y fecha de alta',
       location: 'Dondequiera que se juegue a Bronze',
     },
   ],
@@ -332,8 +296,8 @@ function PrivacyPolicy() {
       <Section id="account" title="Con una cuenta">
         <p>
           La cuenta es opcional. Te permite conservar tus estadísticas y logros entre dispositivos, y será necesaria para jugar en línea cuando llegue. Solo
-          recogemos lo que la cuenta necesita, y nunca te pedimos la fecha de nacimiento ni la ubicación. La biografía, el país, la imagen de avatar, el número
-          de teléfono y la verificación de tarjeta son opcionales: solo los tenemos si los añades tú.
+          recogemos lo que la cuenta necesita, y nunca te pedimos el número de teléfono, la fecha de nacimiento ni la ubicación. La biografía, el país y la
+          imagen de avatar son opcionales: solo los tenemos si los añades tú.
         </p>
         <DataTable caption="Datos tratados para los titulares de una cuenta" head={HEAD} rows={dataRows(inventory.account)} />
         <Sub title="Tu perfil y quién lo ve">
@@ -341,20 +305,8 @@ function PrivacyPolicy() {
             Tu perfil tiene su propia página. En Ajustes de la cuenta → Privacidad eliges quién ve tu perfil y, por separado, tu historial de partidas:{' '}
             <strong className={strong}>Público</strong> (cualquiera, también quien no ha iniciado sesión), <strong className={strong}>Solo amigos</strong>{' '}
             (mientras Bronze no tenga amigos, solo tú) o <strong className={strong}>Privado</strong> (solo tú). Tu nombre de usuario y tu avatar siempre son
-            visibles, para que otros jugadores te reconozcan. Las cuentas de jugadores menores de 18 años empiezan en «Solo amigos». Tu correo, tu número de
-            teléfono y los datos de tu tarjeta no se muestran nunca a nadie.
-          </p>
-        </Sub>
-        <Sub title="Verificación de tarjeta y de teléfono">
-          <p>
-            Si verificas una tarjeta, la escribes en el formulario propio de Stripe, que la envía directamente a Stripe. Stripe comprueba la tarjeta sin cobrarle
-            nada; nosotros solo recibimos que la comprobación ha salido bien, la marca de la tarjeta y sus 4 últimos dígitos. Stripe guarda su propio registro de
-            la comprobación según{' '}
-            <a href="https://stripe.com/privacy" className={link} rel="noopener">
-              su política de privacidad
-            </a>
-            . Si verificas un número de teléfono, nuestro proveedor de SMS te envía el código. Puedes quitar la verificación de tarjeta cuando quieras en Ajustes
-            de la cuenta → Seguridad.
+            visibles, para que otros jugadores te reconozcan. Las cuentas de jugadores menores de 18 años empiezan en «Solo amigos». Tu correo no se
+            muestra nunca a nadie.
           </p>
         </Sub>
         <p>
@@ -372,7 +324,7 @@ function PrivacyPolicy() {
       <Section id="emails" title="Correos electrónicos">
         <p>
           Enviamos los correos de cuenta que necesitas: confirmar tu dirección, restablecer tu contraseña y avisos de seguridad cuando cambian tu contraseña, tu
-          correo, tu número de teléfono o tu verificación en dos pasos, o se verifica una tarjeta. No contienen nada más. Solo enviaríamos novedades u
+          correo o tu verificación en dos pasos. No contienen nada más. Solo enviaríamos novedades u
           otros correos opcionales si los activas, y nunca a menores de 18 años. Bronze todavía no envía correos opcionales. Cada correo opcional tendrá un enlace
           para darse de baja con un clic, y puedes cambiar tus elecciones en cualquier momento en Ajustes → Notificaciones.
         </p>
@@ -387,9 +339,8 @@ function PrivacyPolicy() {
         <Sub title="Transferencias fuera del EEE">
           <p>
             Supabase, Inc. tiene su sede en Estados Unidos. Los datos de tu cuenta se guardan en la región del proyecto indicada arriba; cuando se accede a ellos o
-            se transfieren fuera del Espacio Económico Europeo, están protegidos por <Fill value={SERVICES.transferSafeguards} />. Stripe y nuestro proveedor
-            de SMS también pueden tratar datos en Estados Unidos, protegidos por las garantías de sus propias condiciones de protección de datos (como el Marco de
-            Privacidad de Datos UE-EE. UU. o las cláusulas contractuales tipo). Puedes pedirnos una copia de estas garantías.
+            se transfieren fuera del Espacio Económico Europeo, están protegidos por <Fill value={SERVICES.transferSafeguards} />. Puedes pedirnos una copia de
+            estas garantías.
           </p>
         </Sub>
       </Section>
@@ -604,9 +555,8 @@ function CookiePolicy() {
       title="Política de cookies"
       intro={
         <p>
-          Bronze usa una cookie y algunas entradas en el almacenamiento local y de sesión de tu navegador. Son de Bronze: no se comparte nada con otros sitios y
-          no hay rastreadores de publicidad, analítica ni redes sociales. La única excepción es la verificación de tarjeta, que inicias tú: entonces el formulario
-          de tarjeta de Stripe pone sus propias cookies contra el fraude.
+          Bronze usa una cookie y algunas entradas en el almacenamiento local y de sesión de tu navegador. Todas son de Bronze: no se comparte nada con otros sitios y
+          no hay rastreadores de publicidad, analítica ni redes sociales.
         </p>
       }
     >
@@ -621,15 +571,6 @@ function CookiePolicy() {
         <p>
           El almacenamiento esencial es necesario para lo que pides a Bronze, así que no requiere tu consentimiento. Todo lo demás espera tu consentimiento:
           hasta que permitas las Preferencias, tus ajustes solo duran hasta que cierres la página.
-        </p>
-        <p>
-          Las cookies de Stripe solo se ponen si pulsas <strong className={strong}>Verificar con una tarjeta</strong> en Ajustes de la cuenta → Seguridad, al
-          cargarse el formulario de Stripe. Son necesarias para comprobar la tarjeta de forma segura, así que cuentan como esenciales. El formulario de Stripe
-          también puede guardar cookies en los propios sitios de Stripe; consulta{' '}
-          <a href="https://stripe.com/legal/cookies-policy" className={link} rel="noopener">
-            la política de cookies de Stripe
-          </a>
-          .
         </p>
       </Section>
 

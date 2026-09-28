@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../hooks/useToast'
 import { useI18n } from '../../i18n'
 import { describeUserAgent, maskIp } from '../../lib/device'
+import { FEATURES } from '../../lib/features'
 import { stripeConfigured } from '../../lib/stripe'
 import { FormAlert, PasswordField, PasswordHint, Spinner, TextField } from '../auth/fields'
 import { CardPanel } from './CardPanel'
@@ -16,7 +17,7 @@ import { Actions, Panel, StatusPill } from './parts'
 import { PhonePanel } from './PhonePanel'
 import { TwoFactorPanel } from './TwoFactorPanel'
 
-/** Settings → Account → Security: email, password, 2FA, phone, card check, linked accounts, sign-ins. */
+/** Settings → Account → Security: email, password, 2FA, phone and card check (when switched on), linked accounts, sign-ins. */
 export function SecurityTab() {
   const { details, error, reload } = useAccountDetails()
   if (!details) return error ? <FormAlert message={error} /> : <Loading />
@@ -25,7 +26,7 @@ export function SecurityTab() {
       <EmailPanel />
       <PasswordPanel hasPassword={details.hasPassword} onChanged={reload} />
       <TwoFactorPanel recoveryCodesLeft={details.recoveryCodesLeft} onChanged={reload} />
-      <PhonePanel />
+      {FEATURES.phoneVerification && <PhonePanel />}
       {stripeConfigured && <CardPanel details={details} onChanged={reload} />}
       <LinkedAccountsPanel hasPassword={details.hasPassword} />
       <SignInsPanel />

@@ -68,18 +68,6 @@ const inventory: InventoryText = {
       purpose: 'Zählt falsche Passwörter, damit Anmeldungen nach 5 Fehlversuchen 30 Sekunden pausieren (Sicherheit).',
       duration: 'Nur dieser Tab',
     },
-    __stripe_mid: {
-      where: 'Cookie',
-      provider: 'Stripe',
-      purpose: 'Nur wenn Sie eine Kartenprüfung starten: von Stripes Kartenformular gesetzt, um das Gerät wiederzuerkennen und Betrug zu verhindern.',
-      duration: '1 Jahr',
-    },
-    __stripe_sid: {
-      where: 'Cookie',
-      provider: 'Stripe',
-      purpose: 'Nur wenn Sie eine Kartenprüfung starten: von Stripes Kartenformular gesetzt, um während der Prüfung Betrug zu verhindern.',
-      duration: '30 Minuten',
-    },
     'bronze.match': {
       where: LOCAL,
       provider: 'Bronze',
@@ -146,7 +134,7 @@ const inventory: InventoryText = {
   account: [
     {
       what: 'E-Mail-Adresse',
-      why: 'Damit Sie sich anmelden können, und für Konto-E-Mails (Adressbestätigung, Passwort zurücksetzen, Sicherheitshinweise, wenn sich Ihr Passwort, Ihre E-Mail-Adresse, Ihre Telefonnummer oder Ihre Zwei-Faktor-Einstellungen ändern).',
+      why: 'Damit Sie sich anmelden können, und für Konto-E-Mails (Adressbestätigung, Passwort zurücksetzen, Sicherheitshinweise, wenn sich Ihr Passwort, Ihre E-Mail-Adresse oder Ihre Zwei-Faktor-Einstellungen ändern).',
       basis: CONTRACT,
       retention: UNTIL_DELETED,
     },
@@ -212,18 +200,6 @@ const inventory: InventoryText = {
       retention: 'Bis Sie sie ausschalten oder Ihr Konto löschen',
     },
     {
-      what: 'Telefonnummer, nur wenn Sie eine bestätigen',
-      why: 'Für das Abzeichen „Telefon bestätigt“ auf Ihrem Profil und, wenn Sie möchten, um Zwei-Faktor-Codes per SMS zu senden. Nur Sie sehen die Nummer.',
-      basis: CONTRACT,
-      retention: UNTIL_DELETED,
-    },
-    {
-      what: 'Kartenprüfung, nur wenn Sie eine Karte prüfen lassen: dass sie geprüft ist, wann, die Kartenmarke und die letzten 4 Ziffern (nie die Kartennummer)',
-      why: 'Für das Abzeichen „Verifizierter Spieler“, als Zeichen, dass Sie ein echter Mensch sind. Es wird nichts abgebucht. Sie geben die Karte in Stripes Formular ein; sie erreicht uns nie.',
-      basis: CONTRACT,
-      retention: 'Bis Sie die Bestätigung entfernen oder Ihr Konto löschen',
-    },
-    {
       what: 'Meldungen: wenn Sie einen Spieler melden oder ein Spieler Sie meldet: wer, der Grund, die Notiz und wann',
       why: 'Um Schummeln, anstößige Namen, Belästigung und Spam zu prüfen und das Spiel fair und sicher zu halten.',
       basis: 'Berechtigtes Interesse an einem sicheren Spiel (Art. 6 Abs. 1 lit. f DSGVO)',
@@ -270,18 +246,6 @@ const inventory: InventoryText = {
       location: 'Siehe Googles Datenschutzerklärung',
     },
     {
-      name: 'Stripe (für Personen im EWR: Stripe Payments Europe, Limited)',
-      role: 'Nur wenn Sie eine Karte prüfen lassen: Auftragsverarbeiter für die Kartenprüfung und eigenständiger Verantwortlicher für die eigene Betrugsprävention und rechtliche Pflichten',
-      data: 'Die Kartendaten, die Sie in Stripes Formular eingeben, Angaben zu Gerät und Browser sowie Ihre Konto-ID',
-      location: 'Irland und die Vereinigten Staaten; siehe Stripes Datenschutzerklärung',
-    },
-    {
-      name: SERVICES.smsProvider,
-      role: 'Auftragsverarbeiter, nur wenn Sie eine Telefonnummer bestätigen: versendet die SMS-Codes',
-      data: 'Ihre Telefonnummer und der Code',
-      location: SERVICES.smsProvider,
-    },
-    {
       name: SERVICES.hosting,
       role: 'Auftragsverarbeiter: stellt die Dateien der Website bereit',
       data: 'Server-Protokolle (IP-Adresse, aufgerufene Seiten, Browser)',
@@ -291,7 +255,7 @@ const inventory: InventoryText = {
     {
       name: 'Andere Spieler und Besucher',
       role: 'Sehen Ihr Profil, soweit Ihre Privatsphäre-Einstellungen es zulassen',
-      data: 'Immer Benutzername und Avatar; bei einem öffentlichen Profil (oder, sobald es Freunde gibt, „Nur Freunde“ für Ihre Freunde) auch Kurzbeschreibung, Land, Abzeichen, Spielstatistik, Partieverlauf und Beitrittsdatum',
+      data: 'Immer Benutzername und Avatar; bei einem öffentlichen Profil (oder, sobald es Freunde gibt, „Nur Freunde“ für Ihre Freunde) auch Kurzbeschreibung, Land, Spielstatistik, Partieverlauf und Beitrittsdatum',
       location: 'Überall, wo Bronze gespielt wird',
     },
   ],
@@ -331,8 +295,8 @@ function PrivacyPolicy() {
       <Section id="account" title="Mit einem Konto">
         <p>
           Ein Konto ist freiwillig. Damit behalten Sie Statistik und Erfolge geräteübergreifend, und es wird für das Online-Spiel nötig sein, sobald es kommt.
-          Wir erheben nur, was das Konto braucht, und fragen nie nach Ihrem Geburtsdatum oder Standort. Kurzbeschreibung, Land, Avatarbild, Telefonnummer und
-          Kartenprüfung sind freiwillig: Wir haben sie nur, wenn Sie sie hinzufügen.
+          Wir erheben nur, was das Konto braucht, und fragen nie nach Ihrer Telefonnummer, Ihrem Geburtsdatum oder Standort. Kurzbeschreibung, Land und
+          Avatarbild sind freiwillig: Wir haben sie nur, wenn Sie sie hinzufügen.
         </p>
         <DataTable caption="Daten, die für Kontoinhaber verarbeitet werden" head={HEAD} rows={dataRows(inventory.account)} />
         <Sub title="Ihr Profil und wer es sieht">
@@ -340,20 +304,8 @@ function PrivacyPolicy() {
             Ihr Profil hat eine eigene Seite. Unter Kontoeinstellungen → Privatsphäre wählen Sie, wer Ihr Profil und, getrennt davon, Ihren Partieverlauf sieht:{' '}
             <strong className={strong}>Öffentlich</strong> (alle, auch nicht angemeldete Besucher), <strong className={strong}>Nur Freunde</strong> (solange
             Bronze keine Freunde kennt, nur Sie) oder <strong className={strong}>Privat</strong> (nur Sie). Benutzername und Avatar sind immer sichtbar, damit
-            andere Spieler Sie erkennen. Konten von Spielern unter 18 beginnen mit „Nur Freunde“. Ihre E-Mail-Adresse, Telefonnummer und Kartendaten werden
+            andere Spieler Sie erkennen. Konten von Spielern unter 18 beginnen mit „Nur Freunde“. Ihre E-Mail-Adresse wird
             niemandem angezeigt.
-          </p>
-        </Sub>
-        <Sub title="Karten- und Telefonprüfung">
-          <p>
-            Wenn Sie eine Karte prüfen lassen, geben Sie sie in Stripes eigenes Formular ein, das sie direkt an Stripe sendet. Stripe prüft die Karte, ohne sie
-            zu belasten; wir erhalten nur, dass die Prüfung bestanden ist, die Kartenmarke und die letzten 4 Ziffern. Stripe bewahrt einen eigenen Nachweis der
-            Prüfung gemäß{' '}
-            <a href="https://stripe.com/privacy" className={link} rel="noopener">
-              seiner Datenschutzerklärung
-            </a>{' '}
-            auf. Wenn Sie eine Telefonnummer bestätigen, sendet unser SMS-Anbieter den Code dorthin. Eine Kartenprüfung können Sie jederzeit unter
-            Kontoeinstellungen → Sicherheit entfernen.
           </p>
         </Sub>
         <p>
@@ -370,7 +322,7 @@ function PrivacyPolicy() {
       <Section id="emails" title="E-Mails">
         <p>
           Wir senden die Konto-E-Mails, die Sie brauchen: Bestätigung Ihrer Adresse, Zurücksetzen des Passworts und Sicherheitshinweise, wenn sich Ihr Passwort,
-          Ihre E-Mail-Adresse, Ihre Telefonnummer oder Ihre Zwei-Faktor-Einstellungen ändern oder eine Karte geprüft wird. Sie enthalten nichts anderes. Neuigkeiten
+          Ihre E-Mail-Adresse oder Ihre Zwei-Faktor-Einstellungen ändern. Sie enthalten nichts anderes. Neuigkeiten
           oder andere optionale E-Mails würden wir nur senden, wenn Sie sie einschalten, und nie an Personen unter 18. Bronze versendet noch keine optionalen
           E-Mails. Jede optionale E-Mail wird einen Abmeldelink mit einem Klick enthalten, und Sie können Ihre Auswahl jederzeit unter Einstellungen →
           Benachrichtigungen ändern.
@@ -387,9 +339,7 @@ function PrivacyPolicy() {
           <p>
             Supabase, Inc. hat seinen Sitz in den Vereinigten Staaten. Ihre Kontodaten werden in der oben genannten Projektregion gespeichert; soweit auf sie
             außerhalb des Europäischen Wirtschaftsraums zugegriffen wird oder sie dorthin übermittelt werden, sind sie durch{' '}
-            <Fill value={SERVICES.transferSafeguards} /> geschützt. Stripe und unser SMS-Anbieter können Daten ebenfalls in den Vereinigten Staaten
-            verarbeiten, geschützt durch die Garantien in ihren eigenen Datenschutzbedingungen (etwa das EU-US Data Privacy Framework oder die
-            Standardvertragsklauseln). Sie können eine Kopie dieser Garantien anfordern.
+            <Fill value={SERVICES.transferSafeguards} /> geschützt. Sie können eine Kopie dieser Garantien anfordern.
           </p>
         </Sub>
       </Section>
@@ -606,9 +556,8 @@ function CookiePolicy() {
       title="Cookie-Richtlinie"
       intro={
         <p>
-          Bronze verwendet ein Cookie und einige Einträge im lokalen und im Sitzungsspeicher Ihres Browsers. Sie stammen von Bronze selbst: Nichts wird mit
-          anderen Websites geteilt, und es gibt keine Werbe-, Analyse- oder Social-Media-Tracker. Die einzige Ausnahme ist die Kartenprüfung, die Sie selbst
-          starten: Dann setzt Stripes Kartenformular eigene Cookies zur Betrugsprävention.
+          Bronze verwendet ein Cookie und einige Einträge im lokalen und im Sitzungsspeicher Ihres Browsers. Alle stammen von Bronze selbst: Nichts wird mit
+          anderen Websites geteilt, und es gibt keine Werbe-, Analyse- oder Social-Media-Tracker.
         </p>
       }
     >
@@ -623,15 +572,6 @@ function CookiePolicy() {
         <p>
           Notwendiger Speicher wird für das gebraucht, worum Sie Bronze bitten, und benötigt daher keine Einwilligung. Alles andere wartet auf Ihre Einwilligung:
           Bis Sie Präferenzen erlauben, gelten Ihre Einstellungen nur, bis Sie die Seite schließen.
-        </p>
-        <p>
-          Stripes Cookies werden nur gesetzt, wenn Sie unter Kontoeinstellungen → Sicherheit auf <strong className={strong}>Mit Karte bestätigen</strong>{' '}
-          klicken und Stripes Formular geladen wird. Sie sind für eine sichere Kartenprüfung nötig und gelten daher als notwendig. Stripes Formular kann auch
-          Cookies auf Stripes eigenen Websites speichern; siehe{' '}
-          <a href="https://stripe.com/legal/cookies-policy" className={link} rel="noopener">
-            Stripes Cookie-Richtlinie
-          </a>
-          .
         </p>
       </Section>
 

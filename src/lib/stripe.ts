@@ -1,13 +1,15 @@
 import type { Stripe } from '@stripe/stripe-js'
+import { FEATURES } from './features'
 
 /**
  * Card verification through Stripe (optional). The publishable key comes from
- * VITE_STRIPE_PUBLISHABLE_KEY; without it the option is hidden. The card form
+ * VITE_STRIPE_PUBLISHABLE_KEY; without it, or while the feature is switched
+ * off (lib/features.ts), the option is hidden and Stripe.js never loads. The card form
  * is Stripe's own (Stripe Elements, in Stripe's iframe): card numbers never
  * reach Bronze's code or database.
  */
 export const STRIPE_PUBLISHABLE_KEY = (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? '').trim()
-export const stripeConfigured = STRIPE_PUBLISHABLE_KEY.startsWith('pk_')
+export const stripeConfigured = FEATURES.cardVerification && STRIPE_PUBLISHABLE_KEY.startsWith('pk_')
 
 let loading: Promise<Stripe | null> | null = null
 

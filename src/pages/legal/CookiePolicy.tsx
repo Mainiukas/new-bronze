@@ -12,9 +12,8 @@ function CookiePolicyEnglish() {
       title="Cookie Policy"
       intro={
         <p>
-          Bronze uses one cookie and a few entries in your browser’s local and session storage. They are Bronze’s own: nothing is shared with other
-          websites, and there are no advertising, analytics or social media trackers. The one exception is the card check, which you start yourself:
-          Stripe’s card form then sets its own fraud-prevention cookies.
+          Bronze uses one cookie and a few entries in your browser’s local and session storage. All of them are Bronze’s own: nothing is shared with
+          other websites, and there are no advertising, analytics or social media trackers.
         </p>
       }
     >
@@ -29,15 +28,6 @@ function CookiePolicyEnglish() {
         <p>
           Essential storage is needed for what you ask Bronze to do, so it doesn’t need your consent. Everything else waits for your consent: until
           you allow Preferences, your settings last only until you close the page.
-        </p>
-        <p>
-          Stripe’s cookies are set only if you click <strong className="text-parchment-50">Verify with a card</strong> in Account settings →
-          Security, when Stripe’s form loads. They are needed to check the card safely, so they count as essential. Stripe’s form may also store
-          cookies on Stripe’s own websites; see{' '}
-          <a href="https://stripe.com/legal/cookies-policy" className="font-semibold text-brass-300 underline underline-offset-2 hover:text-brass-200" rel="noopener">
-            Stripe’s cookie policy
-          </a>
-          .
         </p>
       </Section>
 

@@ -17,6 +17,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useOpenAuth } from '../hooks/useOpenAuth'
 import { useToast } from '../hooks/useToast'
 import { useI18n, type Messages } from '../i18n'
+import { FEATURES } from '../lib/features'
 
 type Loaded = { state: 'loading' } | { state: 'error'; message: string } | { state: 'missing' } | { state: 'found'; profile: PublicProfileData }
 
@@ -71,6 +72,9 @@ export function PublicProfile() {
 
   const profile = loaded.profile
   const since = profile.createdAt ? new Date(profile.createdAt) : null
+  // Phone and card verification may be switched off (lib/features.ts): no badges then.
+  const cardBadge = FEATURES.cardVerification && profile.cardVerified
+  const phoneBadge = FEATURES.phoneVerification && profile.phoneVerified
   const canReport = !profile.isSelf
 
   return (
@@ -99,10 +103,10 @@ export function PublicProfile() {
                 )}
                 {since && !Number.isNaN(since.getTime()) && <span>{p.memberSince(since.toLocaleDateString(locale, { month: 'long', year: 'numeric' }))}</span>}
               </p>
-              {(profile.phoneVerified || profile.cardVerified) && (
+              {(cardBadge || phoneBadge) && (
                 <p className="flex flex-wrap justify-center gap-2 sm:justify-start">
-                  {profile.cardVerified && <Badge icon={<IconShield className="size-3.5" />}>{p.cardVerified}</Badge>}
-                  {profile.phoneVerified && <Badge icon={<IconCheck className="size-3.5" strokeWidth={2.6} />}>{p.phoneVerified}</Badge>}
+                  {cardBadge && <Badge icon={<IconShield className="size-3.5" />}>{p.cardVerified}</Badge>}
+                  {phoneBadge && <Badge icon={<IconCheck className="size-3.5" strokeWidth={2.6} />}>{p.phoneVerified}</Badge>}
                 </p>
               )}
               {profile.bio && <p className="max-w-prose text-parchment-100 [overflow-wrap:anywhere]">{profile.bio}</p>}

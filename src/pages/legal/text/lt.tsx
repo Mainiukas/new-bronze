@@ -63,18 +63,6 @@ const inventory: InventoryText = {
       purpose: 'Skaičiuoja neteisingus slaptažodžius, kad po 5 prisijungimai būtų sustabdyti 30 sekundžių (saugumas).',
       duration: 'Tik šiame skirtuke',
     },
-    __stripe_mid: {
-      where: 'Slapukas',
-      provider: 'Stripe',
-      purpose: 'Tik jei pradedate kortelės patikrą: jį nustato „Stripe“ kortelės forma, kad atpažintų įrenginį ir apsaugotų nuo sukčiavimo.',
-      duration: '1 metai',
-    },
-    __stripe_sid: {
-      where: 'Slapukas',
-      provider: 'Stripe',
-      purpose: 'Tik jei pradedate kortelės patikrą: jį nustato „Stripe“ kortelės forma apsaugai nuo sukčiavimo patikros metu.',
-      duration: '30 minučių',
-    },
     'bronze.match': {
       where: 'Vietinė saugykla',
       provider: 'Bronze',
@@ -133,7 +121,7 @@ const inventory: InventoryText = {
   account: [
     {
       what: 'El. pašto adresas',
-      why: 'Kad galėtumėte prisijungti, ir paskyros laiškams (adreso patvirtinimui, slaptažodžio atkūrimui, saugumo pranešimams, kai pasikeičia jūsų slaptažodis, el. paštas, telefonas ar dviejų veiksnių nustatymai).',
+      why: 'Kad galėtumėte prisijungti, ir paskyros laiškams (adreso patvirtinimui, slaptažodžio atkūrimui, saugumo pranešimams, kai pasikeičia jūsų slaptažodis, el. paštas ar dviejų veiksnių nustatymai).',
       basis: CONTRACT,
       retention: UNTIL_DELETED,
     },
@@ -194,18 +182,6 @@ const inventory: InventoryText = {
       retention: 'Kol jį išjungsite arba ištrinsite paskyrą',
     },
     {
-      what: 'Telefono numeris, tik jei jį patvirtinate',
-      why: 'Kad profilyje būtų rodomas ženklelis „Telefonas patvirtintas“ ir, jei pasirinksite, dviejų veiksnių kodai būtų siunčiami SMS žinute. Numerį matote tik jūs.',
-      basis: CONTRACT,
-      retention: UNTIL_DELETED,
-    },
-    {
-      what: 'Kortelės patikra, tik jei patikrinate kortelę: kad ji patikrinta, kada, kortelės tipas ir paskutiniai 4 skaitmenys (niekada ne kortelės numeris)',
-      why: 'Kad būtų rodomas ženklelis „Patvirtintas žaidėjas“ – ženklas, kad esate tikras žmogus. Nieko nenuskaičiuojama. Kortelę įvedate į „Stripe“ formą; mūsų ji nepasiekia.',
-      basis: CONTRACT,
-      retention: 'Kol pašalinsite patikrą arba ištrinsite paskyrą',
-    },
-    {
       what: 'Pranešimai apie žaidėjus: kai pranešate apie žaidėją arba žaidėjas praneša apie jus – apie ką, priežastis, pastaba ir kada',
       why: 'Kad galėtume išnagrinėti sukčiavimą, įžeidžiančius vardus, priekabiavimą ir šlamštą, o žaidimas liktų sąžiningas ir saugus.',
       basis: 'Teisėtas interesas užtikrinti saugų žaidimą (BDAR 6 str. 1 d. f p.)',
@@ -251,19 +227,12 @@ const inventory: InventoryText = {
       data: '„Google“ patvirtina jūsų tapatybę ir perduoda Bronze jūsų vardą, el. pašto adresą ir nuotrauką',
       location: 'Žr. „Google“ privatumo politiką',
     },
-    {
-      name: 'Stripe (EEE gyventojams – Stripe Payments Europe, Limited)',
-      role: 'Tik jei patikrinate kortelę: duomenų tvarkytojas kortelės patikrai ir savarankiškas duomenų valdytojas savo apsaugai nuo sukčiavimo bei teisinėms prievolėms',
-      data: 'Kortelės duomenys, kuriuos įvedate į „Stripe“ formą, jūsų įrenginio ir naršyklės duomenys ir paskyros ID',
-      location: 'Airija ir Jungtinės Valstijos; žr. „Stripe“ privatumo politiką',
-    },
-    { name: SERVICES.smsProvider, role: 'Duomenų tvarkytojas, tik jei patvirtinate telefono numerį: siunčia SMS kodus', data: 'Jūsų telefono numeris ir kodas', location: SERVICES.smsProvider },
     { name: SERVICES.hosting, role: 'Duomenų tvarkytojas: talpina svetainės failus', data: 'Serverio žurnalai (IP adresas, užklausti puslapiai, naršyklė)', location: SERVICES.hosting },
     { name: SERVICES.emailProvider, role: 'Duomenų tvarkytojas: siunčia paskyros laiškus', data: 'El. pašto adresas ir laiško turinys', location: SERVICES.emailProvider },
     {
       name: 'Kiti žaidėjai ir lankytojai',
       role: 'Mato jūsų profilį, kiek leidžia jūsų privatumo nustatymai',
-      data: 'Visada vartotojo vardas ir avataras; jei profilis viešas (arba, kai atsiras draugai, matomas draugams), taip pat aprašymas, šalis, ženkleliai, žaidimo rezultatai, partijų istorija ir prisijungimo data',
+      data: 'Visada vartotojo vardas ir avataras; jei profilis viešas (arba, kai atsiras draugai, matomas draugams), taip pat aprašymas, šalis, žaidimo rezultatai, partijų istorija ir prisijungimo data',
       location: 'Visur, kur žaidžiama Bronze',
     },
   ],
@@ -303,8 +272,8 @@ function PrivacyPolicy() {
       <Section id="account" title="Turint paskyrą">
         <p>
           Paskyra nebūtina. Ji leidžia išsaugoti rezultatus ir pasiekimus skirtinguose įrenginiuose, o atsiradus žaidimui internetu jos reikės jam. Renkame tik tai,
-          ko reikia paskyrai, ir niekada neklausiame gimimo datos ar buvimo vietos. Aprašymas, šalis, avataro paveikslėlis, telefono numeris ir kortelės patikra
-          nebūtini: juos turime tik tada, jei patys juos pridedate.
+          ko reikia paskyrai, ir niekada neklausiame telefono numerio, gimimo datos ar buvimo vietos. Aprašymas, šalis ir avataro paveikslėlis nebūtini:
+          juos turime tik tada, jei patys juos pridedate.
         </p>
         <DataTable caption="Paskyrų turėtojų tvarkomi duomenys" head={HEAD} rows={dataRows(inventory.account)} />
         <Sub title="Jūsų profilis ir kas jį mato">
@@ -312,19 +281,8 @@ function PrivacyPolicy() {
             Jūsų profilis turi savo puslapį. Skiltyje Paskyros nustatymai → Privatumas pasirenkate, kas mato jūsų profilį ir atskirai – partijų istoriją:{' '}
             <strong className={strong}>Viešas</strong> (visi, taip pat neprisijungę lankytojai), <strong className={strong}>Tik draugams</strong> (tik jūsų
             draugai; kol Bronze neturi draugų – tik jūs) arba <strong className={strong}>Privatus</strong> (tik jūs). Vartotojo vardas ir avataras matomi visada,
-            kad kiti žaidėjai galėtų jus atpažinti. Jaunesnių nei 18 metų žaidėjų paskyroms iš pradžių nustatoma „Tik draugams“. Jūsų el. pašto adresas, telefono
-            numeris ir kortelės duomenys niekam nerodomi.
-          </p>
-        </Sub>
-        <Sub title="Kortelės ir telefono patikra">
-          <p>
-            Jei tikrinate kortelę, ją įvedate į pačios „Stripe“ formą, kuri duomenis siunčia tiesiai „Stripe“. „Stripe“ kortelę patikrina nieko nenuskaičiuodama;
-            mes gauname tik tai, kad patikra pavyko, kortelės tipą ir paskutinius 4 skaitmenis. „Stripe“ patikros įrašą saugo pagal{' '}
-            <a href="https://stripe.com/privacy" className={link} rel="noopener">
-              savo privatumo politiką
-            </a>
-            . Jei patvirtinate telefono numerį, kodą jam siunčia mūsų SMS paslaugų teikėjas. Kortelės patikrą bet kada galite pašalinti skiltyje Paskyros
-            nustatymai → Saugumas.
+            kad kiti žaidėjai galėtų jus atpažinti. Jaunesnių nei 18 metų žaidėjų paskyroms iš pradžių nustatoma „Tik draugams“. Jūsų el. pašto adresas
+            niekam nerodomas.
           </p>
         </Sub>
         <p>
@@ -341,7 +299,7 @@ function PrivacyPolicy() {
       <Section id="emails" title="El. laiškai">
         <p>
           Siunčiame jums reikalingus paskyros laiškus: adreso patvirtinimo, slaptažodžio atkūrimo ir saugumo pranešimus, kai pasikeičia jūsų slaptažodis, el. pašto
-          adresas, telefono numeris ar dviejų veiksnių nustatymai arba patikrinama kortelė. Juose nieko kito nėra. Naujienas ar kitus nebūtinus laiškus
+          adresas ar dviejų veiksnių nustatymai. Juose nieko kito nėra. Naujienas ar kitus nebūtinus laiškus
           siųstume tik jums juos įjungus ir niekada jaunesniems nei 18 metų. Bronze kol kas nebūtinų laiškų nesiunčia. Kiekviename nebūtiname laiške bus
           atsisakymo vienu spustelėjimu nuoroda, o pasirinkimus galite bet kada pakeisti skiltyje Nustatymai → Pranešimai.
         </p>
@@ -356,9 +314,8 @@ function PrivacyPolicy() {
         <Sub title="Perdavimas už EEE ribų">
           <p>
             „Supabase, Inc.“ įsikūrusi Jungtinėse Valstijose. Jūsų paskyros duomenys saugomi aukščiau nurodytame projekto regione; jei jie pasiekiami ar
-            perduodami už Europos ekonominės erdvės ribų, juos saugo <Fill value={SERVICES.transferSafeguards} />. „Stripe“ ir mūsų SMS paslaugų teikėjas
-            duomenis taip pat gali tvarkyti Jungtinėse Valstijose; juos saugo jų pačių duomenų apsaugos sąlygose numatytos priemonės (pvz., ES ir JAV duomenų
-            privatumo sistema arba standartinės sutarčių sąlygos). Galite paprašyti šių apsaugos priemonių kopijos.
+            perduodami už Europos ekonominės erdvės ribų, juos saugo <Fill value={SERVICES.transferSafeguards} />. Galite paprašyti šių apsaugos priemonių
+            kopijos.
           </p>
         </Sub>
       </Section>
@@ -567,9 +524,8 @@ function CookiePolicy() {
       title="Slapukų politika"
       intro={
         <p>
-          Bronze naudoja vieną slapuką ir kelis įrašus jūsų naršyklės vietinėje ir sesijos saugykloje. Jie – pačios Bronze: niekuo nesidalijama su kitomis
-          svetainėmis, nėra reklamos, analitikos ar socialinių tinklų sekiklių. Vienintelė išimtis – kortelės patikra, kurią pradedate patys: tada „Stripe“
-          kortelės forma nustato savo slapukus apsaugai nuo sukčiavimo.
+          Bronze naudoja vieną slapuką ir kelis įrašus jūsų naršyklės vietinėje ir sesijos saugykloje. Visi jie – pačios Bronze: niekuo nesidalijama su kitomis
+          svetainėmis, nėra reklamos, analitikos ar socialinių tinklų sekiklių.
         </p>
       }
     >
@@ -584,15 +540,6 @@ function CookiePolicy() {
         <p>
           Būtinoji saugykla reikalinga tam, ko prašote Bronze, todėl jūsų sutikimo jai nereikia. Visa kita laukia jūsų sutikimo: kol neleisite Nuostatų, jūsų
           nustatymai galios tik iki puslapio uždarymo.
-        </p>
-        <p>
-          „Stripe“ slapukai nustatomi tik paspaudus <strong className={strong}>Patvirtinti kortele</strong> skiltyje Paskyros nustatymai → Saugumas, kai įkeliama
-          „Stripe“ forma. Jie būtini saugiai kortelės patikrai, todėl laikomi būtinaisiais. „Stripe“ forma taip pat gali saugoti slapukus pačios „Stripe“
-          svetainėse; žr.{' '}
-          <a href="https://stripe.com/legal/cookies-policy" className={link} rel="noopener">
-            „Stripe“ slapukų politiką
-          </a>
-          .
         </p>
       </Section>
 

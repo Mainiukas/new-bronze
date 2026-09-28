@@ -5,10 +5,11 @@ and Log in say **"Accounts aren't configured yet"** and everyone plays as a
 guest. This guide connects Bronze to [Supabase](https://supabase.com) (free)
 for email + password accounts, Google sign-in, password-reset emails, public
 player profiles with a real win/match record, account settings, two-factor
-authentication and (optionally) phone and card verification.
+authentication. (Phone and card verification are built but switched off for
+now: see [VERIFICATION.md](VERIFICATION.md).)
 
 It takes about 20 minutes, 10 more for Google, 10 for the profile and security
-update (step 10), and 20 more for the optional card check. You need:
+update (step 10). You need:
 
 - a Supabase account (sign up free at supabase.com, with GitHub or email);
 - for Google sign-in only: a Google account, to use Google Cloud Console.
@@ -35,19 +36,14 @@ explains the features they unlock until they're done.
       email-verification lock in step 10 depends on it).
 - [ ] **5.** *Optional:* Google sign-in.
 - [ ] **6.** Variables on the published site (Vercel):
-      `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and, with step 13,
-      `VITE_STRIPE_PUBLISHABLE_KEY`.
+      `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 - [ ] **9.** Legal details.
 - [ ] **10.** Run `supabase/migrations/002_profiles_security.sql` (safe to
       run again).
 - [ ] **11.** Security settings: **TOTP two-factor on**, secure email and
       password change, manual linking (for **Link Google**), security
       notification emails.
-- [ ] **12.** *Optional, costs money per SMS:* an SMS provider for phone
-      verification.
-- [ ] **13.** *Optional, free in test mode:* Stripe test keys, the two Edge
-      Functions, the webhook.
-- [ ] **14.** Try the new features.
+- [ ] **12.** Try the new features.
 
 ---
 
@@ -231,7 +227,6 @@ Names and values, as in `.env`:
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | `https://<ref>.supabase.co` | yes |
 | `VITE_SUPABASE_ANON_KEY` | the anon or publishable key (`sb_publishable_…`) | yes |
-| `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe's publishable key (`pk_test_…`, later `pk_live_…`) | only with step 13; leave it out and the card check is hidden |
 
 **On Vercel:** **Project → Settings → Environment Variables** → add each name
 and value, tick **Production** and **Preview**, **Save**. Then **Deployments →
@@ -312,7 +307,7 @@ placeholder is left.
 This adds public profiles (`#/u/<username>`), **Account settings**
 (`#/settings/account`: Profile · Security · Privacy · Notifications · Data),
 username changes, avatars, match history, reports, two-factor recovery codes,
-rate limits, recent sign-ins and the phone and card flags.
+rate limits and recent sign-ins.
 
 1. **SQL Editor → + New query**.
 2. Open `supabase/migrations/002_profiles_security.sql`, copy **all** of it,
@@ -346,8 +341,8 @@ What changes for players:
 - **Rate limits** (per player, or per address for visitors): log-in lookups
   30 a minute, username checks 60 a minute, password checks 5 per 15 minutes,
   username changes 10 an hour, reports 5 an hour, recovery codes 5 per 15
-  minutes, phone codes 5 an hour, card checks 5 an hour. Supabase's own limits
-  (**Authentication → Rate Limits**) apply on top: emails, SMS and code checks.
+  minutes. Supabase's own limits (**Authentication → Rate Limits**) apply on
+  top: emails and code checks.
 - The hourly clean-up (from step 2) also removes rate-limit counters after a
   day, username reservations after 30 days and reports after a year.
 
@@ -381,11 +376,9 @@ logging in.
 
 **Security notification emails.** **Authentication → Emails**, the
 **Security** (or *Notifications*) tab: switch on the emails for **Password
-changed**, **Email address changed**, **Phone number changed**, **MFA method
-added** and **MFA method removed** (and *Identity linked/unlinked* if you
-like), and **Save**. Supabase sends these; Bronze doesn't need anything else.
-The **card verification** email comes from step 13's webhook, and only if you
-give it an email provider key (`RESEND_API_KEY`, below).
+changed**, **Email address changed**, **MFA method added** and **MFA method
+removed** (and *Identity linked/unlinked* if you like), and **Save**.
+Supabase sends these; Bronze doesn't need anything else.
 
 These emails come from the same sender as the others: before real players,
 connect your own email provider (step 4, **SMTP Settings**).
@@ -393,125 +386,7 @@ connect your own email provider (step 4, **SMTP Settings**).
 **Report inbox.** Reports (**Report user** on a profile) land in the
 `user_reports` table: read them in **Table Editor → user_reports**.
 
-## 12. Phone verification by SMS (optional, costs money)
-
-Until this is done, **Account settings → Security → Phone** says **"Phone
-verification isn't available yet"** and nothing else changes.
-
-A verified phone gives the player a **Phone verified** badge on their profile. Sending SMS needs an
-SMS provider account, which charges for every message (a few cents each,
-depending on the country); Supabase doesn't send SMS itself.
-
-1. Make an account with an SMS provider Supabase supports: **Twilio** (or
-   Twilio Verify), **MessageBird**, **Vonage** or **Textlocal**, and copy the
-   values it gives you (for Twilio: *Account SID*, *Auth Token* and a *Messaging
-   Service SID* or phone number).
-2. In Supabase: **Authentication → Sign In / Providers → Phone** → switch
-   **Enable Phone provider** on, choose the SMS provider, paste the values,
-   **Save**. Leave *Enable phone signup* as you like: Bronze uses the phone
-   only to verify an existing account.
-3. **Authentication → Rate Limits**: check the SMS limit (the default is low;
-   Bronze also allows each player 5 codes an hour).
-
-The phone as a **second step at log-in** (SMS two-factor) is separate: it's
-Supabase's paid **Advanced MFA – Phone** add-on (see
-[supabase.com/pricing](https://supabase.com/pricing)). With it enabled under
-**Authentication → Multi-Factor → Phone**, players with a verified phone and
-two-factor on can click **Allow SMS codes**. Without it, that choice shows Supabase's
-error; TOTP (step 11) is free and works without any of this.
-
-## 13. Card verification with Stripe (optional; test mode is free)
-
-The **Verified player** panel (button **Verify with a card**) in Account
-settings → Security appears only when `VITE_STRIPE_PUBLISHABLE_KEY` is set. The player types a card into
-Stripe's own form; Stripe checks it for €0 with a **SetupIntent** and charges
-nothing. Bronze keeps only *verified yes/no*, the date, the card brand and the
-last 4 digits (never the card number). The player can **Remove verification**
-any time.
-
-Stripe has a **test mode**: fake cards, no money, free. Do everything in test
-mode first.
-
-**A. Stripe keys**
-
-1. Sign up at [dashboard.stripe.com](https://dashboard.stripe.com/register)
-   (free). You don't need to activate payments for test mode.
-2. Make sure **Test mode** (or *Sandbox*) is switched on (top right).
-3. **Developers → API keys**: copy the **Publishable key** (`pk_test_…`) and
-   click **Reveal** on the **Secret key** (`sk_test_…`) and copy it.
-   The secret key goes **only** into Supabase (below): never into `.env`,
-   Vercel, GitHub or a chat.
-
-**B. Deploy the two Edge Functions** (from the Bronze folder, in a terminal;
-`npx` comes with Node, which you already use for `npm run dev`)
-
-```bash
-# 1. Log the Supabase command line in (opens the browser once)
-npx supabase login
-
-# 2. Put the Stripe secret key into Supabase's secrets (not into any file)
-npx supabase secrets set STRIPE_SECRET_KEY=sk_test_... --project-ref <ref>
-
-# 3. Deploy the functions
-npx supabase functions deploy create-setup-intent --no-verify-jwt --project-ref <ref>
-npx supabase functions deploy stripe-webhook --no-verify-jwt --project-ref <ref>
-```
-
-(With this project: `<ref>` is `rkanldpqushmehxnrqyp`.) If deploying says
-Docker isn't running, add `--use-api` to the deploy commands.
-`--no-verify-jwt` is right for both: `create-setup-intent` checks the
-player's log-in itself, and Stripe (which calls `stripe-webhook`) has no
-Supabase log-in; the webhook checks Stripe's signature instead. You can also
-set secrets in the dashboard: **Edge Functions → Secrets**.
-
-**C. The webhook** (Stripe tells Bronze the card check passed)
-
-1. Stripe: **Developers → Webhooks** (or *Workbench → Webhooks / Event
-   destinations*) → **Add endpoint** / **Add destination**.
-2. **Endpoint URL**: `https://<ref>.supabase.co/functions/v1/stripe-webhook`
-3. **Events**: select only **`setup_intent.succeeded`**. Save.
-4. On the endpoint's page, **Reveal** the **Signing secret** (`whsec_…`) and
-   put it into Supabase:
-
-   ```bash
-   npx supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_... --project-ref <ref>
-   ```
-
-5. *Optional*, the "card verification added" email: make a
-   [Resend](https://resend.com) account with your domain, then
-   `npx supabase secrets set RESEND_API_KEY=re_... NOTIFY_FROM="Bronze <security@your-site.example>" --project-ref <ref>`.
-
-**D. The publishable key**
-
-Add `VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...` to `.env` (restart `npm run
-dev`) and to Vercel (step 6, then redeploy).
-
-**E. Test it**
-
-Account settings → Security → **Verify with a card**, then:
-
-| Card number | What happens |
-| --- | --- |
-| `4242 4242 4242 4242` | Verified (use any future date and any 3-digit CVC) |
-| `4000 0025 0000 3155` | Asks for 3-D Secure first: click *Complete* in Stripe's test window |
-| `4000 0000 0000 0002` | Declined: Bronze shows Stripe's message |
-
-After **Verify**, Bronze waits a few seconds for the webhook, then shows
-**Verified player** with the brand and last 4 digits (**Table Editor →
-profiles**: `card_verified` is `true`, `card_last4` is `4242`). If it says it's
-still waiting, open Stripe's webhook page: a failed delivery there (with a
-400 "Bad signature") means the `whsec_…` secret doesn't match; a 503 means a
-secret is missing. **Edge Functions → stripe-webhook → Logs** in Supabase
-shows the rest.
-
-**F. Going live** (only when you want real cards)
-
-Activate your Stripe account, switch **Test mode** off, and repeat A (live
-keys `pk_live_…`/`sk_live_…`), C (a live webhook endpoint, its own `whsec_…`)
-and D. Check Stripe's pricing for your country before going live: test mode
-costs nothing, but live card checks may carry a small fee.
-
-## 14. Try the new features
+## 12. Try the new features
 
 With `npm run dev` running and 002 run:
 
@@ -535,7 +410,6 @@ With `npm run dev` running and 002 run:
 5. **Email verification**: register a new player and don't click the email
    link: the banner shows, and online play, friends, tournaments and the shop
    say to verify first. **Resend** works once a minute.
-6. Phone and card: after steps 12 and 13.
 
 ## Good to know
 
@@ -566,8 +440,7 @@ With `npm run dev` running and 002 run:
   your email to use this".
 - **The online dot** on profiles appears only once friends exist (it needs
   the game server too).
-- **Card and phone data.** Bronze never sees card numbers: Stripe's form
-  runs in Stripe's own frame, and the database keeps only the brand, last 4
-  and date. The phone number lives in Supabase Auth (`auth.users`), shown only
-  to its owner.
+- **Phone and card verification** are built but switched off; nothing in
+  this guide needs them. [VERIFICATION.md](VERIFICATION.md) says how to turn
+  them on.
 - Deleting a user under **Authentication → Users** also deletes their profile.

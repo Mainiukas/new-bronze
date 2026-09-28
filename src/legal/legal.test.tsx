@@ -10,10 +10,12 @@ import { LegalNotice } from '../pages/legal/LegalNotice'
 import { PrivacyPolicy } from '../pages/legal/PrivacyPolicy'
 import { RefundPolicy } from '../pages/legal/RefundPolicy'
 import { TermsOfService } from '../pages/legal/TermsOfService'
+import { FEATURES } from '../lib/features'
+import { stripeConfigured } from '../lib/stripe'
 import { STORAGE_KEYS } from '../lib/storageKeys'
 import checklist from '../../CHECKLIST.md?raw'
 import { ALL, CONSENT_MAX_AGE_MS, CONSENT_VERSION, createConsentStore, NONE, parseConsent } from './consent'
-import { AUTH_STORAGE_KEY, categoryOf, STORAGE_ITEMS } from './inventory'
+import { ACCOUNT_DATA, AUTH_STORAGE_KEY, categoryOf, RECIPIENTS, STORAGE_ITEMS } from './inventory'
 import { formatLegalDate, LEGAL_LAST_UPDATED, OPERATOR, SERVICES, unfilledPlaceholders } from './operator'
 
 /** A localStorage stand-in for the node test environment. */
@@ -64,6 +66,20 @@ describe('storage inventory (the Cookie Policy table)', () => {
     expect(categoryOf(STORAGE_KEYS.settings)).toBe('preferences')
     expect(categoryOf(STORAGE_KEYS.stats)).toBe('preferences')
     expect(categoryOf('bronze.something-new')).toBe('preferences')
+  })
+})
+
+describe('switched-off features (VERIFICATION.md)', () => {
+  it('lists Stripe in the policies exactly when card verification is on', () => {
+    expect(STORAGE_ITEMS.some((item) => item.key.startsWith('__stripe'))).toBe(FEATURES.cardVerification)
+    expect(RECIPIENTS.some((r) => r.name.includes('Stripe'))).toBe(FEATURES.cardVerification)
+    expect(ACCOUNT_DATA.some((d) => /card/i.test(d.what))).toBe(FEATURES.cardVerification)
+    if (!FEATURES.cardVerification) expect(stripeConfigured).toBe(false)
+  })
+
+  it('lists the phone number in the policies exactly when phone verification is on', () => {
+    expect(ACCOUNT_DATA.some((d) => /phone number/i.test(d.what))).toBe(FEATURES.phoneVerification)
+    expect('smsProvider' in SERVICES).toBe(FEATURES.phoneVerification)
   })
 })
 

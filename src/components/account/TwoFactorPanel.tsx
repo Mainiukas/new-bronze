@@ -4,6 +4,7 @@ import { authErrorMessage } from '../../auth/messages'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { FEATURES } from '../../lib/features'
 import { FormAlert, Spinner, TextField } from '../auth/fields'
 import { Actions, Panel, StatusPill } from './parts'
 
@@ -40,6 +41,8 @@ export function TwoFactorPanel({ recoveryCodesLeft, onChanged }: { recoveryCodes
   }, [getMfaState, t.authErrors])
   useEffect(load, [load])
   useEffect(() => {
+    // SMS codes need phone verification, which may be switched off (lib/features.ts).
+    if (!FEATURES.phoneVerification) return
     serviceSettings().then(
       (settings) => setPhoneEnabled(settings.phone),
       () => setPhoneEnabled(false),

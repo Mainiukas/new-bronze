@@ -28,8 +28,6 @@ export const SERVICES = {
   supabaseRegion: '{{SUPABASE_REGION}}',
   /** Who sends account emails: Supabase's built-in mailer or your SMTP provider. */
   emailProvider: '{{EMAIL_PROVIDER}}',
-  /** Who sends phone verification codes by SMS (e.g. "Twilio Ireland Limited"), or "Not used" if phone verification isn't set up. */
-  smsProvider: '{{SMS_PROVIDER}}',
   /** How long Supabase keeps database backups for this project. */
   backupRetention: '{{BACKUP_RETENTION}}',
   /** How long Supabase keeps its sign-in (auth audit) logs. */

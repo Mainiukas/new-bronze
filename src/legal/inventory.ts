@@ -15,7 +15,7 @@ export interface StorageItem {
   /** Name of the cookie or storage key (`<id>` stands for an account id). */
   key: string
   where: 'Cookie' | 'Local storage' | 'Session storage'
-  /** Who sets it. Bronze's own, except Stripe's, set only during a card check the player starts. */
+  /** Who sets it. Everything is first-party: nothing is sent to other sites. */
   provider: string
   purpose: string
   category: StorageCategory
@@ -90,22 +90,6 @@ export const STORAGE_ITEMS: StorageItem[] = [
     purpose: 'Counts wrong passwords, to pause log-ins for 30 seconds after 5 (security).',
     category: 'essential',
     duration: 'This tab only',
-  },
-  {
-    key: '__stripe_mid',
-    where: 'Cookie',
-    provider: 'Stripe',
-    purpose: 'Only if you start a card check: set by Stripe’s card form to recognise the device and prevent fraud.',
-    category: 'essential',
-    duration: '1 year',
-  },
-  {
-    key: '__stripe_sid',
-    where: 'Cookie',
-    provider: 'Stripe',
-    purpose: 'Only if you start a card check: set by Stripe’s card form to prevent fraud during the check.',
-    category: 'essential',
-    duration: '30 minutes',
   },
   {
     key: STORAGE_KEYS.match,
@@ -225,7 +209,7 @@ export interface DataItem {
 export const ACCOUNT_DATA: DataItem[] = [
   {
     what: 'Email address',
-    why: 'To log you in, and to send account emails (confirming your address, resetting your password, security notices when your password, email, phone or two-factor settings change).',
+    why: 'To log you in, and to send account emails (confirming your address, resetting your password, security notices when your password, email or two-factor settings change).',
     basis: 'Contract (art. 6(1)(b))',
     retention: 'Until you delete your account',
   },
@@ -296,18 +280,6 @@ export const ACCOUNT_DATA: DataItem[] = [
     retention: 'Until you turn it off or delete your account',
   },
   {
-    what: 'Phone number, only if you verify one',
-    why: 'To show a “Phone verified” badge on your profile and, if you choose, to send two-factor codes by SMS. Only you see the number.',
-    basis: 'Contract (art. 6(1)(b))',
-    retention: 'Until you delete your account',
-  },
-  {
-    what: 'Card verification, only if you verify a card: that it is verified, when, the card brand and its last 4 digits (never the card number)',
-    why: 'To show a “Verified player” badge, as a sign you’re a real person. Nothing is charged. You type the card into Stripe’s form; it never reaches us.',
-    basis: 'Contract (art. 6(1)(b))',
-    retention: 'Until you remove the verification or delete your account',
-  },
-  {
     what: 'Reports: when you report a player, or a player reports you: who, the reason, the note and when',
     why: 'To look into cheating, offensive names, harassment and spam, and keep the game fair and safe.',
     basis: 'Legitimate interest in a safe game (art. 6(1)(f))',
@@ -365,18 +337,6 @@ export const RECIPIENTS: Recipient[] = [
     location: 'See Google’s privacy policy',
   },
   {
-    name: 'Stripe (Stripe Payments Europe, Limited, for people in the EEA)',
-    role: 'Only if you verify a card: processor for the card check, and independent controller for its own fraud prevention and legal duties',
-    data: 'The card details you type into Stripe’s form, your device and browser details, and your account id',
-    location: 'Ireland and the United States; see Stripe’s privacy policy',
-  },
-  {
-    name: SERVICES.smsProvider,
-    role: 'Processor, only if you verify a phone number: sends the SMS codes',
-    data: 'Your phone number and the code',
-    location: SERVICES.smsProvider,
-  },
-  {
     name: SERVICES.hosting,
     role: 'Processor: hosts the website’s files',
     data: 'Server logs (IP address, pages requested, browser)',
@@ -391,7 +351,7 @@ export const RECIPIENTS: Recipient[] = [
   {
     name: 'Other players and visitors',
     role: 'Can see your profile, as your privacy settings allow',
-    data: 'Always your username and avatar; with a Public profile (or, once friends exist, Friends only, for your friends) also your bio, country, badges, game record, match history and when you joined',
+    data: 'Always your username and avatar; with a Public profile (or, once friends exist, Friends only, for your friends) also your bio, country, game record, match history and when you joined',
     location: 'Anywhere Bronze is played',
   },
 ]

@@ -57,11 +57,11 @@ matches, achievements), shown to others as their privacy settings allow
 has Profile (avatar preset or upload, bio, country, username change once every
 30 days), Security (email and password change, two-factor authentication with
 an authenticator app and recovery codes, linked accounts, recent sign-ins,
-sign out other devices, and the optional phone and card checks), Privacy,
-Notifications and Data. Online play, friends, tournaments and the shop need a
-confirmed email address. The phone check needs an SMS provider and the card
-check needs Stripe keys: until they're set up, the phone panel says it isn't
-available yet and the card panel is hidden (SETUP.md, steps 12 and 13).
+sign out other devices), Privacy, Notifications and Data. Online play,
+friends, tournaments and the shop need a confirmed email address. Phone (SMS)
+and card (Stripe) verification are built but switched off for now
+(`src/lib/features.ts`); [VERIFICATION.md](VERIFICATION.md) says how to turn
+them on.
 
 **Online and friends** need a game server Bronze doesn't have. Guests see
 "Log in to use this" on the Online opponents option, the friends panel,
@@ -127,8 +127,7 @@ To turn on accounts, follow [SETUP.md](SETUP.md) (it starts with a checklist):
 create a Supabase project, put its URL and anon key in `.env` (copy
 `.env.example`), run `supabase/migrations/001_accounts.sql` and then
 `002_profiles_security.sql` in its SQL editor, and set up Google sign-in and
-the security settings. `.env` is git-ignored; never commit real keys. The
-Stripe secret key goes only into Supabase's secrets, never into `.env`.
+the security settings. `.env` is git-ignored; never commit real keys.
 
 Other scripts:
 
@@ -149,7 +148,7 @@ The build is a static site, so any static host works with no server setup:
 - Asset paths are relative (`base: './'`), so it works from a sub-path such as
   `https://<user>.github.io/Bronze/`.
 - For accounts, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` where the
-  site is built (and `VITE_STRIPE_PUBLISHABLE_KEY` for the card check), and add
+  site is built, and add
   the site's address to Supabase's Redirect URLs and Google's JavaScript
   origins (SETUP.md, steps 3, 5 and 6).
 
@@ -323,7 +322,7 @@ src/
                           return, choose a username, the two-factor step (MfaChallenge),
                           and the fields they share
     account/              Account settings tabs: Profile, Privacy, Security (TwoFactorPanel,
-                          PhonePanel, CardPanel) and their shared parts
+                          and, switched off for now, PhonePanel and CardPanel) and their shared parts
     VerifyEmail.tsx       The "verify your email" banner and locks (60 s resend cooldown)
     AchievementList.tsx   The achievements grid (locked ones greyed, with what they need)
     LobbyCards.tsx        Tournaments and Achievements cards in the social column
@@ -356,10 +355,11 @@ src/
   hooks/                  usePersistentState (localStorage-backed state), useToast, useAuth,
                           useOpenAuth, useLogOut, usePlayerStats (the guest's or the account's record)
   lib/                    storage (safe localStorage), sound (Web Audio), random (new seeds), supabase (the client, from .env),
-                          stripe (Stripe.js, loaded only for a card check), image (avatar crop), device (sign-in list)
+                          features (switches for built-but-off features), stripe (Stripe.js, for the card check, off),
+                          image (avatar crop), device (sign-in list)
 supabase/
   migrations/             001_accounts.sql (run once), 002_profiles_security.sql (safe to re-run)
-  functions/              Edge Functions: unsubscribe, create-setup-intent and stripe-webhook (the card check)
+  functions/              Edge Functions: unsubscribe; create-setup-intent and stripe-webhook (the card check, off)
   tests/                  The SQL checks (plain PostgreSQL with a stand-in for Supabase); see its README
 ```
 

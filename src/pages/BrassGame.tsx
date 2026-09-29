@@ -661,7 +661,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
             </p>
           )}
           {/* The hand stays at the bottom of the screen, centred under the board. */}
-          <div className="pointer-events-none sticky bottom-12 z-20 -mx-2 flex flex-col items-center gap-1 bg-linear-to-t from-soot-950 via-soot-950/80 to-transparent px-2 pt-6 lg:bottom-0 [&>*]:pointer-events-auto">
+          <div className="pointer-events-none sticky bottom-12 z-20 -mx-2 flex flex-col items-center gap-1 bg-linear-to-t from-soot-950/95 via-soot-950/45 to-transparent px-2 pt-6 lg:bottom-0 [&>*]:pointer-events-auto">
             {myTurn && !chosen.length && flow.kind === 'idle' && <p className="rounded-full bg-soot-950/80 px-2.5 text-xs text-parchment-300">{b.pickCard}</p>}
             {jokerCards ? (
               <JokerPrompt

@@ -10,7 +10,10 @@
 import { useEffect, useEffectEvent, useId, useMemo, useState, type ReactNode } from 'react'
 import { IllustratedBoard, type BoardRecent, type BoardTargets } from '../components/board/IllustratedBoard'
 import { IndustryRow } from '../components/brass/IndustryRow'
-import { ActionButtons, Hand, Opponents, StatsBar, TopBar, UpgradeBar, type ActionState } from '../components/brass/Panel'
+import { deckMode } from '../components/brass/cardArt'
+import { CardActionBar, CardZoom, HandFan, JokerPrompt } from '../components/brass/Cards'
+import { DeckIndicator } from '../components/brass/Deck'
+import { ActionButtons, Opponents, StatsBar, TopBar, UpgradeBar, type ActionState } from '../components/brass/Panel'
 import { rowInfo } from '../components/brass/rowInfo'
 import { Coin, Cube, IncomeArrow, VpHex } from '../components/brass/Symbols'
 import { Dialog } from '../components/Dialog'
@@ -29,8 +32,23 @@ import { LOANS } from '../rules/constants'
 import { RULES } from '../rules/context'
 import { applyAction, currentPlayerId, networkOf, planBuild, saleOptions, type BuildPlan, type NetworkPlan } from '../rules/engine'
 import type { BrassMatch } from '../rules/match'
-import { buildBlocker, buildOptions, developBlocker, discardChoice, developPlan, linkOptions, loanOptions, networkBlocker } from '../rules/options'
-import { RuleError, type Action, type GameState, type LogEntry, type Sale } from '../rules/state'
+import {
+  buildBlocker,
+  buildOptions,
+  CARD_ACTIONS,
+  cardActions,
+  cardBuildBlocker,
+  cardBuildTargets,
+  developBlocker,
+  developPlan,
+  discardChoice,
+  linkOptions,
+  loanOptions,
+  networkBlocker,
+  type CardAction,
+  type CardBuildTarget,
+} from '../rules/options'
+import { RuleError, type Action, type Card, type GameState, type LogEntry, type Sale } from '../rules/state'
 import { INDUSTRY_ORDER, roman, type IndustryId } from '../rules/tileTable'
 import type { PlayerColor } from '../game/types'
 
@@ -48,8 +66,10 @@ interface BrassGameProps {
 
 type Flow =
   | { kind: 'idle' }
-  | { kind: 'build'; industry: IndustryId }
-  | { kind: 'build-confirm'; industry: IndustryId; plan: BuildPlan; sellCubes: boolean }
+  /** Picking a slot. With chosen cards, `industry` narrows the glowing slots (null: every industry the cards allow). */
+  | { kind: 'build'; industry: IndustryId | null }
+  /** `alternatives`: the industries this slot takes with these cards (a choice when there are two). */
+  | { kind: 'build-confirm'; industry: IndustryId; plan: BuildPlan; sellCubes: boolean; alternatives: IndustryId[] }
   | { kind: 'network'; count: 1 | 2; picked: string[] }
   | { kind: 'network-confirm'; count: 1 | 2; plan: NetworkPlan }
   | { kind: 'develop'; chips: IndustryId[] }
@@ -57,6 +77,7 @@ type Flow =
   | { kind: 'sell-buyer'; mill: string; more: boolean }
   | { kind: 'sell-confirm'; sale: Sale; more: boolean }
   | { kind: 'loan' }
+  | { kind: 'pass' }
   | { kind: 'skip' }
 
 const ctx = RULES.ctx
@@ -68,7 +89,11 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const state = match.state
   const mode = isGameModeId(match.modeId) ? getGameMode(match.modeId) : null
   const [chosenFlow, setFlow] = useState<Flow>({ kind: 'idle' })
-  const [preferredCard, setPreferredCard] = useState<string | null>(null)
+  /** The card(s) the player picked in their hand: one, or two as the joker. */
+  const [selected, setSelected] = useState<string[]>([])
+  /** A second card clicked while one is picked: the joker prompt. */
+  const [jokerOffer, setJokerOffer] = useState<string | null>(null)
+  const [zoom, setZoom] = useState<string | null>(null)
   const [viewing, setViewing] = useState<number | null>(null)
   const [pulse, setPulse] = useState<{ industry: IndustryId; key: number } | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -88,7 +113,27 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const colorOf = (p: number) => colorHex(state.players[p].color as PlayerColor)
   const townName = (id: string) => ctx.map.places[id]?.name ?? id
   const slotTown = (slot: string) => townName(ctx.map.slots[slot].town)
+
+  const hand = state.players[me].hand
+  const cardName = (card: Card) => (card.kind === 'location' ? townName(card.town) : b.industry[card.industry])
+  const cardKind = (card: Card) => (card.kind === 'location' ? b.locationCard : b.industryCard)
+  const nameOf = (id: string) => {
+    const card = hand.find((c) => c.id === id)
+    return card ? cardName(card) : ''
+  }
+  // The picked cards, while they're still in the hand and it's this player's turn.
+  const chosen = myTurn && !state.selling ? selected.filter((id) => hand.some((c) => c.id === id)) : []
+  const chosenCard = chosen.length === 1 ? (hand.find((c) => c.id === chosen[0]) ?? null) : null
+  // Without a picked card, actions give up the least useful one.
+  const autoCard = useMemo(() => (myTurn ? discardChoice(state, ctx, me) : null), [myTurn, state, me])
+  const actionCard = chosen.length === 1 ? chosen[0] : autoCard
+
   const cancel = () => setFlow({ kind: 'idle' })
+  const cancelAll = () => {
+    setFlow({ kind: 'idle' })
+    setSelected([])
+    setJokerOffer(null)
+  }
 
   /** Apply an action for a player; errors become toasts (and change nothing). */
   const dispatch = (player: number, action: Action): GameState | null => {
@@ -113,7 +158,8 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   }
 
   const afterHuman = (next: GameState | null) => {
-    setPreferredCard(null)
+    setSelected([])
+    setJokerOffer(null)
     if (next?.selling?.player === me) setFlow({ kind: 'sell-mill', more: true })
     else setFlow({ kind: 'idle' })
   }
@@ -122,18 +168,19 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const sellingNow = myTurn && state.selling?.player === me
   const flow = useMemo<Flow>(() => (sellingNow && chosenFlow.kind === 'idle' ? { kind: 'sell-mill', more: true } : chosenFlow), [sellingNow, chosenFlow])
 
-  // Escape backs out of whatever is being chosen.
+  // Escape backs out one step: the joker prompt, then the action being prepared, then the picked card.
   useEffect(() => {
-    if (flow.kind === 'idle') return
+    if (flow.kind === 'idle' && !selected.length && !jokerOffer) return
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !(event.target instanceof HTMLDialogElement)) {
-        if (flow.kind === 'sell-mill' && flow.more) return
-        cancel()
-      }
+      if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return
+      if (jokerOffer) setJokerOffer(null)
+      else if (flow.kind === 'sell-mill' && flow.more) return
+      else if (flow.kind !== 'idle') setFlow({ kind: 'idle' })
+      else setSelected([])
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [flow])
+  }, [flow, selected, jokerOffer])
 
   // Computer players act on their own after a pause.
   const playComputer = useEffectEvent(() => {
@@ -150,19 +197,25 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
   /* ---- What the board shows ---------------------------------------------------- */
 
-  const discardFor = (): string | null => {
-    const hand = state.players[me].hand
-    if (preferredCard && hand.some((c) => c.id === preferredCard)) return preferredCard
-    return discardChoice(state, ctx, me)
-  }
-
-  const buildTargets = useMemo(() => (flow.kind === 'build' && myTurn ? buildOptions(state, ctx, me, flow.industry) : []), [flow, myTurn, state, me])
-  const linkTargets = useMemo(() => (flow.kind === 'network' && myTurn ? linkOptions(state, ctx, me, flow.count, flow.picked) : []), [flow, myTurn, state, me])
+  // A picked card lights up what it can build straight away (clicking a glowing slot builds).
+  const cardTargets = useMemo(
+    () => (chosen.length && (flow.kind === 'build' || (flow.kind === 'idle' && !jokerOffer)) ? cardBuildTargets(state, ctx, me, chosen, flow.kind === 'build' ? (flow.industry ?? undefined) : undefined) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [flow, state, me, chosen.join(), jokerOffer],
+  )
+  const autoTargets = useMemo(() => (flow.kind === 'build' && myTurn && !chosen.length && flow.industry ? buildOptions(state, ctx, me, flow.industry) : []), [flow, myTurn, state, me, chosen.length])
+  const linkTargets = useMemo(() => (flow.kind === 'network' && myTurn ? linkOptions(state, ctx, me, flow.count, flow.picked, actionCard ?? undefined) : []), [flow, myTurn, state, me, actionCard])
   const sales = useMemo(() => (myTurn ? saleOptions(state, ctx, me) : []), [myTurn, state, me])
+
+  const cheapest = (targets: readonly { slot: string; plan: BuildPlan }[]) => {
+    const price = new Map<string, number>()
+    for (const o of targets) price.set(o.slot, Math.min(price.get(o.slot) ?? Infinity, o.plan.money))
+    return new Map([...price].map(([slot, money]) => [slot, `£${money}`]))
+  }
 
   const targets: BoardTargets | undefined = (() => {
     if (!myTurn) return undefined
-    if (flow.kind === 'build') return { slots: new Map(buildTargets.map((o) => [o.slot, `£${o.plan.money}`])) }
+    if (flow.kind === 'build' || (flow.kind === 'idle' && chosen.length)) return { slots: cheapest(chosen.length ? cardTargets : autoTargets) }
     if (flow.kind === 'network') return { links: new Map(linkTargets.map((o) => [o.link, o.plan ? `£${o.plan.money}` : null])) }
     if (flow.kind === 'sell-mill') return { slots: new Map([...new Set(sales.map((s) => s.mill))].map((m) => [m, null])) }
     if (flow.kind === 'sell-buyer') {
@@ -175,21 +228,19 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
     return undefined
   })()
 
+  /** Straight to the confirm popup for this slot (and the industries it takes with the picked cards). */
+  const confirmCardBuild = (here: readonly CardBuildTarget[]) => {
+    if (!here.length) return
+    setFlow({ kind: 'build-confirm', industry: here[0].industry, plan: here[0].plan, sellCubes: true, alternatives: here.map((o) => o.industry) })
+  }
+
   const onSlot = (town: string, index: number) => {
     const slot = slotKey(town, index)
-    if (flow.kind === 'build') {
-      const option = buildTargets.find((o) => o.slot === slot)
-      if (!option) return
-      let plan = option.plan
-      // A card the player picked in their hand, if it can pay for this build.
-      if (preferredCard && !plan.cards.includes(preferredCard)) {
-        try {
-          plan = { ...plan, ...buildPlanWith(state, me, flow.industry, slot, [preferredCard]) }
-        } catch {
-          /* keep the default card */
-        }
-      }
-      setFlow({ kind: 'build-confirm', industry: flow.industry, plan, sellCubes: true })
+    if ((flow.kind === 'build' || flow.kind === 'idle') && chosen.length) {
+      confirmCardBuild(cardTargets.filter((o) => o.slot === slot))
+    } else if (flow.kind === 'build') {
+      const option = autoTargets.find((o) => o.slot === slot)
+      if (option && flow.industry) setFlow({ kind: 'build-confirm', industry: flow.industry, plan: option.plan, sellCubes: true, alternatives: [flow.industry] })
     } else if (flow.kind === 'sell-mill') {
       if (sales.some((s) => s.mill === slot)) setFlow({ kind: 'sell-buyer', mill: slot, more: flow.more })
     } else if (flow.kind === 'sell-buyer') {
@@ -212,9 +263,65 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       return
     }
     const option = linkTargets.find((o) => o.link === id)!
-    const card = discardFor()
-    if (!option.plan || !card) return
-    setFlow({ kind: 'network-confirm', count: flow.count, plan: { ...option.plan, card } })
+    if (!option.plan || !actionCard) return
+    setFlow({ kind: 'network-confirm', count: flow.count, plan: { ...option.plan, card: actionCard } })
+  }
+
+  /* ---- The hand ------------------------------------------------------------------ */
+
+  const onCard = (id: string) => {
+    if (!myTurn || state.selling) {
+      setZoom(id)
+      return
+    }
+    if (chosen.includes(id)) {
+      cancelAll()
+      return
+    }
+    if (chosen.length === 1) {
+      setJokerOffer(id)
+      return
+    }
+    setSelected([id])
+    setJokerOffer(null)
+    if (flow.kind === 'build') setFlow({ kind: 'build', industry: null })
+  }
+
+  const jokerCards = jokerOffer && chosen.length === 1 ? [chosen[0], jokerOffer] : null
+  const jokerBlocked = jokerCards ? cardBuildBlocker(state, ctx, me, jokerCards) : null
+
+  const cardBar = useMemo(() => {
+    if (!chosenCard) return null
+    const codes = cardActions(state, ctx, me, chosenCard.id)
+    return Object.fromEntries(CARD_ACTIONS.map((a) => [a, codes[a] ? b.errors[codes[a]] : null])) as Record<CardAction, string | null>
+  }, [chosenCard, state, me, b])
+
+  const startCardAction = (action: CardAction) => {
+    switch (action) {
+      case 'build': {
+        const all = cardBuildTargets(state, ctx, me, chosen)
+        // Only one place it can go (slot priority included): skip the choice.
+        if (new Set(all.map((o) => o.slot)).size === 1) confirmCardBuild(all)
+        else setFlow({ kind: 'build', industry: null })
+        break
+      }
+      case 'network':
+        setFlow({ kind: 'network', count: 1, picked: [] })
+        break
+      case 'develop':
+        setFlow({ kind: 'develop', chips: [] })
+        setSheetOpen(true)
+        break
+      case 'sell':
+        setFlow({ kind: 'sell-mill', more: false })
+        break
+      case 'loan':
+        setFlow({ kind: 'loan' })
+        break
+      case 'pass':
+        setFlow({ kind: 'pass' })
+        break
+    }
   }
 
   /* ---- Panel handlers ---------------------------------------------------------- */
@@ -224,6 +331,22 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
     const info = rowInfo(state, ctx, me, industry)
     if (info.upgradeOnly) {
       setPulse((p) => ({ industry, key: (p?.key ?? 0) + 1 }))
+      return
+    }
+    if (chosen.length) {
+      // With a picked card: only this industry's slots glow; a single one goes straight to the popup.
+      const blocked = cardBuildBlocker(state, ctx, me, chosen, industry)
+      if (blocked) {
+        notify(b.errors[blocked])
+        return
+      }
+      if (flow.kind === 'build' && flow.industry === industry) {
+        setFlow({ kind: 'build', industry: null })
+        return
+      }
+      const here = cardBuildTargets(state, ctx, me, chosen, industry)
+      if (here.length === 1) confirmCardBuild(here)
+      else setFlow({ kind: 'build', industry })
       return
     }
     const blocked = buildBlocker(state, ctx, me, industry)
@@ -246,12 +369,12 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
   const developError = (chips: IndustryId[]): string | null => {
     if (!chips.length) return null
-    const r = developPlan(state, ctx, me, chips)
+    const r = developPlan(state, ctx, me, chips, actionCard ?? undefined)
     return r instanceof RuleError ? b.errors[r.code] : null
   }
 
   const confirmAction = () => {
-    const card = discardFor()
+    const card = actionCard
     switch (flow.kind) {
       case 'build-confirm':
         afterHuman(dispatch(me, { type: 'build', cards: [...flow.plan.cards], slot: flow.plan.slot, industry: flow.industry, sellCubes: flow.sellCubes }))
@@ -265,12 +388,15 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       case 'sell-confirm':
         afterHuman(dispatch(me, flow.more ? { type: 'sell-more', sale: flow.sale } : card ? { type: 'sell', cards: [card], sale: flow.sale } : { type: 'sell-stop' }))
         break
+      case 'pass':
+        if (card) afterHuman(dispatch(me, { type: 'pass', cards: [card] }))
+        break
       case 'skip': {
         let s: GameState | null = state
         const n = state.actionsLeft
         for (let i = 0; i < n && s && currentPlayerId(s) === me && !s.finished; i++) {
           const next: GameState = s
-          const c = next.players[me].hand.at(-1)?.id
+          const c = discardChoice(next, ctx, me)
           if (!c) break
           try {
             s = applyAction(next, ctx, me, { type: 'pass', cards: [c] })
@@ -295,7 +421,8 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
   /* ---- Disabled reasons -------------------------------------------------------- */
 
-  const reason = (code: Parameters<typeof networkBlocker>[0] extends never ? never : string | null) => code
+  const loanMode = deckMode(state)
+  const noLoans = loanMode === 'no-loans' ? 'none' : loanMode === 'last-loans' ? 'last' : null
   const actionState: ActionState = (() => {
     if (!myTurn) {
       const why = b.errors['not-your-turn']
@@ -306,7 +433,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       return { canal: why, rail: why, rails: why, loan: why, sell: why, skip: why }
     }
     const net = (n: 1 | 2) => {
-      const code = networkBlocker(state, ctx, me, n)
+      const code = networkBlocker(state, ctx, me, n, actionCard ?? undefined)
       return code ? b.errors[code] : null
     }
     const loans = loanOptions(state, ctx, me)
@@ -316,7 +443,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       rails: state.era === 'rail' ? net(2) : null,
       loan: loans.every((l) => l.problem) ? b.errors[loans[0].problem!.code] : null,
       sell: sales.length ? null : b.errors.sale,
-      skip: reason(null),
+      skip: null,
     }
   })()
 
@@ -327,13 +454,15 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const player = state.players[shownPlayer]
   const color = colorOf(shownPlayer)
   const industryNames = b.industry
-  const handUsed: string[] =
-    flow.kind === 'build-confirm'
+  // The cards this action gives up, lifted in the fan: the picked ones, else the one chosen for the player.
+  const fanSelected: string[] = chosen.length
+    ? [...chosen, ...(jokerOffer ? [jokerOffer] : [])]
+    : flow.kind === 'build-confirm'
       ? [...flow.plan.cards]
       : flow.kind === 'network-confirm'
         ? [flow.plan.card]
-        : ['develop', 'loan', 'skip', 'network'].includes(flow.kind) || (flow.kind.startsWith('sell') && !('more' in flow && flow.more))
-          ? [discardFor() ?? '']
+        : autoCard && (['develop', 'loan', 'skip', 'network', 'pass'].includes(flow.kind) || (flow.kind.startsWith('sell') && !('more' in flow && flow.more)))
+          ? [autoCard]
           : []
 
   const status: ReactNode = state.finished
@@ -346,18 +475,24 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
   const hint =
     flow.kind === 'build'
-      ? b.pickSlot
+      ? chosen.length === 2
+        ? b.pickSlotJoker
+        : chosenCard
+          ? b.pickSlotFor(cardName(chosenCard))
+          : b.pickSlot
       : flow.kind === 'network'
         ? flow.count === 2
           ? b.pickTwoLinks(flow.picked.length)
           : b.pickLink
-        : flow.kind === 'sell-mill'
-          ? flow.more
-            ? b.sellMore
-            : b.sellPickMill
-          : flow.kind === 'sell-buyer'
-            ? b.sellPickBuyer
-            : null
+        : flow.kind === 'develop' && flow.chips.length === 0
+          ? b.pickUpgrade
+          : flow.kind === 'sell-mill'
+            ? flow.more
+              ? b.sellMore
+              : b.sellPickMill
+            : flow.kind === 'sell-buyer'
+              ? b.sellPickBuyer
+              : null
 
   const panel = (
     <div className="flex flex-col gap-2">
@@ -373,7 +508,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       <div className="flex flex-col gap-1.5">
         {INDUSTRY_ORDER.map((industry) => {
           const info = rowInfo(state, ctx, shownPlayer, industry)
-          const devCode = readOnly || !myTurn ? 'not-your-turn' : developBlocker(state, ctx, me, industry)
+          const devCode = readOnly || !myTurn ? 'not-your-turn' : developBlocker(state, ctx, me, industry, actionCard ?? undefined)
           return (
             <IndustryRow
               key={industry}
@@ -381,13 +516,17 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
               color={color}
               readOnly={readOnly}
               selected={!readOnly && flow.kind === 'build' && flow.industry === industry}
-              buildBlocked={readOnly || !myTurn ? null : info.upgradeOnly ? null : (() => {
-                const code = buildBlocker(state, ctx, me, industry)
-                return code ? b.errors[code] : null
-              })()}
+              buildBlocked={
+                readOnly || !myTurn || info.upgradeOnly
+                  ? null
+                  : (() => {
+                      const code = chosen.length ? cardBuildBlocker(state, ctx, me, chosen, industry) : buildBlocker(state, ctx, me, industry)
+                      return code ? b.errors[code] : null
+                    })()
+              }
               upgradeBlocked={devCode ? b.errors[devCode] : null}
               upgradeSelected={flow.kind === 'develop' && flow.chips.includes(industry)}
-              pulseUpgrade={pulse?.industry === industry}
+              pulseUpgrade={pulse?.industry === industry || (flow.kind === 'develop' && flow.chips.length === 0 && !devCode)}
               onSelect={() => onRow(industry)}
               onUpgrade={() => onUpgrade(industry)}
               key-pulse={pulse?.key}
@@ -395,7 +534,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
           )
         })}
       </div>
-      {flow.kind === 'develop' && !readOnly && (
+      {flow.kind === 'develop' && flow.chips.length > 0 && !readOnly && (
         <UpgradeBar
           chips={(() => {
             const counts = { ...state.players[me].mat }
@@ -417,15 +556,12 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
           })()}
           names={industryNames}
           ironPrices={(() => {
-            const r = developPlan(state, ctx, me, flow.chips)
+            const r = developPlan(state, ctx, me, flow.chips, actionCard ?? undefined)
             if (r instanceof RuleError) return flow.chips.map(() => null)
             return r.iron.map((take) => (take.from === 'market' ? take.price : null))
           })()}
           error={developError(flow.chips)}
-          onRemove={(i) => {
-            const chips = flow.chips.filter((_, k) => k !== i)
-            setFlow(chips.length ? { kind: 'develop', chips } : { kind: 'idle' })
-          }}
+          onRemove={(i) => setFlow({ kind: 'develop', chips: flow.chips.filter((_, k) => k !== i) })}
           onAddAnother={flow.chips.length < 2 ? () => notify(b.addAnother.replace('+ ', '')) : null}
           onConfirm={confirmAction}
           onCancel={cancel}
@@ -436,6 +572,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
           state={state}
           ctx={ctx}
           disabled={actionState}
+          noLoans={noLoans}
           active={flow.kind === 'network' || flow.kind === 'network-confirm' ? (state.era === 'canal' ? 'canal' : flow.count === 2 ? 'rails' : 'rail') : flow.kind === 'loan' ? 'loan' : flow.kind.startsWith('sell') ? 'sell' : flow.kind === 'skip' ? 'skip' : null}
           onNetwork={(count) => setFlow({ kind: 'network', count, picked: [] })}
           onLoan={() => setFlow({ kind: 'loan' })}
@@ -446,6 +583,8 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       <StatsBar player={player} ctx={ctx} />
     </div>
   )
+
+  const zoomCard = zoom ? (hand.find((c) => c.id === zoom) ?? null) : null
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -458,20 +597,39 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         <GameMenuButton onRules={onOpenRules} onSettings={onOpenSettings} onLeave={onLeave} />
       </TopBar>
 
-      <main id="main-content" tabIndex={-1} className="grid flex-1 grid-cols-1 gap-3 p-2 outline-none lg:grid-cols-[minmax(0,1fr)_25rem] lg:p-3">
+      <main id="main-content" tabIndex={-1} className="grid flex-1 grid-cols-1 gap-3 p-2 pb-14 outline-none lg:grid-cols-[minmax(0,1fr)_25rem] lg:p-3">
         <div className="flex min-w-0 flex-col gap-2">
           {hint && myTurn && (
-            <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-sm font-semibold text-parchment-50" style={{ borderColor: colorOf(me), background: `${colorOf(me)}22` }}>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-sm font-semibold text-parchment-50" style={{ borderColor: colorOf(me), background: `${colorOf(me)}22` }}>
               <span>{hint}</span>
-              {flow.kind === 'sell-mill' && flow.more ? (
-                <button type="button" className="btn btn-ghost min-h-8 px-3 text-xs" onClick={() => afterHuman(dispatch(me, { type: 'sell-stop' }))}>
-                  {b.stopSelling}
-                </button>
-              ) : (
-                <button type="button" className="btn btn-ghost min-h-8 px-3 text-xs" onClick={cancel}>
-                  {b.cancel}
-                </button>
-              )}
+              <span className="flex flex-wrap items-center gap-1.5">
+                {flow.kind === 'network' && state.era === 'rail' && flow.picked.length === 0 && (
+                  <span className="inline-flex overflow-hidden rounded-md border border-bronze-400/60" role="group" aria-label={b.networkTitle.rail}>
+                    {([1, 2] as const).map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        aria-pressed={flow.count === n}
+                        onClick={actionState[n === 1 ? 'rail' : 'rails'] ? undefined : () => setFlow({ kind: 'network', count: n, picked: [] })}
+                        aria-disabled={actionState[n === 1 ? 'rail' : 'rails'] ? true : undefined}
+                        title={actionState[n === 1 ? 'rail' : 'rails'] ?? undefined}
+                        className={`px-2 py-1 text-xs font-bold uppercase ${flow.count === n ? 'bg-brass-300/25 text-brass-100' : 'text-parchment-300 hover:text-parchment-50'} aria-disabled:opacity-40`}
+                      >
+                        {n === 1 ? b.actions.rail : b.actions.rails}
+                      </button>
+                    ))}
+                  </span>
+                )}
+                {flow.kind === 'sell-mill' && flow.more ? (
+                  <button type="button" className="btn btn-ghost min-h-8 px-3 text-xs" onClick={() => afterHuman(dispatch(me, { type: 'sell-stop' }))}>
+                    {b.stopSelling}
+                  </button>
+                ) : (
+                  <button type="button" className="btn btn-ghost min-h-8 px-3 text-xs" onClick={cancel}>
+                    {b.cancel}
+                  </button>
+                )}
+              </span>
             </div>
           )}
           <section className="plate relative overflow-hidden p-1" aria-label={b.opponents}>
@@ -490,19 +648,42 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
                 colorOf={colorOf}
               />
             </ZoomPan>
+            <div className="absolute top-2 left-2 z-10">
+              <DeckIndicator state={state} />
+            </div>
           </section>
           {recent && state.players[recent.entry.kind === 'build' || recent.entry.kind === 'network' || recent.entry.kind === 'develop' || recent.entry.kind === 'sell' || recent.entry.kind === 'loan' || recent.entry.kind === 'pass' ? recent.entry.player : 0]?.isAI && (
             <p className="text-sm text-parchment-300" aria-live="polite">
               {describeMove(recent.entry, (p) => state.players[p].name, townName, slotTown, industryNames, b.moves)}
             </p>
           )}
-          <Hand
-            cards={state.players[me].hand}
-            used={handUsed}
-            townName={townName}
-            industryName={(id) => industryNames[id]}
-            onPick={myTurn ? (id) => setPreferredCard(id) : null}
-          />
+          {/* The hand stays at the bottom of the screen, centred under the board. */}
+          <div className="pointer-events-none sticky bottom-12 z-20 -mx-2 flex flex-col items-center gap-1 bg-linear-to-t from-soot-950 via-soot-950/80 to-transparent px-2 pt-6 lg:bottom-0 [&>*]:pointer-events-auto">
+            {myTurn && !chosen.length && flow.kind === 'idle' && <p className="rounded-full bg-soot-950/80 px-2.5 text-xs text-parchment-300">{b.pickCard}</p>}
+            {jokerCards ? (
+              <JokerPrompt
+                first={nameOf(jokerCards[0])}
+                second={nameOf(jokerCards[1])}
+                blocked={jokerBlocked ? b.errors[jokerBlocked] : null}
+                onJoker={() => {
+                  setSelected(jokerCards)
+                  setJokerOffer(null)
+                  setFlow({ kind: 'build', industry: null })
+                }}
+                onSwitch={() => {
+                  setSelected([jokerCards[1]])
+                  setJokerOffer(null)
+                  if (flow.kind === 'build') setFlow({ kind: 'build', industry: null })
+                }}
+                onCancel={() => setJokerOffer(null)}
+              />
+            ) : (
+              chosenCard &&
+              flow.kind === 'idle' &&
+              cardBar && <CardActionBar card={chosenCard} name={cardName(chosenCard)} era={state.era} blocked={cardBar} noLoans={noLoans} onChoose={startCardAction} onCancel={cancelAll} />
+            )}
+            <HandFan cards={hand} selected={fanSelected} interactive={myTurn && !state.selling} name={cardName} kind={cardKind} label={b.handTitle} onSelect={onCard} onZoom={setZoom} />
+          </div>
         </div>
 
         <aside className="hidden lg:block" aria-label={b.showPanel}>
@@ -522,15 +703,28 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         flow={flow}
         state={state}
         me={me}
+        card={actionCard}
         onCancel={cancel}
         onConfirm={confirmAction}
         onFlow={setFlow}
         onLoan={(amount) => {
-          const card = discardFor()
-          if (card) afterHuman(dispatch(me, { type: 'loan', cards: [card], amount }))
+          if (actionCard) afterHuman(dispatch(me, { type: 'loan', cards: [actionCard], amount }))
         }}
         slotTown={slotTown}
         townName={townName}
+      />
+
+      <CardZoom
+        card={zoomCard}
+        name={zoomCard ? cardName(zoomCard) : ''}
+        kind={zoomCard ? cardKind(zoomCard) : ''}
+        canPlay={myTurn && !state.selling}
+        selected={!!zoomCard && chosen.includes(zoomCard.id)}
+        onPlay={() => {
+          if (zoomCard) onCard(zoomCard.id)
+          setZoom(null)
+        }}
+        onClose={() => setZoom(null)}
       />
 
       <Dialog open={needsHandoff && !overlayOpen} onClose={() => setSeatAtDevice(current)} labelledBy="handoff-title">
@@ -549,11 +743,6 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       <Results open={resultsOpen && state.finished} state={state} colorOf={colorOf} unlocked={unlocked} onClose={() => setResultsOpen(false)} onRematch={onRematch} onLeave={onLeave} />
     </div>
   )
-}
-
-/** A build plan with specific cards (throws if they can't pay for it). */
-function buildPlanWith(state: GameState, player: number, industry: IndustryId, slot: string, cards: string[]): BuildPlan {
-  return planBuild(state, ctx, player, { type: 'build', cards, slot, industry, sellCubes: true })
 }
 
 function describeMove(
@@ -681,6 +870,7 @@ function ConfirmDialogs({
   flow,
   state,
   me,
+  card,
   onCancel,
   onConfirm,
   onFlow,
@@ -691,6 +881,8 @@ function ConfirmDialogs({
   flow: Flow
   state: GameState
   me: number
+  /** The card a one-card action gives up. */
+  card: string | null
   onCancel: () => void
   onConfirm: () => void
   onFlow: (flow: Flow) => void
@@ -732,6 +924,26 @@ function ConfirmDialogs({
     build = (
       <ConfirmBox open title={b.buildTitle(b.industry[flow.industry], roman(p.tile.level), slotTown(p.slot))} onConfirm={onConfirm} onCancel={onCancel}>
         <div className="flex flex-col gap-2 text-sm text-parchment-200">
+          {flow.alternatives.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label={b.chooseIndustry}>
+              <span className="text-parchment-400">{b.chooseIndustry}</span>
+              {flow.alternatives.map((industry) => (
+                <button
+                  key={industry}
+                  type="button"
+                  role="radio"
+                  aria-checked={flow.industry === industry}
+                  onClick={() => {
+                    const plan = planBuild(state, ctx, me, { type: 'build', cards: [...p.cards], slot: p.slot, industry, sellCubes: true })
+                    onFlow({ ...flow, industry, plan })
+                  }}
+                  className={`rounded-md border-2 px-2.5 py-1 font-display text-xs font-bold tracking-[0.06em] uppercase ${flow.industry === industry ? 'border-brass-200 bg-brass-300/20 text-brass-100' : 'border-bronze-400/50 text-parchment-200 hover:border-brass-300'}`}
+                >
+                  {b.industry[industry]}
+                </button>
+              ))}
+            </div>
+          )}
           <p className="flex items-center gap-2">
             <span className="text-parchment-400">{b.pay}</span>
             <Coin />
@@ -832,6 +1044,7 @@ function ConfirmDialogs({
       <ConfirmBox open={flow.kind === 'skip'} title={b.skipTitle(state.actionsLeft)} onConfirm={onConfirm} onCancel={onCancel}>
         <p className="text-sm text-parchment-300">{b.skipBody}</p>
       </ConfirmBox>
+      <ConfirmBox open={flow.kind === 'pass'} title={b.passTitle(card ? cardName(card) : '')} onConfirm={onConfirm} onCancel={onCancel} />
     </>
   )
 }

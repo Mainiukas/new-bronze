@@ -1,7 +1,7 @@
 /* The Brass match screen, in English (part of src/i18n/en.tsx). Numbers always come from the rules. */
 
 import type { IndustryId } from '../../rules/tileTable'
-import type { RuleErrorCode } from '../../rules/state'
+import type { Era, RuleErrorCode } from '../../rules/state'
 
 const industry: Record<IndustryId, string> = {
   cotton: 'Cotton mill',
@@ -19,8 +19,6 @@ const brassWords = {
   yourTurn: (actions: number) => `Your turn — ${actions} ${actions === 1 ? 'action' : 'actions'}`,
   theirTurn: (name: string) => `${name}’s turn`,
   thinking: (name: string) => `${name} is thinking…`,
-  deck: (n: number) => `Deck: ${n}`,
-  deckLabel: 'Cards left in the draw deck',
   coalMarket: 'Coal market',
   iron: 'Iron',
   coal: 'Coal',
@@ -83,7 +81,34 @@ const brassWords = {
   locationCard: 'Location',
   industryCard: 'Industry',
   cardUsed: 'Used by this action',
-  pickCard: 'Click a card to discard that one instead',
+  pickCard: 'Pick a card to play it; a second one makes a joker',
+  handEmpty: 'No cards left',
+  close: 'Close',
+  deselect: 'Put it back',
+  playThis: 'Play this card',
+  playAs: (card: string) => `Play ${card} as:`,
+  cardActions: {
+    build: (): string => 'Build',
+    network: (era: Era): string => (era === 'canal' ? 'Canal' : 'Rail'),
+    develop: (): string => 'Develop',
+    sell: (): string => 'Sell',
+    loan: (): string => 'Loan',
+    pass: (): string => 'Pass',
+  } as Record<'build' | 'network' | 'develop' | 'sell' | 'loan' | 'pass', (era: Era) => string>,
+  jokerTitle: (a: string, b: string) => `Two cards: ${a} and ${b}`,
+  jokerUse: 'Use both as a joker (any location)',
+  jokerSwitch: (card: string) => `Play ${card} instead`,
+  jokerHint: 'Two cards count as any location card and use both your actions.',
+  pickSlotFor: (card: string) => `${card}: pick a glowing slot`,
+  pickSlotJoker: 'Joker: pick any glowing slot (uses both actions)',
+  chooseIndustry: 'Which industry?',
+  pickUpgrade: 'Pick UPGRADE on your mat: 1 or 2 tiles',
+  passTitle: (card: string) => `Pass: discard ${card}?`,
+  deckCount: (n: number) => `${n} ${n === 1 ? 'card' : 'cards'} in the draw deck`,
+  deckTrain: (n: number) => `Canal era: the deck is used up. The era ends when every hand is played out (${n} ${n === 1 ? 'card' : 'cards'} left in hands); then the rail era.`,
+  lastLoanRound: 'No more loans after this round — this is the last round to take one (the draw has reached the Rothschild marker; loans stop once the draw deck is empty).',
+  discardPile: (n: number) => `Discard pile: ${n} ${n === 1 ? 'card' : 'cards'}`,
+  cardsInHand: (n: number) => `${n} ${n === 1 ? 'card' : 'cards'} in hand`,
   opponents: 'Players',
   opponentLabel: (name: string, money: number, income: number, vp: number, cards: number) => `${name}: £${money}, income £${income}, ${vp} VP, ${cards} cards`,
   turnMarker: 'Playing now',

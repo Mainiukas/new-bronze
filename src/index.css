@@ -768,3 +768,43 @@ svg [role='button']:focus-visible {
 [data-animations='off'] .stat-flash {
   animation: none !important;
 }
+
+/* Brass cards: the hand fan re-centres smoothly; cards flip with a front and a back face. */
+.fan-card {
+  transition: transform calc(0.38s * var(--anim-scale, 1)) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.fan-card-button {
+  transition:
+    translate 0.15s ease-out,
+    box-shadow 0.15s ease-out;
+}
+.card3d {
+  perspective: 900px;
+}
+.card3d-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform calc(0.45s * var(--anim-scale, 1)) ease-in-out;
+}
+.card3d-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+.card3d-back {
+  transform: rotateY(180deg);
+}
+@keyframes card-flip-in {
+  from {
+    transform: rotateY(180deg);
+  }
+  to {
+    transform: rotateY(0deg);
+  }
+}
+:root[data-animations='off'] .fan-card,
+:root[data-animations='off'] .fan-card-button,
+:root[data-animations='off'] .card3d-inner {
+  transition: none;
+  animation: none !important;
+}

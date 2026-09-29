@@ -13,12 +13,11 @@ import actRailUrl from '../../../assets/ui/player/act_rail.svg'
 import actSellUrl from '../../../assets/ui/player/act_sell.svg'
 import actSkipUrl from '../../../assets/ui/player/act_skip.svg'
 import { useT } from '../../i18n'
-import { INDUSTRY_ICON_URLS } from '../board/assets'
 import { CANAL_COST, DOUBLE_RAIL_COST, RAIL_COST } from '../../rules/constants'
 import { incomeOf, marketBuyPrice, roundsInEra, type RulesContext } from '../../rules/engine'
-import type { Card, GameState, PlayerState } from '../../rules/state'
-import type { IndustryId } from '../../rules/tileTable'
-import { roman } from '../../rules/tileTable'
+import type { GameState, PlayerState } from '../../rules/state'
+import { roman, type IndustryId } from '../../rules/tileTable'
+import { CARD_BACK_URL, NO_LOAN_URL } from './cardArt'
 import { Coin, Cube, IncomeArrow, VpHex } from './Symbols'
 
 /* ---- Action buttons ---------------------------------------------------------- */
@@ -26,6 +25,8 @@ import { Coin, Cube, IncomeArrow, VpHex } from './Symbols'
 interface ActionButtonProps {
   icon: string
   label: string
+  /** Tooltip when enabled (default: the label). */
+  title?: string
   cost?: ReactNode
   disabled?: string | null
   active?: boolean
@@ -33,14 +34,14 @@ interface ActionButtonProps {
   className?: string
 }
 
-function ActionButton({ icon, label, cost, disabled = null, active = false, onClick, className = '' }: ActionButtonProps) {
+function ActionButton({ icon, label, title, cost, disabled = null, active = false, onClick, className = '' }: ActionButtonProps) {
   return (
     <button
       type="button"
       onClick={disabled ? undefined : onClick}
       aria-disabled={disabled ? true : undefined}
       aria-pressed={active}
-      title={disabled ?? label}
+      title={disabled ?? title ?? label}
       className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg border-2 px-2 py-1.5 text-center transition ${
         disabled
           ? 'cursor-not-allowed border-bronze-500/25 bg-soot-900/60 opacity-50'
@@ -71,6 +72,7 @@ export function ActionButtons({
   state,
   ctx,
   disabled,
+  noLoans,
   active,
   onNetwork,
   onLoan,
@@ -80,6 +82,8 @@ export function ActionButtons({
   state: GameState
   ctx: RulesContext
   disabled: ActionState
+  /** The no-loan coin on LOAN: 'last' = the last round to take one, 'none' = no more loans. */
+  noLoans: 'last' | 'none' | null
   active: 'canal' | 'rail' | 'rails' | 'loan' | 'sell' | 'skip' | null
   onNetwork: (count: 1 | 2) => void
   onLoan: () => void
@@ -109,7 +113,14 @@ export function ActionButtons({
   )
   const bottom = (
     <div className="grid grid-cols-3 gap-2">
-      <ActionButton icon={actLoanUrl} label={a.loan} disabled={disabled.loan} active={active === 'loan'} onClick={onLoan} />
+      <ActionButton
+        icon={noLoans ? NO_LOAN_URL : actLoanUrl}
+        label={a.loan}
+        disabled={disabled.loan}
+        title={noLoans === 'last' ? t.brass.lastLoanRound : undefined}
+        active={active === 'loan'}
+        onClick={onLoan}
+      />
       <ActionButton icon={actSellUrl} label={a.sell} disabled={disabled.sell} active={active === 'sell'} onClick={onSell} />
       <ActionButton icon={actSkipUrl} label={a.skip} disabled={disabled.skip} active={active === 'skip'} onClick={onSkip} />
     </div>
@@ -323,8 +334,9 @@ export function Opponents({
               <span aria-hidden="true">
                 <VpHex value={p.vp} size="sm" />
               </span>
-              <span className="inline-flex w-7 items-center justify-end gap-0.5 text-xs text-parchment-300 tabular-nums" aria-hidden="true">
-                🂠{p.hand.length}
+              <span data-seat={id} className="inline-flex w-9 items-center justify-end gap-1 text-xs font-bold text-parchment-200 tabular-nums" title={b.cardsInHand(p.hand.length)} aria-hidden="true">
+                <img src={CARD_BACK_URL} alt="" className="h-5 w-auto rounded-[2px] shadow" />
+                {p.hand.length}
               </span>
             </button>
           </li>
@@ -333,65 +345,6 @@ export function Opponents({
     </ul>
   )
 }
-
-/* ---- Hand ------------------------------------------------------------------------- */
-
-export function Hand({
-  cards,
-  used,
-  townName,
-  industryName,
-  onPick,
-}: {
-  cards: readonly Card[]
-  used: readonly string[]
-  townName: (id: string) => string
-  industryName: (id: IndustryId) => string
-  onPick: ((cardId: string) => void) | null
-}) {
-  const t = useT()
-  const b = t.brass
-  return (
-    <div className="flex flex-col gap-1">
-      <p className="font-display text-xs font-bold tracking-[0.12em] text-parchment-300 uppercase">
-        {b.handTitle}
-        {onPick && <span className="ml-2 font-body text-[0.7rem] font-normal tracking-normal text-parchment-400 normal-case">{b.pickCard}</span>}
-      </p>
-      <ul className="flex gap-1.5 overflow-x-auto pb-1">
-        {cards.map((card) => {
-          const isUsed = used.includes(card.id)
-          const label = card.kind === 'location' ? townName(card.town) : industryName(card.industry)
-          return (
-            <li key={card.id} className="shrink-0">
-              <button
-                type="button"
-                disabled={!onPick}
-                onClick={() => onPick?.(card.id)}
-                aria-pressed={onPick ? isUsed : undefined}
-                aria-label={`${card.kind === 'location' ? b.locationCard : b.industryCard}: ${label}${isUsed ? `. ${b.cardUsed}` : ''}`}
-                className={`flex h-24 w-[4.5rem] flex-col justify-between rounded-md border-2 p-1.5 text-left shadow-md transition ${
-                  isUsed ? '-translate-y-2 border-brass-200 shadow-[0_0_12px_rgb(248_216_132/0.6)]' : 'border-bronze-500/60'
-                } ${card.kind === 'location' ? 'bg-linear-to-b from-[#3a2a18] to-[#1e160e]' : 'bg-linear-to-b from-[#2a2f33] to-[#15191c]'} enabled:hover:border-brass-300`}
-              >
-                <span className="font-display text-[0.55rem] font-bold tracking-[0.12em] text-parchment-400 uppercase">{card.kind === 'location' ? b.locationCard : b.industryCard}</span>
-                {card.kind === 'industry' ? (
-                  <img src={industryIcon(card.industry)} alt="" aria-hidden="true" className="mx-auto size-9 object-contain" />
-                ) : (
-                  <span className="text-center text-lg" aria-hidden="true">
-                    ⌂
-                  </span>
-                )}
-                <span className="line-clamp-2 font-display text-[0.7rem] leading-tight font-bold text-parchment-50">{label}</span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
-  )
-}
-
-const industryIcon = (id: IndustryId) => INDUSTRY_ICON_URLS[id]
 
 /* ---- Top bar ------------------------------------------------------------------------ */
 
@@ -426,9 +379,6 @@ export function TopBar({ state, ctx, status, children }: { state: GameState; ctx
       </span>
       <span className="text-sm text-parchment-300">{b.round(state.round, roundsInEra(state))}</span>
       <span className="font-display text-sm font-bold tracking-[0.04em] text-parchment-50">{status}</span>
-      <span className="text-sm text-parchment-300" title={b.deckLabel}>
-        {b.deck(state.deck.length)}
-      </span>
       <span className="ml-auto flex flex-wrap items-center gap-3">
         <MarketTrack kind="coal" cubes={state.market.coal} ctx={ctx} label={b.coalMarket} />
         <MarketTrack kind="iron" cubes={state.market.iron} ctx={ctx} label={b.ironMarket} />

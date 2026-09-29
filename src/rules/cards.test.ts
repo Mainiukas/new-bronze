@@ -3,9 +3,10 @@ import { buildDeck, CANAL_SET_ASIDE_PER_PLAYER, faceOf, INDUSTRY_CARDS, LOCATION
 import { HAND_SIZE } from './constants'
 import { applyAction, createGame, currentPlayerId, incomeOf, loanProblem, railMarkerReached, roundsInEra, type RulesContext } from './engine'
 import { BRASS_MAP } from './map'
-import { linkOptions } from './options'
+import { cardActions, cardBuildBlocker, cardBuildTargets, discardChoice, legalActions, linkOptions, type CardBuildTarget } from './options'
 import { PLACEHOLDER_DATA } from './placeholder'
 import type { Card, GameState } from './state'
+import type { IndustryId } from './tileTable'
 
 const ctx: RulesContext = { data: PLACEHOLDER_DATA, map: BRASS_MAP }
 const seats = (n: number) => Array.from({ length: n }, (_, i) => ({ name: `P${i}`, isAI: false }))
@@ -193,5 +194,88 @@ describe('the rail era (§5): every card reshuffled, the Rothschild marker, loan
   it('the round count follows the deck: Bullet (the core only) is shorter', () => {
     const s = createGame(ctx, seats(4), 1, { mapRing: 1 })
     expect([roundsInEra(s, 'canal'), roundsInEra(s, 'rail')]).toEqual([6, 6])
+  })
+})
+
+describe('playing a card (§3): what each card allows', () => {
+  let serial = 0
+  const L = (town: string): Card => ({ id: `test-loc-${town}#${++serial}`, kind: 'location', town })
+  const I = (industry: IndustryId): Card => ({ id: `test-ind-${industry}#${++serial}`, kind: 'industry', industry })
+  /** P0 to play in round 2 of the canal era (2 actions), with this hand. */
+  function withHand(hand: Card[], actions = 2): GameState {
+    const s = createGame(ctx, seats(2), 21)
+    s.order = [0, 1]
+    s.turn = 0
+    s.round = 2
+    s.actionsLeft = actions
+    s.players[0].hand = hand
+    return s
+  }
+  const slots = (targets: CardBuildTarget[]) => [...new Set(targets.map((t) => t.slot))].sort()
+
+  it('a location card: only that town\'s slots, no network needed', () => {
+    const s = withHand([L('oxford')])
+    expect(slots(cardBuildTargets(s, ctx, 0, [s.players[0].hand[0].id]))).toEqual(['oxford:0', 'oxford:1'])
+  })
+
+  it('an industry card: only that industry, only in your network (a town with your tile or touching your link)', () => {
+    const s = withHand([I('cotton')])
+    const card = s.players[0].hand[0].id
+    expect(cardBuildTargets(s, ctx, 0, [card])).toEqual([])
+    expect(cardBuildBlocker(s, ctx, 0, [card])).toBe('network')
+    s.links['birmingham-oxford'] = { owner: 0 }
+    const targets = cardBuildTargets(s, ctx, 0, [card])
+    expect(new Set(targets.map((t) => t.industry))).toEqual(new Set(['cotton']))
+    expect(new Set(targets.map((t) => ctx.map.slots[t.slot].town))).toEqual(new Set(['birmingham', 'oxford']))
+  })
+
+  it('two cards (the joker): any town, using both actions; not with one action left', () => {
+    const s = withHand([I('shipyard'), L('plymouth')])
+    const two = s.players[0].hand.map((c) => c.id)
+    const towns = new Set(cardBuildTargets(s, ctx, 0, two).map((t) => ctx.map.slots[t.slot].town))
+    expect(towns.size).toBeGreaterThan(8)
+    expect(cardBuildTargets(s, ctx, 0, two).every((t) => t.plan.actions === 2)).toBe(true)
+    const one = withHand([I('shipyard'), L('plymouth')], 1)
+    expect(cardBuildBlocker(one, ctx, 0, one.players[0].hand.map((c) => c.id))).toBe('two-cards')
+  })
+
+  it('a slot showing only that industry comes first: the mixed slot stays dark while it is free', () => {
+    const s = withHand([L('gloucester')])
+    const card = s.players[0].hand[0].id
+    // Gloucester: slot 0 port, slot 1 cotton/port.
+    expect(cardBuildTargets(s, ctx, 0, [card], 'port').map((t) => t.slot)).toEqual(['gloucester:0'])
+    expect(cardBuildTargets(s, ctx, 0, [card], 'cotton').map((t) => t.slot)).toEqual(['gloucester:1'])
+    s.tiles['gloucester:0'] = { owner: 1, industry: 'port', level: 1, cubes: 0, flipped: false }
+    expect(cardBuildTargets(s, ctx, 0, [card], 'port').map((t) => t.slot)).toEqual(['gloucester:1'])
+  })
+
+  it('only slots where the coal can be had: Wrexham\'s iron works needs coal, and nothing is connected', () => {
+    const s = withHand([L('wrexham')])
+    const card = s.players[0].hand[0].id
+    expect(cardBuildTargets(s, ctx, 0, [card]).map((t) => `${t.slot} ${t.industry}`)).toEqual(['wrexham:0 coal'])
+    expect(cardBuildBlocker(s, ctx, 0, [card], 'iron')).toBe('coal')
+  })
+
+  it('canal era: a town where you already have a tile is dark (1 tile per town)', () => {
+    const s = withHand([L('oxford')])
+    s.tiles['oxford:0'] = { owner: 0, industry: 'cotton', level: 1, cubes: 0, flipped: false }
+    expect(cardBuildBlocker(s, ctx, 0, [s.players[0].hand[0].id])).toBe('one-per-town')
+  })
+
+  it('any card pays for network, develop, sell, loan and pass; each disabled with its reason', () => {
+    const s = withHand([L('plymouth')])
+    const card = s.players[0].hand[0].id
+    expect(cardActions(s, ctx, 0, card)).toEqual({ build: 'era', network: null, develop: null, sell: 'sale', loan: null, pass: null })
+    s.deck = []
+    expect(cardActions(s, ctx, 0, card).loan).toBe('no-more-loans')
+    s.turn = 1
+    expect(cardActions(s, ctx, 0, card).pass).toBe('not-your-turn')
+  })
+
+  it('the computer players give up the least useful card for actions that take any card', () => {
+    const s = withHand([L('plymouth'), L('oxford')]) // Plymouth is rail-only: no build in the canal era
+    const [plymouth] = s.players[0].hand.map((c) => c.id)
+    expect(discardChoice(s, ctx, 0)).toBe(plymouth)
+    for (const action of legalActions(s, ctx, 0)) if (action.type !== 'build' && 'cards' in action) expect(action.cards).toEqual([plymouth])
   })
 })

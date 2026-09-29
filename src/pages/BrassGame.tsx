@@ -29,7 +29,7 @@ import { LOANS } from '../rules/constants'
 import { RULES } from '../rules/context'
 import { applyAction, currentPlayerId, networkOf, planBuild, saleOptions, type BuildPlan, type NetworkPlan } from '../rules/engine'
 import type { BrassMatch } from '../rules/match'
-import { buildBlocker, buildOptions, defaultDiscard, developBlocker, developPlan, linkOptions, loanOptions, networkBlocker } from '../rules/options'
+import { buildBlocker, buildOptions, developBlocker, discardChoice, developPlan, linkOptions, loanOptions, networkBlocker } from '../rules/options'
 import { RuleError, type Action, type GameState, type LogEntry, type Sale } from '../rules/state'
 import { INDUSTRY_ORDER, roman, type IndustryId } from '../rules/tileTable'
 import type { PlayerColor } from '../game/types'
@@ -153,7 +153,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const discardFor = (): string | null => {
     const hand = state.players[me].hand
     if (preferredCard && hand.some((c) => c.id === preferredCard)) return preferredCard
-    return defaultDiscard(state, me)
+    return discardChoice(state, ctx, me)
   }
 
   const buildTargets = useMemo(() => (flow.kind === 'build' && myTurn ? buildOptions(state, ctx, me, flow.industry) : []), [flow, myTurn, state, me])

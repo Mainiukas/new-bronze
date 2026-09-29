@@ -602,6 +602,12 @@ describe('end of the canal era (§5)', () => {
     expect(s.discard).toEqual([])
     expect(s.setAside).toEqual([])
     expect(s.deck.length + 16).toBe(40) // every card again, the 2 set aside in the canal era too
+    // The log names what came off (the board fades it away).
+    const ended = s.log.find((e) => e.kind === 'era-end')
+    expect(ended?.kind === 'era-end' && ended.removed).toEqual({
+      tiles: { 'gloucester:1': tile(0, 'cotton', 1, 0, true), 'gloucester:0': tile(1, 'port', 1, 0, true) },
+      links: { 'wolverhampton-gloucester': { owner: 0 }, 'london-reading': { owner: 1 } },
+    })
   })
 })
 

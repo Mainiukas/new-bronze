@@ -70,7 +70,7 @@ export type LogEntry =
   | { kind: 'deal'; era: Era; cards: number }
   | { kind: 'draw'; player: number; count: number }
   | { kind: 'discard'; player: number; cards: string[] }
-  | { kind: 'era-end'; era: Era; scores: { player: number; links: number; tiles: number }[] }
+  | { kind: 'era-end'; era: Era; scores: { player: number; links: number; tiles: number }[]; removed?: { tiles: Record<string, Tile>; links: Record<string, LinkState> } }
   | { kind: 'game-end'; ranking: number[] }
 
 export interface GameState {

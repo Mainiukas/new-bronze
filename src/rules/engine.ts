@@ -874,7 +874,8 @@ export function eraScores(state: GameState, ctx: RulesContext): { player: number
 function endEra(state: GameState, ctx: RulesContext) {
   const scores = eraScores(state, ctx)
   for (const s of scores) state.players[s.player].vp += s.links + s.tiles
-  state.log.push({ kind: 'era-end', era: state.era, scores })
+  const removed = state.era === 'canal' ? { tiles: Object.fromEntries(Object.entries(state.tiles).filter(([, t]) => t.level === 1)), links: { ...state.links } } : undefined
+  state.log.push({ kind: 'era-end', era: state.era, scores, ...(removed ? { removed: structuredClone(removed) } : {}) })
 
   if (state.era === 'rail') {
     for (const p of state.players) p.vp += Math.floor(p.money / MONEY_PER_VP)

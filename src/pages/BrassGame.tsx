@@ -13,6 +13,7 @@ import { IndustryRow } from '../components/brass/IndustryRow'
 import { deckMode } from '../components/brass/cardArt'
 import { CardActionBar, CardZoom, HandFan, JokerPrompt } from '../components/brass/Cards'
 import { DeckIndicator } from '../components/brass/Deck'
+import { useCardFlights } from '../components/brass/useCardFlights'
 import { ActionButtons, Opponents, StatsBar, TopBar, UpgradeBar, type ActionState } from '../components/brass/Panel'
 import { rowInfo } from '../components/brass/rowInfo'
 import { Coin, Cube, IncomeArrow, VpHex } from '../components/brass/Symbols'
@@ -30,7 +31,7 @@ import { STORAGE_KEYS } from '../lib/storage'
 import { chooseAction } from '../rules/ai'
 import { LOANS } from '../rules/constants'
 import { RULES } from '../rules/context'
-import { applyAction, currentPlayerId, networkOf, planBuild, saleOptions, type BuildPlan, type NetworkPlan } from '../rules/engine'
+import { applyAction, currentPlayerId, inPlay, networkOf, planBuild, saleOptions, type BuildPlan, type NetworkPlan } from '../rules/engine'
 import type { BrassMatch } from '../rules/match'
 import {
   buildBlocker,
@@ -127,6 +128,8 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   // Without a picked card, actions give up the least useful one.
   const autoCard = useMemo(() => (myTurn ? discardChoice(state, ctx, me) : null), [myTurn, state, me])
   const actionCard = chosen.length === 1 ? chosen[0] : autoCard
+
+  const flights = useCardFlights(state, me, ANIMATION_SCALE[settings.animationSpeed])
 
   const cancel = () => setFlow({ kind: 'idle' })
   const cancelAll = () => {
@@ -632,7 +635,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
               </span>
             </div>
           )}
-          <section className="plate relative overflow-hidden p-1" aria-label={b.opponents}>
+          <section data-board className="plate relative overflow-hidden p-1" aria-label={b.opponents}>
             <ZoomPan>
               <BrassBoard
                 state={state}
@@ -740,6 +743,9 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         </div>
       </Dialog>
 
+      {/* Flying cards (dealt, drawn, played) are drawn here, over everything. */}
+      <div ref={flights} className="pointer-events-none fixed inset-0 z-[60] overflow-hidden" aria-hidden="true" />
+
       <Results open={resultsOpen && state.finished} state={state} colorOf={colorOf} unlocked={unlocked} onClose={() => setResultsOpen(false)} onRematch={onRematch} onLeave={onLeave} />
     </div>
   )
@@ -807,6 +813,22 @@ function BrassBoard({
     built.slots[slot] = { player: tile.owner, industry: tile.industry, level: tile.level, flipped: tile.flipped, cubes: tile.cubes }
   }
   for (const [id, link] of Object.entries(state.links)) built.links[id] = { player: link.owner }
+  // Just into the rail era: the canals and level I tiles that came off fade away (until the second action after it).
+  const fading = { slots: new Set<string>(), links: new Set<string>() }
+  const eraEnd = state.era === 'rail' ? state.log.findLastIndex((e) => e.kind === 'era-end' && e.era === 'canal') : -1
+  const ended = state.log[eraEnd]
+  if (ended?.kind === 'era-end' && ended.removed && state.log.slice(eraEnd).filter((e) => e.kind === 'discard').length < 2) {
+    for (const [slot, tile] of Object.entries(ended.removed.tiles)) {
+      if (built.slots[slot]) continue
+      built.slots[slot] = { player: tile.owner, industry: tile.industry, level: tile.level, flipped: tile.flipped, cubes: tile.cubes }
+      fading.slots.add(slot)
+    }
+    for (const [id, link] of Object.entries(ended.removed.links)) {
+      if (built.links[id]) continue
+      built.links[id] = { player: link.owner }
+      fading.links.add(id)
+    }
+  }
   const e = recent?.entry
   const boardRecent: BoardRecent | null = !e
     ? null
@@ -817,7 +839,8 @@ function BrassBoard({
         : e.kind === 'sell'
           ? { key: recent!.key, slot: e.mill }
           : null
-  const railOnly = new Set(state.era === 'canal' ? Object.values(ctx.map.places).filter((p) => p.railOnly).map((p) => p.id) : [])
+  // Drawn faded: places off this mode's map, and rail-only places in the canal era.
+  const closed = new Set(Object.values(ctx.map.places).filter((p) => !inPlay(state, ctx, p.id) || (state.era === 'canal' && p.railOnly)).map((p) => p.id))
   return (
     <IllustratedBoard
       board={board}
@@ -829,7 +852,8 @@ function BrassBoard({
       targetColor={targetColor}
       hideEmptyLinks={!showLinkSpaces}
       hidePrices
-      closed={railOnly}
+      closed={closed}
+      fading={fading.slots.size || fading.links.size ? fading : null}
       network={network}
       recent={boardRecent}
       motion={motion}

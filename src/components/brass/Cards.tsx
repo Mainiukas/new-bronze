@@ -32,13 +32,13 @@ function useWidth(ref: React.RefObject<HTMLElement | null>): number {
   return width
 }
 
-/** One card: front and back, so it can flip. */
-export function CardImage({ card, faceDown = false, flipDelay = null, className = '' }: { card: Card | string; faceDown?: boolean; flipDelay?: number | null; className?: string }) {
-  const style: CSSProperties | undefined = flipDelay !== null ? { animation: `card-flip-in calc(0.5s * var(--anim-scale, 1)) ${flipDelay}ms both` } : faceDown ? { transform: 'rotateY(180deg)' } : undefined
+/** One card: front and back, so it can flip. `label` lays a readable name over the front's name banner. */
+export function CardImage({ card, label, className = '' }: { card: Card | string; label?: string; className?: string }) {
   return (
     <span className={`card3d block ${className}`}>
-      <span className="card3d-inner block size-full" style={style}>
+      <span className="card3d-inner block size-full">
         <img src={cardArt(card)} alt="" draggable={false} className="card3d-face size-full rounded-[7%] object-cover select-none" />
+        {label && <CardName name={label} />}
         <img src={CARD_BACK_URL} alt="" draggable={false} className="card3d-face card3d-back size-full rounded-[7%] object-cover select-none" />
       </span>
     </span>
@@ -51,7 +51,7 @@ export function CardImage({ card, faceDown = false, flipDelay = null, className 
  */
 function CardName({ name }: { name: string }) {
   return (
-    <span aria-hidden="true" className="absolute inset-x-[9%] top-[84.6%] grid h-[10.6%] place-items-center overflow-hidden rounded-[4px] border border-brass-300/40 bg-soot-950/90 px-0.5 [container-type:size]">
+    <span aria-hidden="true" className="absolute inset-x-[9%] top-[84.6%] grid [transform:translateZ(1px)] [backface-visibility:hidden] h-[10.6%] place-items-center overflow-hidden rounded-[4px] border border-brass-300/40 bg-soot-950/90 px-0.5 [container-type:size]">
       <span className="font-display leading-none font-bold whitespace-nowrap text-parchment-50 uppercase [font-size:min(60cqh,9.6cqw)]">{name}</span>
     </span>
   )
@@ -63,10 +63,6 @@ interface HandFanProps {
   selected: readonly string[]
   /** Clicking plays (else it only enlarges). */
   interactive: boolean
-  /** Cards still flying in from the deck: their place is kept, they're not shown yet. */
-  hidden?: ReadonlySet<string>
-  /** Cards that just arrived: they flip face up, after this many ms. */
-  flipping?: ReadonlyMap<string, number>
   name: (card: Card) => string
   kind: (card: Card) => string
   label: string
@@ -75,7 +71,7 @@ interface HandFanProps {
 }
 
 /** The hand: a gentle fan, centred, that re-centres smoothly as the number of cards changes. */
-export function HandFan({ cards, selected, interactive, hidden, flipping, name, kind, label, onSelect, onZoom }: HandFanProps) {
+export function HandFan({ cards, selected, interactive, name, kind, label, onSelect, onZoom }: HandFanProps) {
   const t = useT()
   const ref = useRef<HTMLUListElement>(null)
   const width = useWidth(ref)
@@ -93,7 +89,7 @@ export function HandFan({ cards, selected, interactive, hidden, flipping, name, 
   const sink = Math.ceil(((n - 1) / 2) ** 2 * drop + Math.sin(((((n - 1) / 2) * tilt) / 180) * Math.PI) * cardW * 0.5) + 4
   const height = cardH + lift + sink
   return (
-    <ul ref={ref} aria-label={label} className="relative w-full" style={{ height, '--lift': `${lift}px` } as CSSProperties}>
+    <ul ref={ref} data-fan aria-label={label} className="relative w-full" style={{ height, '--lift': `${lift}px` } as CSSProperties}>
       {n === 0 && <li className="absolute inset-x-0 bottom-3 text-center text-sm text-parchment-400">{t.brass.handEmpty}</li>}
       {cards.map((card, i) => {
         const mid = i - (n - 1) / 2
@@ -110,7 +106,7 @@ export function HandFan({ cards, selected, interactive, hidden, flipping, name, 
           <li
             key={card.id}
             data-card={card.id}
-            className={`fan-card absolute left-1/2 z-[var(--z)] origin-bottom has-[:focus-visible]:z-50 has-[:hover]:z-50 ${hidden?.has(card.id) ? 'invisible' : ''}`}
+            className="fan-card absolute left-1/2 z-[var(--z)] origin-bottom has-[:focus-visible]:z-50 has-[:hover]:z-50"
             style={style}
           >
             <button
@@ -131,8 +127,7 @@ export function HandFan({ cards, selected, interactive, hidden, flipping, name, 
                   : 'shadow-[0_6px_14px_rgb(0_0_0/0.55)] hover:-translate-y-[calc(var(--lift)*0.55)] focus-visible:-translate-y-[calc(var(--lift)*0.55)] focus-visible:shadow-[0_0_0_3px_var(--color-brass-200)]'
               }`}
             >
-              <CardImage card={card} flipDelay={flipping?.get(card.id) ?? null} className="size-full" />
-              <CardName name={name(card)} />
+              <CardImage card={card} label={name(card)} className="size-full" />
             </button>
           </li>
         )

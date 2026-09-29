@@ -111,6 +111,8 @@ export interface IllustratedBoardProps {
   targetColor?: string
   /** Hide the hubs' price badges (the Brass rules have no hub prices). */
   hidePrices?: boolean
+  /** Built pieces that are leaving the board (the end of the canal era): drawn fading out, links as canals. */
+  fading?: { slots: ReadonlySet<string>; links: ReadonlySet<string> } | null
   className?: string
 }
 
@@ -207,6 +209,7 @@ export function IllustratedBoard({
   hideEmptyLinks = false,
   targetColor,
   hidePrices = false,
+  fading = null,
   className = '',
 }: IllustratedBoardProps) {
   const t = useT()
@@ -544,7 +547,7 @@ export function IllustratedBoard({
                   key={link.id}
                   opacity={shut ? CLOSED_OPACITY.link : 1}
                   pointerEvents={shut ? 'none' : undefined}
-                  className={clickable ? 'cursor-pointer' : undefined}
+                  className={fading?.links.has(link.id) ? 'board-fade-out' : clickable ? 'cursor-pointer' : undefined}
                   {...(clickable ? asButton(linkLabel(route, owner ? t.boardLabels.builtBy(nameOf(owner.player)) : t.boardLabels.notBuilt), () => onSelectLink!(link.id)) : {})}
                   {...(shut ? {} : hoverHandlers({ type: 'link', id: link.id }))}
                 >
@@ -558,8 +561,8 @@ export function IllustratedBoard({
                           x={marker.x}
                           y={marker.y}
                           angle={marker.angle}
-                          era={era}
-                          token={token && TOKEN_URLS[era][token]}
+                          era={fading?.links.has(link.id) ? 'canal' : era}
+                          token={token && TOKEN_URLS[fading?.links.has(link.id) ? 'canal' : era][token]}
                           color={color}
                           mark={playerMark?.(owner.player)}
                         />
@@ -600,7 +603,7 @@ export function IllustratedBoard({
                     return (
                       <g
                         key={key}
-                        className={slotClickable ? 'cursor-pointer' : undefined}
+                        className={fading?.slots.has(key) ? 'board-fade-out' : slotClickable ? 'cursor-pointer' : undefined}
                         {...(shut ? {} : hoverHandlers({ type: 'location', id: location.id, slot: index }))}
                         {...(slotClickable ? asButton(labelForSlot(location.id, index), () => onSelectSlot!(location.id, index)) : {})}
                       >

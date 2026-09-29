@@ -794,17 +794,41 @@ svg [role='button']:focus-visible {
 .card3d-back {
   transform: rotateY(180deg);
 }
-@keyframes card-flip-in {
-  from {
-    transform: rotateY(180deg);
-  }
-  to {
-    transform: rotateY(0deg);
-  }
-}
 :root[data-animations='off'] .fan-card,
 :root[data-animations='off'] .fan-card-button,
 :root[data-animations='off'] .card3d-inner {
   transition: none;
   animation: none !important;
+}
+
+/* End of the canal era: canals and level I tiles fade off the board. */
+@keyframes board-fade-out {
+  0%,
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    filter: grayscale(1);
+  }
+}
+.board-fade-out {
+  animation: board-fade-out calc(1.6s * var(--anim-scale, 1)) ease-in forwards;
+  pointer-events: none;
+}
+:root[data-animations='off'] .board-fade-out {
+  animation: none;
+  opacity: 0;
+}
+
+/* Cards flying in from the deck keep their place in the hand until they land. */
+[data-arriving] {
+  visibility: hidden;
+}
+.card-flight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  will-change: transform;
 }

@@ -114,7 +114,7 @@ function placeholderTrack() {
 
 const proposed = <T,>(v: T | { proposed?: T }, fallback: T): T => (isTodo(v) ? ((v.proposed as T | undefined) ?? fallback) : (v as T))
 
-/** A complete tile table of placeholder numbers (cards and hubs use the proposals in docs/TILES.md). */
+/** A complete tile table of placeholder numbers (hubs use the proposals in docs/TILES.md). */
 export function placeholderTable(): TileTable {
   return {
     industries: INDUSTRIES,
@@ -135,10 +135,6 @@ export function placeholderTable(): TileTable {
         { move: 4, players: null, flagged: true },
       ],
       track: [3, 3, 2, 2, 1, 1, 0, 'X'],
-    },
-    cards: {
-      locations: TILE_TABLE.cards.locations.map((c) => ({ id: c.id, name: c.name, cards: proposed(c.cards, 2), players: proposed(c.players, 2) })),
-      industries: Object.fromEntries(Object.entries(TILE_TABLE.cards.industries).map(([id, n]) => [id, proposed(n, 4)])) as Record<IndustryId, number>,
     },
     hubs: TILE_TABLE.hubs.map((h) => ({ id: h.id, name: h.name, linkValue: proposed(h.linkValue, 2), marketAccess: proposed(h.marketAccess, true) })),
     portTownsGiveMarketAccess: proposed(TILE_TABLE.portTownsGiveMarketAccess, true),

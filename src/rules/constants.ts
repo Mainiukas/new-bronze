@@ -10,8 +10,11 @@ export const HAND_SIZE = 8
 export const MIN_PLAYERS = 2
 export const MAX_PLAYERS = 4
 
-/** §2 Rounds per era, by player count. */
-export const ROUNDS_PER_ERA: Readonly<Record<number, number>> = { 2: 10, 3: 9, 4: 8 }
+/*
+ * §2 Rounds per era (8 / 9 / 10 with 4 / 3 / 2 players) aren't a number here:
+ * an era lasts until the hands are played out, so they follow from the deck
+ * sizes in cards.ts (see roundsInEra in engine.ts).
+ */
 /** §2 Canal era round 1: 1 action each; every other turn 2. */
 export const FIRST_ROUND_ACTIONS = 1
 export const ACTIONS_PER_TURN = 2

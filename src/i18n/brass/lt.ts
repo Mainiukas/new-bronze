@@ -123,6 +123,7 @@ const brassWords: BrassWords = {
     'slot-preference': 'Pirmiausia naudokite miesto vienos pramonės sklypą.',
     era: 'Ne šioje eroje.',
     'one-per-town': 'Kanalų eroje: viena jūsų plytelė mieste.',
+    closed: 'Šio miesto nėra šio režimo žemėlapyje.',
     'no-tiles': 'Jūsų lentelėje neliko šios pramonės plytelių.',
     locked: 'Užrakinta: pirmiausia pašalinkite ją tobulindami.',
     overbuild: 'Šios plytelės užstatyti negalima.',
@@ -132,7 +133,8 @@ const brassWords: BrassWords = {
     link: 'Šios jungties dabar nutiesti negalima.',
     develop: 'Šios plytelės tobulinti negalima.',
     sale: 'Ten nėra ką parduoti.',
-    loan: 'Paskolos negalima: pajamos negali taip nukristi arba kaladė tuščia.',
+    loan: 'Paskolos negalima: pajamos negali taip nukristi.',
+    'no-more-loans': 'Paskolų nebėra: traukimo kaladė tuščia.',
     input: 'Taip negalima.',
   },
 }

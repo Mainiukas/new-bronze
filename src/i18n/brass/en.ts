@@ -127,6 +127,7 @@ const brassWords = {
     'slot-preference': 'Use the town’s single-industry slot first.',
     era: 'Not in this era.',
     'one-per-town': 'Canal era: one of your tiles per town.',
+    closed: 'That town isn’t on this mode’s map.',
     'no-tiles': 'No tiles of this industry left on your mat.',
     locked: 'Locked: develop it away first.',
     overbuild: 'You can’t build over that tile.',
@@ -136,7 +137,8 @@ const brassWords = {
     link: 'That link can’t be built now.',
     develop: 'That tile can’t be developed.',
     sale: 'Nothing to sell there.',
-    loan: 'No loan: your income can’t drop that far, or the deck is empty.',
+    loan: 'No loan: your income can’t drop that far.',
+    'no-more-loans': 'No more loans: the draw deck is empty.',
     input: 'That isn’t possible.',
   } satisfies Record<RuleErrorCode, string>,
 }

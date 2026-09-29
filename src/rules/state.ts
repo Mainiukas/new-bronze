@@ -3,13 +3,14 @@
 import type { IndustryId } from './tileTable'
 
 /** Bump when the saved shape changes: older saved matches aren't resumed. */
-export const RULES_VERSION = 1
+export const RULES_VERSION = 2
 
 export type Era = 'canal' | 'rail'
 export const COLORS = ['purple', 'red', 'yellow', 'blue', 'white'] as const
 export type PlayerColor = (typeof COLORS)[number]
 export type AILevel = 'easy' | 'normal' | 'hard'
 
+/** A card in play. `id` is its face plus a copy number, e.g. "loc_birmingham#2" (see cards.ts). */
 export type Card = { readonly id: string; readonly kind: 'location'; readonly town: string } | { readonly id: string; readonly kind: 'industry'; readonly industry: IndustryId }
 
 /** A tile on the board. */
@@ -66,6 +67,9 @@ export type LogEntry =
   | { kind: 'income'; player: number; amount: number }
   | { kind: 'shortfall'; player: number; tilesSold: string[]; vpLost: number }
   | { kind: 'round'; era: Era; round: number; order: number[] }
+  | { kind: 'deal'; era: Era; cards: number }
+  | { kind: 'draw'; player: number; count: number }
+  | { kind: 'discard'; player: number; cards: string[] }
   | { kind: 'era-end'; era: Era; scores: { player: number; links: number; tiles: number }[] }
   | { kind: 'game-end'; ranking: number[] }
 
@@ -78,15 +82,19 @@ export interface GameState {
   era: Era
   /** 1-based round within the era. */
   round: number
-  readonly roundsPerEra: number
+  /** Towns beyond this ring of the map are out of play (the lobby mode's map size: 3 = the whole map). */
+  readonly mapRing: 1 | 2 | 3
   /** Player ids in turn order for this round. */
   order: number[]
   /** Index into `order` of the player whose turn it is. */
   turn: number
   /** Actions the current player still has this turn. */
   actionsLeft: number
+  /** The draw deck, top first. */
   deck: Card[]
   discard: Card[]
+  /** Canal era: cards set aside face down under the deck, not drawn this era. */
+  setAside: Card[]
   /** Built tiles by slot key. */
   tiles: Record<string, Tile>
   /** Built links (this era's) by link id. */
@@ -139,6 +147,7 @@ export type RuleErrorCode =
   | 'slot-preference'
   | 'era'
   | 'one-per-town'
+  | 'closed'
   | 'no-tiles'
   | 'locked'
   | 'overbuild'
@@ -149,4 +158,5 @@ export type RuleErrorCode =
   | 'develop'
   | 'sale'
   | 'loan'
+  | 'no-more-loans'
   | 'input'

@@ -46,10 +46,6 @@ export interface RulesData {
     /** Income per row, top first. 'X' closes the market. */
     readonly track: readonly (number | 'X')[]
   }
-  readonly cards: {
-    readonly locations: readonly { readonly id: string; readonly cards: number; readonly players: number }[]
-    readonly industries: Readonly<Record<IndustryId, number>>
-  }
   readonly hubs: Readonly<Record<string, { readonly linkValue: number; readonly marketAccess: boolean }>>
   readonly portTownsGiveMarketAccess: boolean
 }
@@ -105,10 +101,6 @@ export function resolveRulesData(table: TileTable): RulesData {
       tiles: table.distantMarket.tiles.map((t) => ({ move: value(t.move), players: value(t.players), flagged: value(t.flagged) })),
       track: table.distantMarket.track.map(value),
     },
-    cards: {
-      locations: table.cards.locations.map((c) => ({ id: c.id, cards: value(c.cards), players: value(c.players) })),
-      industries: perIndustry((id) => value(table.cards.industries[id])),
-    },
     hubs: Object.fromEntries(table.hubs.map((h) => [h.id, { linkValue: value(h.linkValue), marketAccess: value(h.marketAccess) }])),
     portTownsGiveMarketAccess: value(table.portTownsGiveMarketAccess),
   }
@@ -137,7 +129,6 @@ export function checkRulesData(data: RulesData): string[] {
   if (data.incomeBySpace.length !== 101 || data.incomeBySpace.some((v) => v === undefined)) problems.push('Income track: every space from 0 to 100 needs an income level')
   if (data.incomeBySpace[10] !== 0) problems.push('Income track: space 10 must be £0 (the start)')
   if (!data.distantMarket.track.includes('X')) problems.push('Distant market track: needs an X row')
-  for (const c of data.cards.locations) if (![2, 3, 4].includes(c.players)) problems.push(`Cards: ${c.id} player count must be 2, 3 or 4`)
   return problems
 }
 

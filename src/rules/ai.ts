@@ -6,7 +6,7 @@
  * "noise" comes from the game's seed and the move number, never Math.random.
  */
 
-import { applyAction, distancesFrom, eraScores, incomeOf, levelFor, lowestLevelIndex, levelRow, saleOptions, type RulesContext } from './engine'
+import { applyAction, distancesFrom, eraScores, incomeOf, levelFor, lowestLevelIndex, levelRow, roundsInEra, saleOptions, type RulesContext } from './engine'
 import { legalActions } from './options'
 import { nextRandom } from './random'
 import type { Action, AILevel, GameState } from './state'
@@ -14,7 +14,7 @@ import { INDUSTRY_ORDER } from './tileTable'
 
 /** Rounds left in the game after this one (both eras). */
 function roundsLeft(state: GameState): number {
-  return state.roundsPerEra - state.round + (state.era === 'canal' ? state.roundsPerEra : 0)
+  return roundsInEra(state) - state.round + (state.era === 'canal' ? roundsInEra(state, 'rail') : 0)
 }
 
 /** How good a position is for a player, in rough VP. */

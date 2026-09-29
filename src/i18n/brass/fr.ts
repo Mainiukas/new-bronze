@@ -118,6 +118,7 @@ const brassWords: BrassWords = {
     'slot-preference': 'Utilisez d’abord l’emplacement à industrie unique de la ville.',
     era: 'Pas pendant cette ère.',
     'one-per-town': 'Ère des canaux : une tuile par ville.',
+    closed: 'Cette ville n’est pas sur la carte de ce mode.',
     'no-tiles': 'Plus de tuiles de cette industrie sur votre plateau.',
     locked: 'Verrouillé : retirez-le d’abord en développant.',
     overbuild: 'Vous ne pouvez pas construire sur cette tuile.',
@@ -127,7 +128,8 @@ const brassWords: BrassWords = {
     link: 'Cette liaison ne peut pas être construite maintenant.',
     develop: 'Cette tuile ne peut pas être développée.',
     sale: 'Rien à vendre là.',
-    loan: 'Pas de prêt : votre revenu ne peut pas baisser autant, ou la pioche est vide.',
+    loan: 'Pas de prêt : votre revenu ne peut pas baisser autant.',
+    'no-more-loans': 'Plus de prêts : la pioche est vide.',
     input: 'Ce n’est pas possible.',
   },
 }

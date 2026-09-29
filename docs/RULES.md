@@ -7,8 +7,9 @@ The engine must never guess a TODO value.
 ## 1. Setup
 - Each player: **£30**, Income marker on progress-track space **10** (= £0 income), VP marker on **0**.
 - Each player gets their full player mat of industry tiles and their link tokens.
-- Deal **8 cards** to each player. Deck composition depends on player count
-  (2P / 3P remove some location cards — list which in `TILES.md` once mapped to our towns).
+- Shuffle the deck, set **1 card per player** aside face down under it (not drawn in the canal era),
+  and deal **8 cards** to each player. Deck composition depends on player count
+  (2P / 3P remove some location cards — on our map: `src/rules/cards.ts`).
 - Coal market: 1 black cube per space. Iron market: 1 orange cube per space.
 - Distant cotton market: remove tiles above the player count and those marked "!" (see TILES.md).
 - Random turn order for round 1. Random player colours each match.
@@ -23,8 +24,9 @@ The engine must never guess a TODO value.
   3. Each player collects/pays income from their progress-track position.
      If they can't pay: sell industry tiles for 50% of cost (round down); if still short, lose 1 VP per £1.
      (No income is collected after the very last turn of the game.)
-  4. Refill hands to 8 while the deck has cards.
-- Rounds per era: **8 / 9 / 10** in a 4 / 3 / 2-player game.
+- **After each turn** the player draws back up to 8 cards while the deck has cards.
+- An era ends when **every hand has been played out** (the deck is used up first). With the
+  4 / 3 / 2-player decks (64 / 54 / 40 cards) that is **8 / 9 / 10** rounds per era.
 
 ## 3. Actions
 ### Build (industry)
@@ -69,6 +71,8 @@ The engine must never guess a TODO value.
 ### Loan
 - Discard 1 card. **£10 / £20 / £30** → income marker back **1 / 2 / 3 levels**.
 - Not allowed if income would drop below −10, or once the draw deck is empty.
+  Rail era: the **Rothschild marker** sits above the last 2 cards per player; when the draw reaches
+  it, one round of loans is left.
 
 ### Pass
 - Discard 1 card, do nothing.
@@ -86,7 +90,8 @@ The engine must never guess a TODO value.
 2. Score **flipped industry tiles** (their VP).
 3. Remove **all canal links** and **all level-I industry tiles** from the board.
 4. Reset distant market marker; shuffle its discarded tiles back.
-5. Shuffle all cards to form the rail-era deck; deal 8 each.
+5. Shuffle all cards (the set-aside ones too) to form the rail-era deck; deal 8 each; place the
+   Rothschild marker above the last 2 cards per player.
 
 ## 6. End of rail era / game end
 - Score rail links and flipped tiles as above.

@@ -72,10 +72,6 @@ export interface TileTable {
     /** Income per row, top first; 'X' closes the market. */
     readonly track: readonly Maybe<number | 'X'>[]
   }
-  readonly cards: {
-    readonly locations: readonly { readonly id: string; readonly name: string; readonly cards: Maybe<number>; readonly players: Maybe<number> }[]
-    readonly industries: Readonly<Record<IndustryId, Maybe<number>>>
-  }
   readonly hubs: readonly { readonly id: string; readonly name: string; readonly linkValue: Maybe<number>; readonly marketAccess: Maybe<boolean> }[]
   /** Whether a town with a port slot gives access to the coal and iron markets. */
   readonly portTownsGiveMarketAccess: Maybe<boolean>
@@ -255,26 +251,6 @@ export function parseTilesMarkdown(markdown: string): TileTable {
     track: (distantTrack?.rows ?? []).map((row) => cell(row[1], 'numberOrX', `Distant market track row ${row[0].text}: income`, false) as Maybe<number | 'X'>),
   }
 
-  const cardTables = tables(section(/^Cards/).lines)
-  const townTable = cardTables.find((t) => t.header[0] === 'town')
-  const industryCardTable = cardTables.find((t) => t.header[0] === 'industry')
-  if (!townTable || !industryCardTable) throw new TilesFormatError('Cards: needs a town table and an industry table')
-  const cards = {
-    locations: townTable.rows.map((row) => ({
-      name: row[0].text,
-      id: row[1].text,
-      cards: num(row[2], `Cards: ${row[0].text} location cards`),
-      players: num(row[3], `Cards: ${row[0].text} smallest player count`),
-    })),
-    industries: Object.fromEntries(
-      INDUSTRY_ORDER.map((id) => {
-        const row = industryCardTable.rows.find((r) => INDUSTRY_HEADINGS[r[0].text.toLowerCase()] === id || r[0].text.toLowerCase() === id)
-        if (!row) throw new TilesFormatError(`Cards: no industry card row for ${id}`)
-        return [id, num(row[1], `Cards: ${INDUSTRY_LABEL[id]} industry cards`)]
-      }),
-    ) as Record<IndustryId, Maybe<number>>,
-  }
-
   const mapTables = tables(section(/^Our map/).lines)
   const hubTable = mapTables.find((t) => t.header[0] === 'hub')
   const ruleTable = mapTables.find((t) => t.header[0] === 'rule')
@@ -292,7 +268,6 @@ export function parseTilesMarkdown(markdown: string): TileTable {
     markets: { coal: market('coal'), iron: market('iron') },
     incomeTrack,
     distantMarket,
-    cards,
     hubs,
     portTownsGiveMarketAccess: bool(portRule[1], 'Towns with a port slot give market access', false) as Maybe<boolean>,
   }

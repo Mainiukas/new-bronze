@@ -7,8 +7,7 @@
  */
 
 import { LOANS } from './constants'
-import { lowestLevelIndex, levelRow, planBuild, planDevelop, planNetwork, loanProblem, saleOptions, type BuildPlan, type DevelopPlan, type NetworkPlan, type RulesContext } from './engine'
-import { linkInEra } from './map'
+import { linkOpen, lowestLevelIndex, levelRow, planBuild, planDevelop, planNetwork, loanProblem, saleOptions, type BuildPlan, type DevelopPlan, type NetworkPlan, type RulesContext } from './engine'
 import { RuleError, type Action, type Card, type GameState, type RuleErrorCode, type Sale } from './state'
 import type { IndustryId } from './tileTable'
 
@@ -98,7 +97,7 @@ export function buildBlocker(state: GameState, ctx: RulesContext, playerId: numb
 export function linkOptions(state: GameState, ctx: RulesContext, playerId: number, count: 1 | 2, picked: readonly string[] = []): { link: string; plan: NetworkPlan | null }[] {
   const card = defaultDiscard(state, playerId)
   if (!card || state.actionsLeft < 1 || state.selling) return []
-  const candidates = Object.values(ctx.map.links).filter((l) => linkInEra(ctx.map, l, state.era) && !state.links[l.id] && !picked.includes(l.id))
+  const candidates = Object.values(ctx.map.links).filter((l) => linkOpen(state, ctx, l) && !state.links[l.id] && !picked.includes(l.id))
   const out: { link: string; plan: NetworkPlan | null }[] = []
   for (const l of candidates) {
     const links = [...picked, l.id]
@@ -123,7 +122,7 @@ export function networkBlocker(state: GameState, ctx: RulesContext, playerId: nu
   if (!card) return 'card'
   const reasons = new Set<RuleErrorCode>()
   for (const l of Object.values(ctx.map.links)) {
-    if (!linkInEra(ctx.map, l, state.era) || state.links[l.id]) continue
+    if (!linkOpen(state, ctx, l) || state.links[l.id]) continue
     const r = attempt(() => planNetwork(state, ctx, playerId, { type: 'network', cards: [card], links: count === 1 ? [l.id] : [l.id, l.id] }))
     if (r instanceof RuleError && r.code !== 'link') reasons.add(r.code)
   }

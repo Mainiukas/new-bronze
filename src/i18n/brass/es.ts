@@ -118,6 +118,7 @@ const brassWords: BrassWords = {
     'slot-preference': 'Usa primero la casilla de una sola industria de la ciudad.',
     era: 'No en esta era.',
     'one-per-town': 'Era de los canales: una loseta tuya por ciudad.',
+    closed: 'Esa ciudad no está en el mapa de este modo.',
     'no-tiles': 'No te quedan losetas de esta industria en tu tablero.',
     locked: 'Bloqueado: primero quítalo desarrollando.',
     overbuild: 'No puedes construir sobre esa loseta.',
@@ -127,7 +128,8 @@ const brassWords: BrassWords = {
     link: 'Ese enlace no se puede construir ahora.',
     develop: 'Esa loseta no se puede desarrollar.',
     sale: 'No hay nada que vender ahí.',
-    loan: 'Sin préstamo: tus ingresos no pueden bajar tanto, o el mazo está vacío.',
+    loan: 'Sin préstamo: tus ingresos no pueden bajar tanto.',
+    'no-more-loans': 'No hay más préstamos: el mazo de robo está vacío.',
     input: 'Eso no es posible.',
   },
 }

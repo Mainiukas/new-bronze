@@ -22,6 +22,7 @@ import { DEFAULT_SETUP, parseSavedSetup } from './data/matchSetup'
 import { isAuthPath, PATHS, type MenuAction } from './data/navigation'
 import { ANIMATION_SCALE, defaultSettings, parseSettings } from './data/settings'
 import { RULES } from './rules/context'
+import { roundsInEra } from './rules/engine'
 import { parseSavedMatch, savedMatchStatus, startBrassMatch, type BrassMatch } from './rules/match'
 import { useAuth } from './hooks/useAuth'
 import type { AuthLocationState } from './hooks/useOpenAuth'
@@ -174,7 +175,7 @@ function AppShell() {
           modeId: game.modeId as MatchSetup['modeId'],
           map: getMap(game.mapId as MatchSetup['mapId']).name,
           round: game.state.round,
-          totalRounds: game.state.roundsPerEra,
+          totalRounds: roundsInEra(game.state),
           era: game.state.era,
           players: game.state.players.map((p) => ({ name: p.name, color: p.color, isAI: p.isAI })),
         }

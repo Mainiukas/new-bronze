@@ -118,6 +118,7 @@ const brassWords: BrassWords = {
     'slot-preference': 'Nutze zuerst das Feld der Stadt mit nur einer Industrie.',
     era: 'Nicht in dieser Ära.',
     'one-per-town': 'Kanal-Ära: ein Plättchen pro Stadt.',
+    closed: 'Diese Stadt liegt nicht auf der Karte dieses Modus.',
     'no-tiles': 'Keine Plättchen dieser Industrie mehr auf deinem Tableau.',
     locked: 'Gesperrt: zuerst wegentwickeln.',
     overbuild: 'Dieses Plättchen kannst du nicht überbauen.',
@@ -127,7 +128,8 @@ const brassWords: BrassWords = {
     link: 'Diese Verbindung kann jetzt nicht gebaut werden.',
     develop: 'Dieses Plättchen kann nicht entwickelt werden.',
     sale: 'Dort gibt es nichts zu verkaufen.',
-    loan: 'Kein Kredit: dein Einkommen darf nicht so weit sinken, oder der Stapel ist leer.',
+    loan: 'Kein Kredit: Dein Einkommen darf nicht so weit sinken.',
+    'no-more-loans': 'Keine Kredite mehr: Der Nachziehstapel ist leer.',
     input: 'Das geht nicht.',
   },
 }

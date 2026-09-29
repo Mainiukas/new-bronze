@@ -127,43 +127,9 @@ the marker on that row; write `X` for the row that closes the market.
 |---|---|
 | 1 | ? |
 
-## Cards (for our map)
-Our towns aren't the Lancashire towns, so these are **proposals** (ending in `?`) until you confirm them.
-- Location cards: one per building slot in the town.
-- `players` = the smallest player count that uses the card: 2 = always, 3 = removed in 2-player
-  games, 4 = removed in 2- and 3-player games (our map's inner, middle and outer rings).
-- Industry cards: 21, so the deck lasts the rail era (2 cards per player per round):
-  4P 64 cards (needs 64), 3P 58 (needs 54), 2P 46 (needs 40).
-
-| town | id | cards | players |
-|---|---|---|---|
-| Caernarfon | caernarfon | 1? | 4? |
-| Wrexham | wrexham | 2? | 3? |
-| Carmarthen | carmarthen | 2? | 3? |
-| Merthyr Tydfil | merthyr | 3? | 3? |
-| Stoke-on-Trent | stoke | 3? | 2? |
-| Derby | derby | 2? | 2? |
-| Nottingham | nottingham | 2? | 3? |
-| Lichfield | lichfield | 1? | 2? |
-| Wolverhampton | wolverhampton | 3? | 2? |
-| Birmingham | birmingham | 4? | 2? |
-| Leicester | leicester | 2? | 2? |
-| Gloucester | gloucester | 2? | 2? |
-| Oxford | oxford | 2? | 2? |
-| Bristol | bristol | 4? | 2? |
-| Swindon | swindon | 2? | 2? |
-| Southampton | southampton | 3? | 3? |
-| Barnstaple | barnstaple | 1? | 4? |
-| Exeter | exeter | 2? | 4? |
-| Plymouth | plymouth | 2? | 4? |
-
-| industry | cards |
-|---|---|
-| cotton | 6? |
-| coal | 5? |
-| iron | 4? |
-| port | 4? |
-| shipyard | 2? |
+## Cards
+The deck (cards per town and per industry, and which location cards 2- and 3-player games leave
+out) is in `src/rules/cards.ts`, not here.
 
 ## Our map: hubs and market access
 Our hubs (The North, London, West Wales) are the "trade icon" locations for distant-market sales

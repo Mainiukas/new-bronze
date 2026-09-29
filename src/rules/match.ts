@@ -4,6 +4,7 @@
  */
 
 import type { MatchSummary } from '../data/achievements'
+import { getGameMode, isGameModeId, type GameModeConfig } from '../data/gameModes'
 import { createGame, type RulesContext, type SeatSetup } from './engine'
 import { RULES_VERSION, type GameState } from './state'
 
@@ -21,8 +22,15 @@ export interface NewMatch {
   readonly seed: number
 }
 
+/** The map rings a mode plays on: the whole map, without the outer ring, or only the core. */
+const MAP_RING: Record<GameModeConfig['mapSize'], 1 | 2 | 3> = { full: 3, reduced: 2, compact: 1 }
+
+export function mapRingFor(modeId: string): 1 | 2 | 3 {
+  return isGameModeId(modeId) ? MAP_RING[getGameMode(modeId).mapSize] : 3
+}
+
 export function startBrassMatch(ctx: RulesContext, setup: NewMatch): BrassMatch {
-  return { kind: 'brass', modeId: setup.modeId, mapId: setup.mapId, state: createGame(ctx, setup.seats, setup.seed) }
+  return { kind: 'brass', modeId: setup.modeId, mapId: setup.mapId, state: createGame(ctx, setup.seats, setup.seed, { mapRing: mapRingFor(setup.modeId) }) }
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null

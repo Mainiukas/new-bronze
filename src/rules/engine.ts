@@ -22,15 +22,15 @@ import {
   MIN_PLAYERS,
   MONEY_PER_VP,
   RAIL_COST,
-  ROUNDS_PER_ERA,
   SHORTFALL_TILE_SHARE,
   START_INCOME_SPACE,
   START_MONEY,
 } from './constants'
-import { incomeAt, INDUSTRY_ORDER, perIndustry, topSpaceOfLevel, type IndustryId, type IndustryLevel, type RulesData } from './data'
-import { linkInEra, type BrassMap, type MapTown } from './map'
+import { buildDeck, CANAL_SET_ASIDE_PER_PLAYER, LOANS_STOP, RAIL_MARKER_CARDS_PER_PLAYER, roundsFor } from './cards'
+import { incomeAt, perIndustry, topSpaceOfLevel, type IndustryId, type IndustryLevel, type RulesData } from './data'
+import { linkInEra, type BrassMap, type MapLink, type MapTown } from './map'
 import { nextRandom, shuffle } from './random'
-import { COLORS, RuleError, RULES_VERSION, type Action, type AILevel, type Card, type GameState, type LogEntry, type PlayerState, type Sale, type Source, type Tile } from './state'
+import { COLORS, RuleError, RULES_VERSION, type Action, type AILevel, type Card, type Era, type GameState, type LogEntry, type PlayerState, type Sale, type Source, type Tile } from './state'
 
 /** The rules' numbers and the board: everything the engine needs besides the state. */
 export interface RulesContext {
@@ -44,11 +44,16 @@ export interface SeatSetup {
   readonly aiLevel?: AILevel
 }
 
+export interface GameOptions {
+  /** Only towns up to this ring of the map are in play (the lobby mode's map size). Default: the whole map. */
+  readonly mapRing?: 1 | 2 | 3
+}
+
 const MAX_SPACE = 100
 
 /* ---- Setup ---------------------------------------------------------------------- */
 
-export function createGame(ctx: RulesContext, seats: readonly SeatSetup[], seed: number): GameState {
+export function createGame(ctx: RulesContext, seats: readonly SeatSetup[], seed: number, options: GameOptions = {}): GameState {
   const n = seats.length
   if (n < MIN_PLAYERS || n > MAX_PLAYERS) throw new RuleError('input', `Brass is for ${MIN_PLAYERS}–${MAX_PLAYERS} players, not ${n}`)
   let rng = seed | 0
@@ -60,16 +65,11 @@ export function createGame(ctx: RulesContext, seats: readonly SeatSetup[], seed:
     rng,
   )
 
-  const cards: Card[] = []
-  for (const c of ctx.data.cards.locations) {
-    const place = ctx.map.places[c.id]
-    if (!place || place.kind !== 'town') throw new Error(`Cards: "${c.id}" isn't a town on the board`)
-    if (c.players > n) continue
-    for (let i = 1; i <= c.cards; i++) cards.push({ id: `loc:${c.id}:${i}`, kind: 'location', town: c.id })
-  }
-  for (const id of INDUSTRY_ORDER) for (let i = 1; i <= ctx.data.cards.industries[id]; i++) cards.push({ id: `ind:${id}:${i}`, kind: 'industry', industry: id })
+  // The deck (cards.ts), shuffled; 1 card per player set aside under it for the canal era.
+  const mapRing = options.mapRing ?? 3
   let deck: Card[]
-  ;[deck, rng] = shuffle(cards, rng)
+  ;[deck, rng] = shuffle(buildDeck(ctx.map, n, mapRing), rng)
+  const setAside = deck.splice(Math.max(0, deck.length - CANAL_SET_ASIDE_PER_PLAYER * n))
 
   const players: PlayerState[] = seats.map((seat, i) => ({
     name: seat.name,
@@ -98,12 +98,13 @@ export function createGame(ctx: RulesContext, seats: readonly SeatSetup[], seed:
     players,
     era: 'canal',
     round: 1,
-    roundsPerEra: ROUNDS_PER_ERA[n],
+    mapRing,
     order,
     turn: 0,
     actionsLeft: 0,
     deck,
     discard: [],
+    setAside,
     tiles: {},
     links: {},
     market: { coal: ctx.data.markets.coal.spaces.length, iron: ctx.data.markets.iron.spaces.length },
@@ -111,7 +112,10 @@ export function createGame(ctx: RulesContext, seats: readonly SeatSetup[], seed:
     selling: null,
     finished: false,
     ranking: null,
-    log: [{ kind: 'round', era: 'canal', round: 1, order: [...order] }],
+    log: [
+      { kind: 'deal', era: 'canal', cards: HAND_SIZE },
+      { kind: 'round', era: 'canal', round: 1, order: [...order] },
+    ],
   }
   startTurn(state, ctx)
   return state
@@ -125,6 +129,35 @@ export function currentPlayerId(state: GameState): number {
 
 export function incomeOf(ctx: RulesContext, player: PlayerState): number {
   return incomeAt(ctx.data, player.incomeSpace)
+}
+
+/** Is a place on this game's map (inside the lobby mode's rings)? */
+export function inPlay(state: GameState, ctx: RulesContext, place: string): boolean {
+  return (ctx.map.places[place]?.ring ?? 1) <= state.mapRing
+}
+
+/** Can the link be built this era: it exists in the era and both ends are in play. */
+export function linkOpen(state: GameState, ctx: RulesContext, link: MapLink): boolean {
+  return linkInEra(ctx.map, link, state.era) && inPlay(state, ctx, link.from) && inPlay(state, ctx, link.to)
+}
+
+/** Every card in the game (it never changes): deck, discard, set aside and hands. */
+export function totalCards(state: GameState): number {
+  return state.deck.length + state.discard.length + state.setAside.length + state.players.reduce((n, p) => n + p.hand.length, 0)
+}
+
+/** Rounds an era lasts: until everyone has played their hand out (canal era: without the cards set aside). */
+export function roundsInEra(state: GameState, era: Era = state.era): number {
+  const n = state.players.length
+  const total = totalCards(state)
+  return era === 'canal'
+    ? roundsFor(Math.max(0, total - CANAL_SET_ASIDE_PER_PLAYER * n), n, HAND_SIZE, ACTIONS_PER_TURN, FIRST_ROUND_ACTIONS)
+    : roundsFor(total, n, HAND_SIZE, ACTIONS_PER_TURN)
+}
+
+/** Rail era: the draw has reached the Rothschild marker (only the cards under it are left). */
+export function railMarkerReached(state: GameState): boolean {
+  return state.era === 'rail' && state.deck.length <= RAIL_MARKER_CARDS_PER_PLAYER * state.players.length
 }
 
 /** Actions a player gets on a turn this round. */
@@ -347,6 +380,7 @@ export function planBuild(state: GameState, ctx: RulesContext, playerId: number,
   const slot = ctx.map.slots[action.slot]
   const industry = action.industry
   if (!slot.industries.includes(industry)) throw new RuleError('slot', `${town.name} slot ${slot.index + 1} doesn't take a ${industry}`)
+  if (!inPlay(state, ctx, town.id)) throw new RuleError('closed', `${town.name} isn't on this game's map`)
   if (state.era === 'canal' && town.railOnly) throw new RuleError('era', `${town.name} can only be built in during the rail era`)
 
   const levelIndex = lowestLevelIndex(player, industry)
@@ -450,7 +484,7 @@ export function planNetwork(state: GameState, ctx: RulesContext, playerId: numbe
   ids.forEach((id, i) => {
     const link = ctx.map.links[id]
     if (!link) throw new RuleError('input', `No link "${id}"`)
-    if (!linkInEra(ctx.map, link, state.era)) throw new RuleError('link', `There's no ${state.era === 'canal' ? 'canal' : 'railway'} there in this era`)
+    if (!linkOpen(state, ctx, link)) throw new RuleError('link', `There's no ${state.era === 'canal' ? 'canal' : 'railway'} there in this era`)
     if (state.links[id]) throw new RuleError('link', 'That link is already built')
     if (!anywhere && !network.has(link.from) && !network.has(link.to)) throw new RuleError('network', 'A link must touch your network')
     network.add(link.from)
@@ -544,7 +578,8 @@ export function saleOptions(state: GameState, ctx: RulesContext, playerId: numbe
 export function loanProblem(state: GameState, ctx: RulesContext, playerId: number, amount: number): RuleError | null {
   const levels = LOANS[amount as keyof typeof LOANS]
   if (!levels) return new RuleError('loan', 'Loans are £10, £20 or £30')
-  if (state.deck.length === 0) return new RuleError('loan', 'No loans once the draw deck is empty')
+  if (state.deck.length === 0) return new RuleError('no-more-loans', 'No loans once the draw deck is empty')
+  if (LOANS_STOP === 'marker' && railMarkerReached(state)) return new RuleError('no-more-loans', 'No loans once the draw reaches the Rothschild marker')
   if (incomeOf(ctx, state.players[playerId]) - levels < MIN_INCOME) return new RuleError('loan', `Your income can't drop below £${MIN_INCOME}`)
   return null
 }
@@ -555,11 +590,24 @@ function clone(state: GameState): GameState {
   return structuredClone(state)
 }
 
-function discardCards(state: GameState, player: PlayerState, ids: readonly string[]) {
+function discardCards(state: GameState, playerId: number, ids: readonly string[]) {
+  const player = state.players[playerId]
   for (const id of ids) {
     const i = player.hand.findIndex((c) => c.id === id)
     state.discard.push(player.hand.splice(i, 1)[0])
   }
+  state.log.push({ kind: 'discard', player: playerId, cards: [...ids] })
+}
+
+/** After a turn: draw back up to a full hand while the deck lasts. */
+function refill(state: GameState, playerId: number) {
+  const p = state.players[playerId]
+  let count = 0
+  while (p.hand.length < HAND_SIZE && state.deck.length) {
+    p.hand.push(state.deck.shift()!)
+    count++
+  }
+  if (count) state.log.push({ kind: 'draw', player: playerId, count })
 }
 
 function pay(player: PlayerState, money: number) {
@@ -610,7 +658,7 @@ export function applyAction(state: GameState, ctx: RulesContext, playerId: numbe
   switch (action.type) {
     case 'build': {
       const plan = planBuild(next, ctx, playerId, action)
-      discardCards(next, player, plan.cards)
+      discardCards(next, playerId, plan.cards)
       next.actionsLeft -= plan.actions
       player.mat[plan.industry][plan.levelIndex]--
       takeCubes(next, ctx, 'coal', plan.coal)
@@ -640,7 +688,7 @@ export function applyAction(state: GameState, ctx: RulesContext, playerId: numbe
     }
     case 'network': {
       const plan = planNetwork(next, ctx, playerId, action)
-      discardCards(next, player, [plan.card])
+      discardCards(next, playerId, [plan.card])
       next.actionsLeft -= 1
       takeCubes(next, ctx, 'coal', plan.coal)
       pay(player, plan.money)
@@ -650,7 +698,7 @@ export function applyAction(state: GameState, ctx: RulesContext, playerId: numbe
     }
     case 'develop': {
       const plan = planDevelop(next, ctx, playerId, action)
-      discardCards(next, player, [plan.card])
+      discardCards(next, playerId, [plan.card])
       next.actionsLeft -= 1
       for (const r of plan.removed) player.mat[r.industry][r.levelIndex]--
       takeCubes(next, ctx, 'iron', plan.iron)
@@ -664,7 +712,7 @@ export function applyAction(state: GameState, ctx: RulesContext, playerId: numbe
         const card = oneCard(next, player, action.cards)
         const problem = saleProblem(next, ctx, playerId, action.sale)
         if (problem) throw problem
-        discardCards(next, player, [card.id])
+        discardCards(next, playerId, [card.id])
         next.actionsLeft -= 1
       } else {
         const problem = saleProblem(next, ctx, playerId, action.sale)
@@ -681,7 +729,7 @@ export function applyAction(state: GameState, ctx: RulesContext, playerId: numbe
       const card = oneCard(next, player, action.cards)
       const problem = loanProblem(next, ctx, playerId, action.amount)
       if (problem) throw problem
-      discardCards(next, player, [card.id])
+      discardCards(next, playerId, [card.id])
       next.actionsLeft -= 1
       const level = incomeOf(ctx, player) - LOANS[action.amount]
       player.incomeSpace = topSpaceOfLevel(ctx.data, level)
@@ -691,7 +739,7 @@ export function applyAction(state: GameState, ctx: RulesContext, playerId: numbe
     }
     case 'pass': {
       const card = oneCard(next, player, action.cards)
-      discardCards(next, player, [card.id])
+      discardCards(next, playerId, [card.id])
       next.actionsLeft -= 1
       next.log.push({ kind: 'pass', player: playerId })
       break
@@ -743,24 +791,22 @@ function startTurn(state: GameState, ctx: RulesContext) {
 
 function advance(state: GameState, ctx: RulesContext) {
   if (state.selling || state.actionsLeft > 0 || state.finished) return
+  refill(state, state.order[state.turn])
   state.turn++
   startTurn(state, ctx)
 }
 
 function endRound(state: GameState, ctx: RulesContext) {
-  const lastRoundOfGame = state.era === 'rail' && state.round >= state.roundsPerEra
+  // The era ends when everyone has played their hand out (hands are refilled after each turn while the deck lasts).
+  const eraOver = state.players.every((p) => p.hand.length === 0)
+  const lastRoundOfGame = state.era === 'rail' && eraOver
   // 1. Least money spent goes first; ties keep their order.
   state.order = state.order.map((id, i) => ({ id, i })).sort((a, b) => state.players[a.id].spent - state.players[b.id].spent || a.i - b.i).map((x) => x.id)
   // 2. Spent money goes to the bank.
   for (const p of state.players) p.spent = 0
   // 3. Income (none after the very last turn of the game).
   if (!lastRoundOfGame) for (let id = 0; id < state.players.length; id++) collectIncome(state, ctx, id)
-  // 4. Refill hands.
-  for (const id of state.order) {
-    const p = state.players[id]
-    while (p.hand.length < HAND_SIZE && state.deck.length) p.hand.push(state.deck.shift()!)
-  }
-  if (state.round >= state.roundsPerEra) {
+  if (eraOver) {
     endEra(state, ctx)
     return
   }
@@ -839,16 +885,19 @@ function endEra(state: GameState, ctx: RulesContext) {
     return
   }
 
-  // Into the rail era: canals and level I tiles come off, the distant market resets, all cards are reshuffled.
+  // Into the rail era: canals and level I tiles come off, the distant market resets, all cards are reshuffled
+  // (the Rothschild marker goes under the last RAIL_MARKER_CARDS_PER_PLAYER cards per player: see railMarkerReached).
   state.links = {}
   for (const [slot, tile] of Object.entries(state.tiles)) if (tile.level === 1) delete state.tiles[slot]
   let rng = state.rng
   ;[state.distant.deck, rng] = shuffle([...state.distant.deck, ...state.distant.used], rng)
   state.distant = { deck: state.distant.deck, used: [], marker: 0, closed: false }
-  const all = [...state.deck, ...state.discard, ...state.players.flatMap((p) => p.hand)]
+  const all = [...state.deck, ...state.discard, ...state.setAside, ...state.players.flatMap((p) => p.hand)]
   ;[state.deck, rng] = shuffle(all, rng)
   state.rng = rng
   state.discard = []
+  state.setAside = []
+  state.log.push({ kind: 'deal', era: 'rail', cards: HAND_SIZE })
   for (const id of state.order) state.players[id].hand = state.deck.splice(0, HAND_SIZE)
   state.era = 'rail'
   state.round = 1

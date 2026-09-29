@@ -33,8 +33,6 @@ function formatTable(t: TileTable): string {
   lines.push(`Income track: ${t.incomeTrack.map((r) => `£${r.income}=${show(r.first)}-${show(r.last)}`).join(' ')}`)
   lines.push(`Distant market tiles: ${t.distantMarket.tiles.map((d) => `${show(d.move)}/${show(d.players)}${d.flagged === true ? '!' : ''}`).join(' ')}`)
   lines.push(`Distant market track: ${t.distantMarket.track.map(show).join(' ')}`)
-  lines.push(`Location cards: ${t.cards.locations.map((c) => `${c.id} ${show(c.cards)}×(${show(c.players)}P+)`).join(', ')}`)
-  lines.push(`Industry cards: ${INDUSTRY_ORDER.map((id) => `${id} ${show(t.cards.industries[id])}`).join(', ')}`)
   lines.push(`Hubs: ${t.hubs.map((h) => `${h.id} link ${show(h.linkValue)} market ${show(h.marketAccess)}`).join(', ')}`)
   lines.push(`Port towns give market access: ${show(t.portTownsGiveMarketAccess)}`)
   return lines.join('\n')
@@ -74,7 +72,7 @@ describe('the tile table (docs/TILES.md → src/rules/tiles.ts)', () => {
 
 describe('reading TILES.md', () => {
   const industry = (name: string, total: number, row: string) => `## ${name} (${total} tiles total)\n| Lvl | tiles | £ | coal | iron | VP | income | link | cubes | no canal | no rail | dev |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n${row}\n`
-  const rest = `## Markets\n| market | 1 | empty |\n|---|---|---|\n| coal | 1 | 5 |\n| iron | ? | 5 |\n## Income\n| income | first space | last space |\n|---|---|---|\n| 0 | 10 | 10 |\n## Distant cotton market\n| tile | move | players | ! |\n|---|---|---|---|\n| 1 | 2 | – | no |\n\n| row | income |\n|---|---|\n| 1 | 3 |\n| 2 | X |\n## Cards (for our map)\n| town | id | cards | players |\n|---|---|---|---|\n| Derby | derby | 2? | 2 |\n\n| industry | cards |\n|---|---|\n| cotton | 6 |\n| coal | 5 |\n| iron | 4 |\n| port | 4 |\n| shipyard | ? |\n## Our map: hubs\n| hub | id | link value | market access |\n|---|---|---|---|\n| London | london | 2 | yes? |\n\n| rule | value |\n|---|---|\n| Towns with a port slot give access to the markets | yes |\n`
+  const rest = `## Markets\n| market | 1 | empty |\n|---|---|---|\n| coal | 1 | 5 |\n| iron | ? | 5 |\n## Income\n| income | first space | last space |\n|---|---|---|\n| 0 | 10 | 10 |\n## Distant cotton market\n| tile | move | players | ! |\n|---|---|---|---|\n| 1 | 2 | – | no |\n\n| row | income |\n|---|---|\n| 1 | 3 |\n| 2 | X |\n## Our map: hubs\n| hub | id | link value | market access |\n|---|---|---|---|\n| London | london | 2 | yes? |\n\n| rule | value |\n|---|---|\n| Towns with a port slot give access to the markets | yes |\n`
   const doc = (cotton = '| I | 3 | 12 | – | – | 5 | 5 | 1 | – | no | yes | yes |') =>
     industry('Cotton mill', 12, cotton) +
     industry('Coal mine', 7, '| I | 1 | 5 | – | – | 1 | 4 | 2 | 2 | no | yes | yes |') +
@@ -91,9 +89,8 @@ describe('reading TILES.md', () => {
     expect(t.industries.shipyard.levels[1].noCanal).toEqual({ todo: 'Shipyard II: not in canal era', proposed: true })
     expect(t.markets.iron.spaces[0]).toEqual({ todo: 'Iron market: space 1 price' })
     expect(t.distantMarket.track).toEqual([3, 'X'])
-    expect(t.cards.locations[0].cards).toEqual({ todo: 'Cards: Derby location cards', proposed: 2 })
     expect(t.hubs[0]).toMatchObject({ id: 'london', linkValue: 2, marketAccess: { todo: 'London: gives market access', proposed: true } })
-    expect(missingValues(t).map((m) => m.todo)).toContain('Cards: Shipyard industry cards')
+    expect(missingValues(t).map((m) => m.todo)).toContain('Shipyard II: £ cost')
   })
 
   it('refuses values it can\'t read, naming the line', () => {

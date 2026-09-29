@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyAction, createGame, currentPlayerId, eraScores, incomeOf, linkValueAt, planBuild, rankPlayers, type RulesContext } from './engine'
+import { applyAction, createGame, currentPlayerId, eraScores, incomeOf, linkValueAt, planBuild, rankPlayers, roundsInEra, type RulesContext } from './engine'
 import { resolveRulesData, type RulesData } from './data'
 import { BRASS_MAP } from './map'
 import { buildBlocker, buildOptions, legalActions, linkOptions, loanOptions } from './options'
@@ -104,12 +104,16 @@ describe('setup (RULES.md §1)', () => {
     expect(towns(createGame(ctx, seats(3), 1)).has('plymouth')).toBe(false)
     expect(towns(createGame(ctx, seats(3), 1)).has('southampton')).toBe(true)
     expect(towns(createGame(ctx, seats(2), 1)).has('southampton')).toBe(false)
-    const size = (n: number) => createGame(ctx, seats(n), 1).deck.length + n * 8
-    expect([size(4), size(3), size(2)]).toEqual([64, 58, 46])
+    const size = (n: number) => {
+      const s = createGame(ctx, seats(n), 1)
+      return s.deck.length + s.setAside.length + n * 8
+    }
+    expect([size(4), size(3), size(2)]).toEqual([64, 54, 40])
   })
 
-  it('sets 8 / 9 / 10 rounds per era for 4 / 3 / 2 players, and full markets', () => {
-    expect([4, 3, 2].map((n) => createGame(ctx, seats(n), 1).roundsPerEra)).toEqual([8, 9, 10])
+  it('lasts 8 / 9 / 10 rounds per era for 4 / 3 / 2 players (the deck sizes), and starts with full markets', () => {
+    expect([4, 3, 2].map((n) => roundsInEra(createGame(ctx, seats(n), 1), 'canal'))).toEqual([8, 9, 10])
+    expect([4, 3, 2].map((n) => roundsInEra(createGame(ctx, seats(n), 1), 'rail'))).toEqual([8, 9, 10])
     expect(createGame(ctx, seats(2), 1).market).toEqual({ coal: 8, iron: 8 })
   })
 
@@ -136,15 +140,27 @@ describe('turns and rounds (§2)', () => {
     expect(s.actionsLeft).toBe(2)
   })
 
-  it('every action discards a card; hands refill to 8 at the end of the round', () => {
+  it('every action discards a card; the hand refills to 8 after each turn', () => {
     let s = game(2)
     const deck = s.deck.length
+    const first = s.players[0].hand[0].id
+    s = act(s, { type: 'pass', cards: [first] })
+    expect(s.discard.map((c) => c.id)).toEqual([first])
+    expect(s.players[0].hand).toHaveLength(8) // 1 action in round 1, so the turn is over: 1 card drawn
+    expect(s.deck.length).toBe(deck - 1)
+    expect(s.log.slice(-3)).toEqual([
+      { kind: 'discard', player: 0, cards: [first] },
+      { kind: 'pass', player: 0 },
+      { kind: 'draw', player: 0, count: 1 },
+    ])
+    s = act(s, { type: 'pass', cards: [s.players[1].hand[0].id] })
+    expect(s.round).toBe(2)
+    // Round 2: 2 actions; no drawing until the turn is over.
     s = act(s, { type: 'pass', cards: [s.players[0].hand[0].id] })
     expect(s.players[0].hand).toHaveLength(7)
-    expect(s.discard).toHaveLength(1)
-    s = act(s, { type: 'pass', cards: [s.players[1].hand[0].id] })
-    expect(s.players.map((p) => p.hand.length)).toEqual([8, 8])
-    expect(s.deck.length).toBe(deck - 2)
+    s = act(s, { type: 'pass', cards: [s.players[0].hand[0].id] })
+    expect(s.players[0].hand).toHaveLength(8)
+    expect(s.deck.length).toBe(deck - 4)
   })
 
   it('orders the next round by money spent, least first; ties keep their order', () => {
@@ -174,7 +190,7 @@ describe('build (§3)', () => {
     expect(s.tiles['birmingham:0']).toEqual(tile(0, 'cotton', 1))
     expect(s.players[0].money).toBe(30 - 12) // cotton I £12 (placeholder)
     expect(s.players[0].mat.cotton).toEqual([2, 3, 3, 3])
-    expect(s.players[0].hand).toHaveLength(0)
+    expect(s.players[0].hand.map((c) => c.id)).not.toContain(s0.players[0].hand[0].id)
     expect(s.discard.map((c) => c.id)).toEqual([s0.players[0].hand[0].id])
     expect(s0.tiles).toEqual({}) // the old state isn't changed
   })
@@ -508,7 +524,7 @@ describe('loan and pass (§3)', () => {
     expect(loanOptions(s, ctx, 0).map((l) => l.problem === null)).toEqual([true, false, false])
     s.players[0].incomeSpace = 10
     s.deck = []
-    expect(code(() => act(s, { type: 'loan', cards: [s.players[0].hand[0].id], amount: 10 }))).toBe('loan')
+    expect(code(() => act(s, { type: 'loan', cards: [s.players[0].hand[0].id], amount: 10 }))).toBe('no-more-loans')
   })
 
   it('pass discards a card and does nothing else', () => {
@@ -546,8 +562,12 @@ describe('income (§2)', () => {
 })
 
 describe('end of the canal era (§5)', () => {
+  /** The last round of the canal era: the deck is used up and each player has one card left. */
   function canalEnd(): GameState {
-    const s = game(2, { round: 10, actions: 2 })
+    const s = game(2, { round: 10, actions: 1 })
+    s.discard = [...s.deck, ...s.players.flatMap((p) => p.hand.slice(1))]
+    s.deck = []
+    s.players.forEach((p) => (p.hand = p.hand.slice(0, 1)))
     s.tiles['gloucester:1'] = tile(0, 'cotton', 1, 0, true) // VP 5, link 1 (placeholder)
     s.tiles['gloucester:0'] = tile(1, 'port', 1, 0, true) // VP 4, link 2
     s.tiles['wolverhampton:0'] = tile(1, 'iron', 2, 4) // unflipped: no VP, no link icons
@@ -580,12 +600,19 @@ describe('end of the canal era (§5)', () => {
     expect(s.players.map((p) => p.hand.length)).toEqual([8, 8])
     expect(s.actionsLeft).toBe(2)
     expect(s.discard).toEqual([])
+    expect(s.setAside).toEqual([])
+    expect(s.deck.length + 16).toBe(40) // every card again, the 2 set aside in the canal era too
   })
 })
 
 describe('end of the game (§6)', () => {
   it('scores the rail era, +1 VP per £10, no income after the last turn, and ranks the players', () => {
-    let s = game(2, { era: 'rail', round: 10 })
+    // The last round of the game: the deck is used up and each player has one card left.
+    let s = game(2, { era: 'rail', round: 10, actions: 1 })
+    s.discard = [...s.deck, ...s.setAside, ...s.players.flatMap((p) => p.hand.slice(1))]
+    s.deck = []
+    s.setAside = []
+    s.players.forEach((p) => (p.hand = p.hand.slice(0, 1)))
     s.players[0].money = 25
     s.players[1].money = 9
     s.players[1].incomeSpace = 30 // income would be paid if it were collected

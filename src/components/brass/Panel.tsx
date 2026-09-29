@@ -15,7 +15,7 @@ import actSkipUrl from '../../../assets/ui/player/act_skip.svg'
 import { useT } from '../../i18n'
 import { INDUSTRY_ICON_URLS } from '../board/assets'
 import { CANAL_COST, DOUBLE_RAIL_COST, RAIL_COST } from '../../rules/constants'
-import { incomeOf, marketBuyPrice, type RulesContext } from '../../rules/engine'
+import { incomeOf, marketBuyPrice, roundsInEra, type RulesContext } from '../../rules/engine'
 import type { Card, GameState, PlayerState } from '../../rules/state'
 import type { IndustryId } from '../../rules/tileTable'
 import { roman } from '../../rules/tileTable'
@@ -424,7 +424,7 @@ export function TopBar({ state, ctx, status, children }: { state: GameState; ctx
       <span className={`rounded-full border px-2.5 py-0.5 font-display text-xs font-bold tracking-[0.12em] uppercase ${state.era === 'canal' ? 'border-verdigris-400/50 text-verdigris-200' : 'border-brass-300/50 text-brass-200'}`}>
         {b.era[state.era]}
       </span>
-      <span className="text-sm text-parchment-300">{b.round(state.round, state.roundsPerEra)}</span>
+      <span className="text-sm text-parchment-300">{b.round(state.round, roundsInEra(state))}</span>
       <span className="font-display text-sm font-bold tracking-[0.04em] text-parchment-50">{status}</span>
       <span className="text-sm text-parchment-300" title={b.deckLabel}>
         {b.deck(state.deck.length)}

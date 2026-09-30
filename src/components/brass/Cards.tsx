@@ -47,18 +47,22 @@ export function CardImage({ card, label, visible, className = '' }: { card: Card
 
 /**
  * The card's name, crisp and readable at hand size, laid over the name
- * banner at the foot of the card (the art's own lettering is too small there).
+ * ribbon at the foot of the card (the art's own lettering is too small
+ * there). The plate is centred on the ribbon's inner frame (tools/build-cards.js:
+ * x 44–256, y 366–390 of 300 × 420) and the name is centred in it both ways;
+ * trimming the line box to the capitals keeps it truly centred vertically.
  */
 function CardName({ name, visible = 1 }: { name: string; visible?: number }) {
-  // Overlapped cards show only their left part: keep the plate inside it, text from the left.
-  const right = visible < 0.95 ? `${Math.max(4, Math.round((1 - visible) * 100) + 2)}%` : '9%'
+  // Overlapped cards show only their left part: the plate shrinks to that part, the name stays centred in it.
+  const overlapped = visible < 0.95
+  const right = overlapped ? `${Math.max(4, Math.round((1 - visible) * 100) + 2)}%` : '9%'
   return (
     <span
       aria-hidden="true"
-      className={`absolute top-[84.6%] grid h-[10.6%] [transform:translateZ(1px)] overflow-hidden rounded-[4px] border border-brass-300/40 bg-soot-950/90 px-1 [backface-visibility:hidden] [container-type:size] ${visible < 0.95 ? 'place-items-center justify-start' : 'place-items-center'}`}
-      style={{ left: visible < 0.95 ? '4%' : '9%', right }}
+      className="absolute top-[84.7%] grid h-[10.6%] [transform:translateZ(1px)] place-items-center overflow-hidden rounded-[4px] border border-brass-300/40 bg-soot-950/90 px-1 [backface-visibility:hidden] [container-type:size]"
+      style={{ left: overlapped ? '4%' : '9%', right }}
     >
-      <span className="font-display leading-none font-bold whitespace-nowrap text-parchment-50 uppercase [font-size:min(60cqh,11cqw)]">{name}</span>
+      <span className="text-center font-display leading-none font-bold whitespace-nowrap text-parchment-50 uppercase [font-size:min(60cqh,11cqw)] [text-box:trim-both_cap_alphabetic]">{name}</span>
     </span>
   )
 }

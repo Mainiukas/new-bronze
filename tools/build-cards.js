@@ -9,7 +9,7 @@ function card(name,region,art){
  const banner=(x,flip)=>ind?`<g><circle cx="${x}" cy="46" r="24" fill="#1b1b1b" stroke="#b8b2a6" stroke-width="3"/><image href="${b64('/home/claude/brass-assets/'+ICON[art]+'.png')}" x="${x-19}" y="27" width="38" height="38"/></g>`:
   `<g><path d="M${x-15} 12 H${x+15} V128 L${x} 118 L${x-15} 128 Z" fill="url(#ban)" stroke="#120c08" stroke-width="2"/>
    <path d="M${x-15} 12 H${x+15} V128 L${x} 118 L${x-15} 128 Z" fill="none" stroke="#d9b877" stroke-opacity=".5" stroke-width="1" transform="translate(0 0)"/>
-   <text transform="translate(${x+5} 70) rotate(90)" text-anchor="middle" font-family="C" font-size="${name.length>11?8:11}" fill="#f1e2c0" letter-spacing="${name.length>11?0.3:1}">${name.toUpperCase()}</text></g>`;
+   <text transform="translate(${x} 66) rotate(90)" text-anchor="middle" dominant-baseline="central" font-family="C" font-size="${name.length>11?8:11}" fill="#f1e2c0" letter-spacing="${name.length>11?0.3:1}">${name.toUpperCase()}</text></g>`;
  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W*2}" height="${H*2}" viewBox="0 0 ${W} ${H}">
 <defs><style>@font-face{font-family:C;src:url(${FONT})}</style>
 <linearGradient id="iron" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5a524a"/><stop offset=".5" stop-color="#2a2521"/><stop offset="1" stop-color="#4a433c"/></linearGradient>
@@ -30,7 +30,7 @@ function card(name,region,art){
 ${banner(42)}${banner(258)}
 <g filter="url(#sh)"><path d="M28 360 H272 L262 378 L272 396 H28 L38 378 Z" fill="url(#ban)" stroke="#120c08" stroke-width="2"/>
 <path d="M44 366 H256 V390 H44 Z" fill="none" stroke="#e6cc92" stroke-opacity=".6"/></g>
-<text x="150" y="384" text-anchor="middle" font-family="C" font-size="${name.length>12?13:16}" fill="#f5e7c6" letter-spacing="1">${name.toUpperCase()}</text>
+<text x="150" y="378" text-anchor="middle" dominant-baseline="central" font-family="C" font-size="${name.length>12?13:16}" fill="#f5e7c6" letter-spacing="1">${name.toUpperCase()}</text>
 </svg>`;}
 const cities=[['Caernarfon','wales','coastal'],['Wrexham','wales','valley'],['Carmarthen','wales','market'],['Merthyr Tydfil','wales','valley'],
 ['Stoke-on-Trent','midlands','canal'],['Derby','midlands','railway'],['Nottingham','midlands','mill_town'],['Lichfield','midlands','cathedral'],['Wolverhampton','midlands','moor'],['Birmingham','midlands','big_city'],['Leicester','midlands','mill_town'],

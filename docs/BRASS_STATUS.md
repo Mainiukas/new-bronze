@@ -167,7 +167,7 @@ removals (or fewer industry cards).
     - money spent this round under each circle;
     - the circles slide into the new order at the end of a round;
     - hovering a circle shows money, income, VP and cards; clicking it shows that player's mat.
-  - **Coal and iron market strip:** price steps with their spaces (cubes, or empty outlined squares), ×N left at each price, £5 ∞, and the next cube to be bought outlined.
+  - **Coal and iron market strip:** laid out as on the board, most expensive on the left: £5 ∞, then £4, £3, £2, £1, each step with its spaces (cubes, or empty outlined squares) and ×N left at that price. Cubes sit at the expensive end; the next cube to be bought (the rightmost filled space) is outlined, and cubes sold to a market fill its leftmost empty space. Only the display order changed; the prices and rules are the same.
   - **Distant cotton market:**
     - a tall riveted iron plaque hanging from a bracket, filling the height of the left strip: four income rows (a coin-stack badge, two round spaces), the engraved X row with one space, the zig-zag path in the order stored in `distantMarket.track`, and a cotton-mill plate;
     - beside it, the face-down stack and the face-up pile of tiles flipped this era;

@@ -1,11 +1,13 @@
 import { useState, type Dispatch, type SetStateAction } from 'react'
-import { getGameMode, type GameModeId } from '../data/gameModes'
+import type { GameModeId } from '../data/gameModes'
 import { getMap, MAPS, type MapId } from '../data/maps'
 import { MAX_NAME, placeholderName, seatCount, toSeatSetups, withController, type SavedSetup, type SeatDraft } from '../data/matchSetup'
 import { MAX_PLAYERS, MIN_PLAYERS } from '../game/engine'
 import { AI_LEVELS, type AILevel, type SeatSetup } from '../game/types'
 import { displayName, useT } from '../i18n'
 import { randomSeed } from '../lib/random'
+import { START_MONEY } from '../rules/constants'
+import { roundsPerEra } from '../rules/match'
 import { IconChevronDown, IconPlay } from './icons'
 import { MapCard } from './MapCard'
 import { Corners } from './theme/Ornaments'
@@ -38,7 +40,6 @@ interface MatchSetupPanelProps {
 export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChange, replacesMatch, onStart }: MatchSetupPanelProps) {
   const t = useT()
   const map = getMap(mapId)
-  const mode = getGameMode(modeId)
   const [seedText, setSeedText] = useState('')
   const count = seatCount(setup, mapId)
   const active = setup.seats.slice(0, count)
@@ -58,8 +59,7 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
           {t.setup.title}
         </h2>
         <p className="text-sm text-parchment-300">
-          {t.modes[modeId].name} · {t.setup.rounds(mode.rounds)} · {t.setup.moneyEach(mode.startingMoney)}
-          {map.style === 'illustrated' && <> · {t.setup.railFrom(Math.floor(mode.rounds / 2) + 1)}</>}
+          {t.modes[modeId].name} · {t.setup.roundsPerEra(roundsPerEra(modeId, count))} · {t.setup.moneyEach(START_MONEY)}
         </p>
       </header>
 

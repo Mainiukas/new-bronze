@@ -181,7 +181,7 @@ removals (or fewer industry cards).
 
 - Fill in `docs/TILES.md` (§1); until then the site can't be built for production.
 - Approve the player-count removals (§2) and answer §3 and §4.
-- The **Rules / How to Play** screen and the lobby's mode descriptions still describe the old rules, in all five languages. The mode cards still show the old round counts (10 / 7 / 5), but the rounds now follow the deck (§2). The old engine (`src/game`) stays until that's rewritten, because the map sandbox and the rules screen still use it.
+- The **Rules / How to Play** screen and the lobby's mode descriptions still describe the old rules, in all five languages. (The mode cards and the setup summary now show the Brass rounds per era for the chosen player count, and £30 each.) The old engine (`src/game`) stays until that's rewritten, because the map sandbox and the rules screen still use it.
 - On the match screen:
   - a game log;
   - the move timer;

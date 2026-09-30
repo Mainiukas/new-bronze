@@ -5,7 +5,10 @@
 
 import type { MatchSummary } from '../data/achievements'
 import { getGameMode, isGameModeId, type GameModeConfig } from '../data/gameModes'
+import { buildDeck, CANAL_SET_ASIDE_PER_PLAYER, roundsFor } from './cards'
+import { ACTIONS_PER_TURN, FIRST_ROUND_ACTIONS, HAND_SIZE, MAX_PLAYERS, MIN_PLAYERS } from './constants'
 import { createGame, type RulesContext, type SeatSetup } from './engine'
+import { BRASS_MAP } from './map'
 import { RULES_VERSION, type GameState } from './state'
 
 export interface BrassMatch {
@@ -27,6 +30,13 @@ const MAP_RING: Record<GameModeConfig['mapSize'], 1 | 2 | 3> = { full: 3, reduce
 
 export function mapRingFor(modeId: string): 1 | 2 | 3 {
   return isGameModeId(modeId) ? MAP_RING[getGameMode(modeId).mapSize] : 3
+}
+
+/** Rounds per era for a mode and player count (they follow the deck: see cards.ts). */
+export function roundsPerEra(modeId: string, players: number): number {
+  const n = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, players))
+  const cards = buildDeck(BRASS_MAP, n, mapRingFor(modeId)).length
+  return Math.max(roundsFor(cards - CANAL_SET_ASIDE_PER_PLAYER * n, n, HAND_SIZE, ACTIONS_PER_TURN, FIRST_ROUND_ACTIONS), roundsFor(cards, n, HAND_SIZE, ACTIONS_PER_TURN))
 }
 
 export function startBrassMatch(ctx: RulesContext, setup: NewMatch): BrassMatch {

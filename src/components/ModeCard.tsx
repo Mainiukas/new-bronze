@@ -4,6 +4,7 @@ import { useT } from '../i18n'
 import { IconBolt, IconCheck, IconClock, IconFactory, IconStopwatch, type IconProps } from './icons'
 import { backgroundUrl } from './theme/backgrounds'
 import { useFirstPaintDone } from './theme/firstPaint'
+import { roundsPerEra } from '../rules/match'
 
 const MODE_ICONS: Record<ModeIconName, ComponentType<IconProps>> = {
   factory: IconFactory,
@@ -30,6 +31,8 @@ interface ModeCardProps {
   onSelect: () => void
   /** Stagger for the load animation. */
   index?: number
+  /** Players in the match being set up (the rounds follow the deck). */
+  players: number
 }
 
 /**
@@ -39,11 +42,11 @@ interface ModeCardProps {
  * keyboard support (Tab in, arrow keys to change) and screen-reader semantics.
  * Wide containers show a picture on top; narrow ones put it on the left.
  */
-export function ModeCard({ mode, selected, onSelect, index = 0 }: ModeCardProps) {
+export function ModeCard({ mode, selected, onSelect, index = 0, players }: ModeCardProps) {
   const t = useT()
   const Icon = MODE_ICONS[mode.icon]
   const painted = useFirstPaintDone()
-  const facts = `${t.setup.rounds(mode.rounds)} · ${t.modes.mapSize[mode.mapSize]} · ${t.modes.perTurn(formatTurnTimer(mode.turnTimerSeconds))}`
+  const facts = `${t.setup.roundsPerEra(roundsPerEra(mode.id, players))} · ${t.modes.mapSize[mode.mapSize]} · ${t.modes.perTurn(formatTurnTimer(mode.turnTimerSeconds))}`
 
   return (
     <label

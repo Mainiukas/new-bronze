@@ -150,6 +150,7 @@ const fr: Messages = {
   setup: {
     title: 'Préparer la partie',
     rounds: (n: number) => p(n, { one: `${n} manche`, other: `${n} manches` }),
+    roundsPerEra: (n: number) => p(n, { one: `${n} manche par ère`, other: `${n} manches par ère` }),
     moneyEach: (n: number) => `£${n} chacun`,
     railFrom: (round: number) => `ère du rail dès la manche ${round}`,
     map: 'Carte',

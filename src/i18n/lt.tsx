@@ -151,6 +151,7 @@ const lt: Messages = {
   setup: {
     title: 'Partijos nustatymai',
     rounds: (n: number) => p(n, { one: `${n} raundas`, few: `${n} raundai`, other: `${n} raundų` }),
+    roundsPerEra: (n: number) => p(n, { one: `${n} raundas eroje`, few: `${n} raundai eroje`, other: `${n} raundų eroje` }),
     moneyEach: (n: number) => `po £${n}`,
     railFrom: (round: number) => `geležinkelių era nuo ${round} raundo`,
     map: 'Žemėlapis',

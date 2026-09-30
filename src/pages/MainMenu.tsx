@@ -135,6 +135,7 @@ export function MainMenu({
                   mode={gameMode}
                   index={index}
                   selected={gameMode.id === modeId}
+                  players={count}
                   onSelect={() => onModeChange(gameMode.id)}
                 />
               ))}

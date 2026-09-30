@@ -163,6 +163,7 @@ const en = {
   setup: {
     title: 'Match setup',
     rounds: (n: number) => p(n, { one: `${n} round`, other: `${n} rounds` }),
+    roundsPerEra: (n: number) => p(n, { one: `${n} round per era`, other: `${n} rounds per era` }),
     moneyEach: (n: number) => `£${n} each`,
     railFrom: (round: number) => `rail era from round ${round}`,
     map: 'Map',

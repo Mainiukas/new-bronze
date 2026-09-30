@@ -149,6 +149,7 @@ const de: Messages = {
   setup: {
     title: 'Partie einrichten',
     rounds: (n: number) => p(n, { one: `${n} Runde`, other: `${n} Runden` }),
+    roundsPerEra: (n: number) => p(n, { one: `${n} Runde pro Ära`, other: `${n} Runden pro Ära` }),
     moneyEach: (n: number) => `je £${n}`,
     railFrom: (round: number) => `Eisenbahn-Ära ab Runde ${round}`,
     map: 'Karte',

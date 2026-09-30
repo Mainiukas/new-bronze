@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDeck, CANAL_SET_ASIDE_PER_PLAYER, faceOf, INDUSTRY_CARDS, LOCATION_CARDS, LOCATION_CARDS_MIN_PLAYERS, RAIL_MARKER_CARDS_PER_PLAYER } from './cards'
+import { buildDeck, CANAL_SET_ASIDE_PER_PLAYER, faceOf, INDUSTRY_CARDS, LOCATION_CARDS, LOCATION_CARDS_MIN_PLAYERS, RAIL_MARKER_CARDS_PER_PLAYER } from './config/cards'
 import { HAND_SIZE } from './constants'
 import { applyAction, createGame, currentPlayerId, incomeOf, loanProblem, railMarkerReached, roundsInEra, type RulesContext } from './engine'
 import { BRASS_MAP } from './map'
@@ -159,14 +159,15 @@ describe('the rail era (§5): every card reshuffled, the Rothschild marker, loan
     }
   })
 
-  it('still allows loans after the draw reaches the marker, and none once the deck is empty (RULES.md §3)', () => {
+  it('no more loans once the draw reaches the Rothschild marker; before it, loans are allowed', () => {
     let s = railStart(4)
-    while (!railMarkerReached(s)) s = pass(s)
+    expect(loanProblem(s, ctx, currentPlayerId(s), 10)).toBeNull()
     const me = currentPlayerId(s)
-    expect(s.deck.length).toBeGreaterThan(0)
-    expect(loanProblem(s, ctx, me, 10)).toBeNull()
     const loan = applyAction(s, ctx, me, { type: 'loan', cards: [s.players[me].hand[0].id], amount: 10 })
     expect(loan.players[me].money).toBe(s.players[me].money + 10)
+    while (!railMarkerReached(s)) s = pass(s)
+    expect(s.deck.length).toBeGreaterThan(0) // the cards under the marker are still to be drawn
+    expect(loanProblem(s, ctx, currentPlayerId(s), 10)?.code).toBe('no-more-loans')
     while (s.deck.length > 0) s = pass(s)
     expect(loanProblem(s, ctx, currentPlayerId(s), 10)?.code).toBe('no-more-loans')
   })

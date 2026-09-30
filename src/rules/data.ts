@@ -4,6 +4,8 @@
  * values (it lists them), so the engine never runs on a guessed number.
  */
 
+import type { DistantMarketConfig } from './config/distantMarket'
+import type { MarketConfig } from './config/markets'
 import { INDUSTRY_LABEL, INDUSTRY_ORDER, isTodo, missingValues, perIndustry, roman, type IndustryId, type Maybe, type TileTable } from './tileTable'
 
 export type { IndustryId } from './tileTable'
@@ -38,7 +40,8 @@ export interface IndustryLevel {
 
 export interface RulesData {
   readonly industries: Readonly<Record<IndustryId, { readonly total: number; readonly levels: readonly IndustryLevel[] }>>
-  readonly markets: Readonly<Record<'coal' | 'iron', { readonly spaces: readonly number[]; readonly empty: number }>>
+  /** Each market: the price of every space, cheapest first; the price when empty; the cubes at the start. */
+  readonly markets: Readonly<Record<'coal' | 'iron', { readonly spaces: readonly number[]; readonly empty: number; readonly start: number }>>
   /** Income per progress-track space (index 0–100). */
   readonly incomeBySpace: readonly number[]
   readonly distantMarket: {
@@ -50,10 +53,20 @@ export interface RulesData {
   readonly portTownsGiveMarketAccess: boolean
 }
 
+/** Everything the rules' numbers come from: docs/TILES.md (via config/tiles.ts) and the hand-written config files. */
+export interface RulesTables {
+  readonly tiles: TileTable
+  readonly markets: Readonly<Record<'coal' | 'iron', MarketConfig>>
+  readonly distant: DistantMarketConfig
+}
+
+/** The distant market has 12 tiles (the rulebook's component list). */
+export const DISTANT_TILES = 12
+
 export class IncompleteRulesError extends Error {
   readonly missing: string[]
   constructor(missing: string[]) {
-    super(`The rules table isn't complete: ${missing.length} value(s) in docs/TILES.md still have to be copied from the player mat (first: ${missing[0]}).`)
+    super(`The rules aren't complete: ${missing.length} value(s) in docs/TILES.md and src/rules/config still have to be filled in (first: ${missing[0]}).`)
     this.missing = missing
   }
 }
@@ -63,9 +76,9 @@ function value<T>(v: Maybe<T>): T {
   return v
 }
 
-/** The tile table as the engine's data. Throws IncompleteRulesError (listing every TODO) or an Error for inconsistent values. */
-export function resolveRulesData(table: TileTable): RulesData {
-  const missing = missingValues(table)
+/** The rules' numbers as the engine's data. Throws IncompleteRulesError (listing every TODO) or an Error for inconsistent values. */
+export function resolveRulesData({ tiles: table, markets, distant }: RulesTables): RulesData {
+  const missing = [...missingValues(table), ...missingValues(markets), ...missingValues(distant)]
   if (missing.length) throw new IncompleteRulesError(missing.map((m) => m.todo))
 
   const industries = perIndustry((id) => {
@@ -92,14 +105,11 @@ export function resolveRulesData(table: TileTable): RulesData {
 
   const data: RulesData = {
     industries,
-    markets: {
-      coal: { spaces: table.markets.coal.spaces.map(value), empty: value(table.markets.coal.empty) },
-      iron: { spaces: table.markets.iron.spaces.map(value), empty: value(table.markets.iron.empty) },
-    },
+    markets: { coal: market(markets.coal), iron: market(markets.iron) },
     incomeBySpace,
     distantMarket: {
-      tiles: table.distantMarket.tiles.map((t) => ({ move: value(t.move), players: value(t.players), flagged: value(t.flagged) })),
-      track: table.distantMarket.track.map(value),
+      tiles: distant.tiles.map((t) => ({ move: value(t.move), players: value(t.players), flagged: value(t.flagged) })),
+      track: [...value(distant.track)],
     },
     hubs: Object.fromEntries(table.hubs.map((h) => [h.id, { linkValue: value(h.linkValue), marketAccess: value(h.marketAccess) }])),
     portTownsGiveMarketAccess: value(table.portTownsGiveMarketAccess),
@@ -107,6 +117,13 @@ export function resolveRulesData(table: TileTable): RulesData {
   const problems = checkRulesData(data)
   if (problems.length) throw new Error(`docs/TILES.md has inconsistent values:\n- ${problems.join('\n- ')}`)
   return data
+}
+
+/** A market's spaces (each step's price repeated for its spaces), empty price and starting cubes. */
+function market(config: MarketConfig): RulesData['markets']['coal'] {
+  const spaces = config.steps.flatMap((step) => Array.from({ length: value(step.spaces) }, () => value(step.price)))
+  const start = value(config.startingCubes)
+  return { spaces, empty: value(config.emptyPrice), start: start === 'full' ? spaces.length : start }
 }
 
 /** Consistency checks on a filled-in table (the numbers must add up). */
@@ -128,7 +145,15 @@ export function checkRulesData(data: RulesData): string[] {
   }
   if (data.incomeBySpace.length !== 101 || data.incomeBySpace.some((v) => v === undefined)) problems.push('Income track: every space from 0 to 100 needs an income level')
   if (data.incomeBySpace[10] !== 0) problems.push('Income track: space 10 must be £0 (the start)')
-  if (!data.distantMarket.track.includes('X')) problems.push('Distant market track: needs an X row')
+  for (const name of ['coal', 'iron'] as const) {
+    const m = data.markets[name]
+    if (m.start < 0 || m.start > m.spaces.length) problems.push(`${name} market: starting cubes must fit its ${m.spaces.length} spaces`)
+    if (m.spaces.length && m.empty < m.spaces[m.spaces.length - 1]) problems.push(`${name} market: the empty price must be at least the dearest space`)
+  }
+  const track = data.distantMarket.track
+  if (track.at(-1) !== 'X' || track.indexOf('X') !== track.length - 1) problems.push('Distant market track: the last row, and only the last, must be X')
+  if (data.distantMarket.tiles.length !== DISTANT_TILES) problems.push(`Distant market: the rulebook has ${DISTANT_TILES} tiles, not ${data.distantMarket.tiles.length}`)
+  for (const [i, t] of data.distantMarket.tiles.entries()) if (!(t.move >= 0 && t.move <= 4)) problems.push(`Distant market tile ${i + 1}: its value must be 0–4 rows down`)
   return problems
 }
 

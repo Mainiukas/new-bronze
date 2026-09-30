@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import tilesMarkdown from '../../docs/TILES.md?raw'
-import tilesModule from './tiles.ts?raw'
+import tilesModule from './config/tiles.ts?raw'
 import { checkRulesData, IncompleteRulesError, resolveRulesData } from './data'
-import { PLACEHOLDER_DATA, placeholderTable } from './placeholder'
-import { TILE_TABLE } from './tiles'
+import { DISTANT_MARKET } from './config/distantMarket'
+import { MARKETS } from './config/markets'
+import { PLACEHOLDER_DATA, placeholderTable, placeholderTables } from './placeholder'
+import { TILE_TABLE } from './config/tiles'
 import { INDUSTRY_LABEL, INDUSTRY_ORDER, isTodo, missingValues, parseTilesMarkdown, renderTilesModule, roman, TilesFormatError, type Maybe, type TileTable } from './tileTable'
 
 /** A value as printed in the snapshot: the number, "?" (TODO), "3?" (a proposal), or "–". */
@@ -28,17 +30,22 @@ function formatTable(t: TileTable): string {
       lines.push(`  ${lvl.padEnd(9)} ${cells.map((c, i) => c.padEnd(i < 8 ? 5 : 7)).join(' ')}`.trimEnd())
     }
   }
-  lines.push(`Coal market: ${t.markets.coal.spaces.map(show).join(' ')} | empty ${show(t.markets.coal.empty)}`)
-  lines.push(`Iron market: ${t.markets.iron.spaces.map(show).join(' ')} | empty ${show(t.markets.iron.empty)}`)
   lines.push(`Income track: ${t.incomeTrack.map((r) => `£${r.income}=${show(r.first)}-${show(r.last)}`).join(' ')}`)
-  lines.push(`Distant market tiles: ${t.distantMarket.tiles.map((d) => `${show(d.move)}/${show(d.players)}${d.flagged === true ? '!' : ''}`).join(' ')}`)
-  lines.push(`Distant market track: ${t.distantMarket.track.map(show).join(' ')}`)
   lines.push(`Hubs: ${t.hubs.map((h) => `${h.id} link ${show(h.linkValue)} market ${show(h.marketAccess)}`).join(', ')}`)
   lines.push(`Port towns give market access: ${show(t.portTownsGiveMarketAccess)}`)
+  // The hand-written config files (src/rules/config).
+  for (const name of ['coal', 'iron'] as const) {
+    const m = MARKETS[name]
+    lines.push(`${name === 'coal' ? 'Coal' : 'Iron'} market: ${m.steps.map((st) => `£${show(st.price)}×${show(st.spaces)}`).join(' ')} | empty £${show(m.emptyPrice)} | start ${show(m.startingCubes)}`)
+  }
+  lines.push(`Distant market tiles: ${DISTANT_MARKET.tiles.map((d) => `${show(d.move)}/${show(d.players)}${d.flagged === true ? '!' : ''}`).join(' ')}`)
+  lines.push(`Distant market track: ${isTodo(DISTANT_MARKET.track) ? '?' : DISTANT_MARKET.track.map(show).join(' ')}`)
   return lines.join('\n')
 }
 
-describe('the tile table (docs/TILES.md → src/rules/tiles.ts)', () => {
+const CONFIG = { tiles: TILE_TABLE, markets: MARKETS, distant: DISTANT_MARKET }
+
+describe('the rules numbers (docs/TILES.md → src/rules/config/tiles.ts, and src/rules/config)', () => {
   it('tiles.ts is generated from the current docs/TILES.md (run `npm run tiles` after editing it)', () => {
     expect(tilesModule).toBe(renderTilesModule(parseTilesMarkdown(tilesMarkdown)))
   })
@@ -51,18 +58,20 @@ describe('the tile table (docs/TILES.md → src/rules/tiles.ts)', () => {
     expect(Object.fromEntries(INDUSTRY_ORDER.map((id) => [id, TILE_TABLE.industries[id].total]))).toEqual({ cotton: 12, coal: 7, iron: 4, port: 8, shipyard: 6 })
     expect(TILE_TABLE.industries.cotton.levels[0].vp).toBe(5)
     expect(TILE_TABLE.industries.shipyard.levels[0]).toMatchObject({ level: 0, locked: true, developable: true })
-    expect(TILE_TABLE.markets.coal.empty).toBe(5)
-    expect(TILE_TABLE.markets.iron.empty).toBe(5)
+    // RULES.md §4 (£5 when a market is empty) and §1 (1 cube per space at the start); 12 distant-market tiles.
+    expect([MARKETS.coal.emptyPrice, MARKETS.iron.emptyPrice]).toEqual([5, 5])
+    expect([MARKETS.coal.startingCubes, MARKETS.iron.startingCubes]).toEqual(['full', 'full'])
+    expect(DISTANT_MARKET.tiles).toHaveLength(12)
   })
 
   it('lists every value still to copy (the engine refuses the table until there are none)', () => {
-    const missing = missingValues(TILE_TABLE)
+    const missing = [...missingValues(TILE_TABLE), ...missingValues(MARKETS), ...missingValues(DISTANT_MARKET)]
     if (missing.length === 0) {
-      expect(() => resolveRulesData(TILE_TABLE)).not.toThrow()
+      expect(() => resolveRulesData(CONFIG)).not.toThrow()
     } else {
-      expect(() => resolveRulesData(TILE_TABLE)).toThrow(IncompleteRulesError)
+      expect(() => resolveRulesData(CONFIG)).toThrow(IncompleteRulesError)
       try {
-        resolveRulesData(TILE_TABLE)
+        resolveRulesData(CONFIG)
       } catch (error) {
         expect((error as IncompleteRulesError).missing).toEqual(missing.map((m) => m.todo))
       }
@@ -72,7 +81,7 @@ describe('the tile table (docs/TILES.md → src/rules/tiles.ts)', () => {
 
 describe('reading TILES.md', () => {
   const industry = (name: string, total: number, row: string) => `## ${name} (${total} tiles total)\n| Lvl | tiles | £ | coal | iron | VP | income | link | cubes | no canal | no rail | dev |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n${row}\n`
-  const rest = `## Markets\n| market | 1 | empty |\n|---|---|---|\n| coal | 1 | 5 |\n| iron | ? | 5 |\n## Income\n| income | first space | last space |\n|---|---|---|\n| 0 | 10 | 10 |\n## Distant cotton market\n| tile | move | players | ! |\n|---|---|---|---|\n| 1 | 2 | – | no |\n\n| row | income |\n|---|---|\n| 1 | 3 |\n| 2 | X |\n## Our map: hubs\n| hub | id | link value | market access |\n|---|---|---|---|\n| London | london | 2 | yes? |\n\n| rule | value |\n|---|---|\n| Towns with a port slot give access to the markets | yes |\n`
+  const rest = `## Income\n| income | first space | last space |\n|---|---|---|\n| 0 | 10 | 10 |\n## Our map: hubs\n| hub | id | link value | market access |\n|---|---|---|---|\n| London | london | 2 | yes? |\n\n| rule | value |\n|---|---|\n| Towns with a port slot give access to the markets | yes |\n`
   const doc = (cotton = '| I | 3 | 12 | – | – | 5 | 5 | 1 | – | no | yes | yes |') =>
     industry('Cotton mill', 12, cotton) +
     industry('Coal mine', 7, '| I | 1 | 5 | – | – | 1 | 4 | 2 | 2 | no | yes | yes |') +
@@ -87,8 +96,6 @@ describe('reading TILES.md', () => {
     expect(t.industries.shipyard.levels[0]).toMatchObject({ level: 0, locked: true, money: null, developable: true })
     expect(t.industries.shipyard.levels[1].money).toEqual({ todo: 'Shipyard II: £ cost' })
     expect(t.industries.shipyard.levels[1].noCanal).toEqual({ todo: 'Shipyard II: not in canal era', proposed: true })
-    expect(t.markets.iron.spaces[0]).toEqual({ todo: 'Iron market: space 1 price' })
-    expect(t.distantMarket.track).toEqual([3, 'X'])
     expect(t.hubs[0]).toMatchObject({ id: 'london', linkValue: 2, marketAccess: { todo: 'London: gives market access', proposed: true } })
     expect(missingValues(t).map((m) => m.todo)).toContain('Shipyard II: £ cost')
   })
@@ -101,7 +108,7 @@ describe('reading TILES.md', () => {
 
 describe('the placeholder numbers (tests and local previews only)', () => {
   it('are complete and consistent', () => {
-    expect(missingValues(placeholderTable())).toEqual([])
+    expect(missingValues(placeholderTables())).toEqual([])
     expect(checkRulesData(PLACEHOLDER_DATA)).toEqual([])
     expect(PLACEHOLDER_DATA.incomeBySpace).toHaveLength(101)
     expect(PLACEHOLDER_DATA.incomeBySpace[10]).toBe(0)
@@ -114,6 +121,6 @@ describe('the placeholder numbers (tests and local previews only)', () => {
       ...table,
       industries: { ...table.industries, iron: { ...table.industries.iron, levels: table.industries.iron.levels.map((l, i) => (i === 0 ? { ...l, tiles: 2 } : l)) } },
     }
-    expect(() => resolveRulesData(broken)).toThrow(/Iron works: the levels have 5 tiles, the rulebook says 4/)
+    expect(() => resolveRulesData({ ...placeholderTables(), tiles: broken })).toThrow(/Iron works: the levels have 5 tiles, the rulebook says 4/)
   })
 })

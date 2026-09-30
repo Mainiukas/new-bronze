@@ -6,7 +6,7 @@
 import deckUrl from '../../../assets/cards/deck.svg'
 import deckTrainUrl from '../../../assets/cards/deck_train.svg'
 import noLoanUrl from '../../../assets/cards/no_loan.svg'
-import { faceOf } from '../../rules/cards'
+import { faceOf } from '../../rules/config/cards'
 import { railMarkerReached } from '../../rules/engine'
 import type { Card, GameState } from '../../rules/state'
 

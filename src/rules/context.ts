@@ -9,7 +9,9 @@ import { IncompleteRulesError, resolveRulesData } from './data'
 import type { RulesContext } from './engine'
 import { BRASS_MAP } from './map'
 import { PLACEHOLDER_DATA } from './placeholder'
-import { TILE_TABLE } from './tiles'
+import { DISTANT_MARKET } from './config/distantMarket'
+import { MARKETS } from './config/markets'
+import { TILE_TABLE } from './config/tiles'
 
 export interface LoadedRules {
   readonly ctx: RulesContext
@@ -21,7 +23,7 @@ export interface LoadedRules {
 
 function load(): LoadedRules {
   try {
-    return { ctx: { data: resolveRulesData(TILE_TABLE), map: BRASS_MAP }, placeholder: false, missing: 0 }
+    return { ctx: { data: resolveRulesData({ tiles: TILE_TABLE, markets: MARKETS, distant: DISTANT_MARKET }), map: BRASS_MAP }, placeholder: false, missing: 0 }
   } catch (error) {
     if (!(error instanceof IncompleteRulesError)) throw error
     return { ctx: { data: PLACEHOLDER_DATA, map: BRASS_MAP }, placeholder: true, missing: error.missing.length }

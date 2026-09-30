@@ -64,6 +64,8 @@ export type LogEntry =
   | { kind: 'loan'; player: number; amount: number }
   | { kind: 'pass'; player: number }
   | { kind: 'flip'; player: number; slot: string; income: number }
+  /** A new mine or iron works sold cubes to its market (the owner got `money`). */
+  | { kind: 'market-sale'; player: number; slot: string; industry: 'coal' | 'iron'; cubes: number; money: number }
   | { kind: 'income'; player: number; amount: number }
   | { kind: 'shortfall'; player: number; tilesSold: string[]; vpLost: number }
   | { kind: 'round'; era: Era; round: number; order: number[] }
@@ -116,7 +118,7 @@ export type Source = string | 'market'
 export type Sale = { readonly mill: string; readonly port: string } | { readonly mill: string; readonly distant: true }
 
 export type Action =
-  | { type: 'build'; cards: string[]; slot: string; industry: IndustryId; coal?: Source[]; iron?: Source[]; sellCubes?: boolean }
+  | { type: 'build'; cards: string[]; slot: string; industry: IndustryId; coal?: Source[]; iron?: Source[] }
   | { type: 'network'; cards: string[]; links: string[]; coal?: Source[] }
   | { type: 'develop'; cards: string[]; industries: IndustryId[]; iron?: Source[] }
   | { type: 'sell'; cards: string[]; sale: Sale }

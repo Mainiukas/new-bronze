@@ -1,9 +1,10 @@
 /**
  * The tile table's shape, and the reader for docs/TILES.md.
  *
- * docs/TILES.md is where every number of the rules lives (copied from the
- * physical player mat). `npm run tiles` reads it with parseTilesMarkdown and
- * writes src/rules/tiles.ts with renderTilesModule. A value that isn't filled
+ * docs/TILES.md holds the player mat's numbers (tiles, income track, hubs).
+ * `npm run tiles` reads it with parseTilesMarkdown and writes
+ * src/rules/config/tiles.ts with renderTilesModule. (The markets, the distant
+ * market and the cards are hand-written files in src/rules/config.) A value that isn't filled
  * in yet stays a Todo: the engine refuses to use it (resolveRulesData in
  * data.ts), and `npm run build` refuses to build while any remain.
  *
@@ -61,17 +62,8 @@ export interface IndustryTable {
 
 export interface TileTable {
   readonly industries: Readonly<Record<IndustryId, IndustryTable>>
-  readonly markets: {
-    readonly coal: { readonly spaces: readonly Maybe<number>[]; readonly empty: Maybe<number> }
-    readonly iron: { readonly spaces: readonly Maybe<number>[]; readonly empty: Maybe<number> }
-  }
   /** Progress-track spaces per income level. */
   readonly incomeTrack: readonly { readonly income: number; readonly first: Maybe<number>; readonly last: Maybe<number> }[]
-  readonly distantMarket: {
-    readonly tiles: readonly { readonly move: Maybe<number>; readonly players: Maybe<number | null>; readonly flagged: Maybe<boolean> }[]
-    /** Income per row, top first; 'X' closes the market. */
-    readonly track: readonly Maybe<number | 'X'>[]
-  }
   readonly hubs: readonly { readonly id: string; readonly name: string; readonly linkValue: Maybe<number>; readonly marketAccess: Maybe<boolean> }[]
   /** Whether a town with a port slot gives access to the coal and iron markets. */
   readonly portTownsGiveMarketAccess: Maybe<boolean>
@@ -224,32 +216,12 @@ export function parseTilesMarkdown(markdown: string): TileTable {
   }
   for (const id of INDUSTRY_ORDER) if (!industries[id]) throw new TilesFormatError(`TILES.md has no ${INDUSTRY_LABEL[id]} section`)
 
-  const marketTable = tables(section(/^Markets/).lines)[0]
-  const market = (name: 'coal' | 'iron') => {
-    const row = marketTable?.rows.find((r) => r[0].text.toLowerCase() === name)
-    if (!row) throw new TilesFormatError(`Markets: no ${name} row`)
-    return {
-      spaces: row.slice(1, -1).map((c, i) => num(c, `${name === 'coal' ? 'Coal' : 'Iron'} market: space ${i + 1} price`)),
-      empty: num(row.at(-1), `${name === 'coal' ? 'Coal' : 'Iron'} market: price when empty`),
-    }
-  }
-
   const trackTable = tables(section(/^Income/).lines)[0]
   const incomeTrack = (trackTable?.rows ?? []).map((row) => {
     const income = Number(row[0].text.replace('−', '-'))
     if (!Number.isInteger(income)) throw new TilesFormatError(`line ${row[0].line}: income level "${row[0].text}"`)
     return { income, first: num(row[1], `Income track: £${income} first space`), last: num(row[2], `Income track: £${income} last space`) }
   })
-
-  const [distantTiles, distantTrack] = tables(section(/^Distant/).lines)
-  const distantMarket = {
-    tiles: (distantTiles?.rows ?? []).map((row) => ({
-      move: num(row[1], `Distant market tile ${row[0].text}: move`),
-      players: numOrNull(row[2], `Distant market tile ${row[0].text}: players`),
-      flagged: bool(row[3], `Distant market tile ${row[0].text}: "!"`, false) as Maybe<boolean>,
-    })),
-    track: (distantTrack?.rows ?? []).map((row) => cell(row[1], 'numberOrX', `Distant market track row ${row[0].text}: income`, false) as Maybe<number | 'X'>),
-  }
 
   const mapTables = tables(section(/^Our map/).lines)
   const hubTable = mapTables.find((t) => t.header[0] === 'hub')
@@ -265,16 +237,14 @@ export function parseTilesMarkdown(markdown: string): TileTable {
 
   return {
     industries,
-    markets: { coal: market('coal'), iron: market('iron') },
     incomeTrack,
-    distantMarket,
     hubs,
     portTownsGiveMarketAccess: bool(portRule[1], 'Towns with a port slot give market access', false) as Maybe<boolean>,
   }
 }
 
 /** Every value still to fill in, in reading order. */
-export function missingValues(table: TileTable): Todo<unknown>[] {
+export function missingValues(table: unknown): Todo<unknown>[] {
   const found: Todo<unknown>[] = []
   const walk = (value: unknown) => {
     if (isTodo(value)) found.push(value)
@@ -285,7 +255,7 @@ export function missingValues(table: TileTable): Todo<unknown>[] {
   return found
 }
 
-/* ---- Writing src/rules/tiles.ts ---------------------------------------------- */
+/* ---- Writing src/rules/config/tiles.ts ---------------------------------------------- */
 
 function literal(value: unknown, indent: string): string {
   if (isTodo(value)) {
@@ -312,7 +282,7 @@ export function renderTilesModule(table: TileTable): string {
   return `// GENERATED from docs/TILES.md by \`npm run tiles\`. Don't edit: change docs/TILES.md and run it again.
 // ${missing === 0 ? 'Every value is filled in.' : `${missing} value(s) still TODO: copy them from the player mat into docs/TILES.md.`}
 
-import { ${missing === 0 ? '' : 'todo, '}type TileTable } from './tileTable'
+import { ${missing === 0 ? '' : 'todo, '}type TileTable } from '../tileTable'
 
 export const TILE_TABLE: TileTable = ${literal(table, '')}
 `

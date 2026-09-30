@@ -8,8 +8,9 @@
  * game screen shows a "placeholder numbers" warning whenever they're in use.
  */
 
-import { resolveRulesData, type RulesData } from './data'
-import { TILE_TABLE } from './tiles'
+import type { MarketConfig } from './config/markets'
+import { resolveRulesData, type RulesData, type RulesTables } from './data'
+import { TILE_TABLE } from './config/tiles'
 import { isTodo, type IndustryId, type TileLevelRow, type TileTable } from './tileTable'
 
 type Row = [tiles: number, money: number, coal: number, iron: number, vp: number, income: number, link: number, cubes: number, noCanal: boolean, noRail: boolean]
@@ -114,16 +115,28 @@ function placeholderTrack() {
 
 const proposed = <T,>(v: T | { proposed?: T }, fallback: T): T => (isTodo(v) ? ((v.proposed as T | undefined) ?? fallback) : (v as T))
 
-/** A complete tile table of placeholder numbers (hubs use the proposals in docs/TILES.md). */
+/** A complete tile table of placeholder numbers (hubs use the values or proposals in docs/TILES.md). */
 export function placeholderTable(): TileTable {
   return {
     industries: INDUSTRIES,
-    markets: {
-      coal: { spaces: [1, 1, 2, 2, 3, 3, 4, 4], empty: 5 },
-      iron: { spaces: [1, 1, 2, 2, 3, 3, 4, 4], empty: 5 },
-    },
     incomeTrack: placeholderTrack(),
-    distantMarket: {
+    hubs: TILE_TABLE.hubs.map((h) => ({ id: h.id, name: h.name, linkValue: proposed(h.linkValue, 2), marketAccess: proposed(h.marketAccess, true) })),
+    portTownsGiveMarketAccess: proposed(TILE_TABLE.portTownsGiveMarketAccess, true),
+  }
+}
+
+const placeholderMarket = (): MarketConfig => ({
+  steps: [1, 2, 3, 4].map((price) => ({ price, spaces: 2 })),
+  emptyPrice: 5,
+  startingCubes: 'full',
+})
+
+/** Every placeholder number: tiles, markets (2 spaces at £1–£4) and 12 distant-market tiles. */
+export function placeholderTables(): RulesTables {
+  return {
+    tiles: placeholderTable(),
+    markets: { coal: placeholderMarket(), iron: placeholderMarket() },
+    distant: {
       tiles: [
         { move: 1, players: null, flagged: false },
         { move: 1, players: null, flagged: false },
@@ -133,13 +146,15 @@ export function placeholderTable(): TileTable {
         { move: 1, players: 3, flagged: false },
         { move: 2, players: 4, flagged: false },
         { move: 4, players: null, flagged: true },
+        { move: 0, players: null, flagged: false },
+        { move: 1, players: null, flagged: false },
+        { move: 2, players: 3, flagged: false },
+        { move: 3, players: 4, flagged: false },
       ],
       track: [3, 3, 2, 2, 1, 1, 0, 'X'],
     },
-    hubs: TILE_TABLE.hubs.map((h) => ({ id: h.id, name: h.name, linkValue: proposed(h.linkValue, 2), marketAccess: proposed(h.marketAccess, true) })),
-    portTownsGiveMarketAccess: proposed(TILE_TABLE.portTownsGiveMarketAccess, true),
   }
 }
 
 /** The placeholder numbers, resolved. */
-export const PLACEHOLDER_DATA: RulesData = resolveRulesData(placeholderTable())
+export const PLACEHOLDER_DATA: RulesData = resolveRulesData(placeholderTables())

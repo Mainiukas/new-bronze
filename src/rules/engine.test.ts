@@ -3,7 +3,7 @@ import { applyAction, createGame, currentPlayerId, eraScores, incomeOf, linkValu
 import { resolveRulesData, type RulesData } from './data'
 import { BRASS_MAP } from './map'
 import { buildBlocker, buildOptions, legalActions, linkOptions, loanOptions } from './options'
-import { PLACEHOLDER_DATA, placeholderTable } from './placeholder'
+import { PLACEHOLDER_DATA, placeholderTables } from './placeholder'
 import { COLORS, RuleError, type Action, type Card, type GameState, type Tile } from './state'
 import type { IndustryId } from './tileTable'
 
@@ -118,9 +118,11 @@ describe('setup (RULES.md §1)', () => {
   })
 
   it('leaves out distant-market tiles marked "!" and those above the player count', () => {
-    // Placeholder tiles: #5 is for 3+ players, #6 for 4 players, #7 is marked "!".
-    expect(createGame(ctx, seats(2), 1).distant.deck.sort()).toEqual([0, 1, 2, 3, 4])
-    expect(createGame(ctx, seats(4), 1).distant.deck.sort()).toEqual([0, 1, 2, 3, 4, 5, 6])
+    // Placeholder tiles (12): #5 and #10 are for 3+ players, #6 and #11 for 4 players, #7 is marked "!".
+    const sorted = (n: number) => createGame(ctx, seats(n), 1).distant.deck.sort((a, b) => a - b)
+    expect(sorted(2)).toEqual([0, 1, 2, 3, 4, 8, 9])
+    expect(sorted(3)).toEqual([0, 1, 2, 3, 4, 5, 8, 9, 10])
+    expect(sorted(4)).toEqual([0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11])
   })
 
   it('refuses fewer than 2 or more than 4 players', () => {
@@ -170,6 +172,17 @@ describe('turns and rounds (§2)', () => {
     s = act(s, { type: 'pass', cards: [s.players[2].hand[0].id] })
     expect(s.order).toEqual([1, 2, 0])
     expect(s.players.map((p) => p.spent)).toEqual([0, 0, 0])
+  })
+
+  it('with 4 players: least spent first, ties keep their current relative order (a stable sort)', () => {
+    let s = game(4, { hands: [[L('oxford')], [L('oxford')], [L('oxford')], [L('oxford')]] })
+    s.order = [2, 0, 3, 1]
+    s.players[2].spent = 5
+    s.players[0].spent = 5
+    s = finishRound(s)
+    expect(s.order).toEqual([3, 1, 2, 0]) // £0: 3 then 1 (as they were); £5: 2 then 0 (as they were)
+    s = finishRound(s)
+    expect(s.order).toEqual([3, 1, 2, 0]) // nobody spent: the order stays
   })
 
   it("refuses a move when it isn't the player's turn", () => {
@@ -299,7 +312,9 @@ describe('overbuilding (§3)', () => {
     s.tiles['stoke:0'].cubes = 0
     expect(code(() => act(s, { type: 'build', cards: [s.players[0].hand[0].id], slot: 'bristol:3', industry: 'coal' }))).toBe('overbuild') // the market still has coal
     s.market.coal = 0
-    expect(act(s, { type: 'build', cards: [s.players[0].hand[0].id], slot: 'bristol:3', industry: 'coal' }).tiles['bristol:3']).toMatchObject({ owner: 0, level: 1, cubes: 2 })
+    const built = act(s, { type: 'build', cards: [s.players[0].hand[0].id], slot: 'bristol:3', industry: 'coal' })
+    expect(built.tiles['bristol:3']).toMatchObject({ owner: 0, level: 1 })
+    expect(built.market.coal).toBe(2) // Bristol is a trade location: the new mine sold its 2 cubes
   })
 })
 
@@ -347,16 +362,46 @@ describe('coal and iron (§4)', () => {
     expect(after.players[0].money).toBe(30 - 16 - 1)
   })
 
-  it('a new mine or works sells its cubes to its market (most expensive empty space first) if connected to one', () => {
+  it('a new coal mine sells its cubes to the coal market at once, most expensive empty space first, and the owner is paid', () => {
+    // Bristol has port slots: it is a trade location itself.
     const s = game(2, { hands: [[L('bristol')], []] })
-    s.market.coal = 4 // empty spaces: 1, 1, 2, 2 (placeholder)
-    const after = act(s, { type: 'build', cards: [s.players[0].hand[0].id], slot: 'bristol:3', industry: 'coal', sellCubes: true })
+    s.market.coal = 4 // empty spaces: £1, £1, £2, £2 (placeholder)
+    const after = act(s, { type: 'build', cards: [s.players[0].hand[0].id], slot: 'bristol:3', industry: 'coal' })
     expect(after.market.coal).toBe(6)
     expect(after.players[0].money).toBe(30 - 5 + 2 + 2)
     expect(after.tiles['bristol:3']).toMatchObject({ cubes: 0, flipped: true })
     expect(after.players[0].incomeSpace).toBe(10 + 4) // coal I income 4 (placeholder)
-    const kept = act(s, { type: 'build', cards: [s.players[0].hand[0].id], slot: 'bristol:3', industry: 'coal', sellCubes: false })
-    expect(kept.tiles['bristol:3']).toMatchObject({ cubes: 2, flipped: false })
+    expect(after.log).toContainEqual({ kind: 'market-sale', player: 0, slot: 'bristol:3', industry: 'coal', cubes: 2, money: 4 })
+  })
+
+  it('a coal mine not connected to a trade location keeps its cubes', () => {
+    const s = game(2, { hands: [[L('lichfield')], []] })
+    s.market.coal = 4
+    const after = act(s, { type: 'build', cards: [s.players[0].hand[0].id], slot: 'lichfield:0', industry: 'coal' })
+    expect(after.tiles['lichfield:0']).toMatchObject({ cubes: 2, flipped: false })
+    expect(after.market.coal).toBe(4)
+    expect(after.log.some((e) => e.kind === 'market-sale')).toBe(false)
+  })
+
+  it('a new iron works always sells to the iron market (no connection needed); cubes that don\'t fit stay on the tile', () => {
+    // Wrexham: no port, no links. Its own coal mine supplies the iron works' coal.
+    const s = game(2, { hands: [[L('wrexham')], []] })
+    s.tiles['wrexham:0'] = tile(1, 'coal', 1, 2)
+    s.market.iron = 5 // empty spaces: £1, £1, £2 (placeholder)
+    const after = act(s, { type: 'build', cards: [s.players[0].hand[0].id], slot: 'wrexham:1', industry: 'iron' })
+    expect(after.market.iron).toBe(8)
+    expect(after.tiles['wrexham:1']).toMatchObject({ cubes: 1, flipped: false }) // iron I: 4 cubes, 3 fit (placeholder)
+    expect(after.players[0].money).toBe(30 - 5 + 2 + 1 + 1)
+    expect(after.log).toContainEqual({ kind: 'market-sale', player: 0, slot: 'wrexham:1', industry: 'iron', cubes: 3, money: 4 })
+  })
+
+  it('buying takes the cheapest cube there is; an empty market still sells at £5', () => {
+    const s = game(2, { hands: [[L('gloucester')], []] })
+    s.players[0].mat.cotton = [0, 0, 3, 3] // cotton III: 1 coal, 1 iron (placeholder)
+    s.market.iron = 3 // cubes on the three dearest spaces: £3, £4, £4
+    expect(planBuild(s, ctx, 0, { type: 'build', cards: [s.players[0].hand[0].id], slot: 'gloucester:1', industry: 'cotton' }).iron).toEqual([{ from: 'market', price: 3 }])
+    s.market.iron = 0
+    expect(planBuild(s, ctx, 0, { type: 'build', cards: [s.players[0].hand[0].id], slot: 'gloucester:1', industry: 'cotton' }).iron).toEqual([{ from: 'market', price: 5 }])
   })
 })
 
@@ -427,10 +472,11 @@ describe('develop (§3)', () => {
   })
 
   it("can't remove a non-developable tile", () => {
-    const table = placeholderTable()
+    const tables = placeholderTables()
+    const table = tables.tiles
     const data: RulesData = resolveRulesData({
-      ...table,
-      industries: { ...table.industries, coal: { ...table.industries.coal, levels: table.industries.coal.levels.map((l, i) => (i === 0 ? { ...l, developable: false } : l)) } },
+      ...tables,
+      tiles: { ...table, industries: { ...table.industries, coal: { ...table.industries.coal, levels: table.industries.coal.levels.map((l, i) => (i === 0 ? { ...l, developable: false } : l)) } } },
     })
     const s = createGame({ data, map: BRASS_MAP }, seats(2), 11)
     s.order = [0, 1]
@@ -482,6 +528,25 @@ describe('sell cotton (§3)', () => {
     expect(after.distant.closed).toBe(true)
     expect(after.tiles['oxford:0'].flipped).toBe(false)
     expect(after.selling).toBeNull()
+  })
+
+  it('landing exactly on X fails too: the card is spent, no income, and the market stays closed for the era', () => {
+    const s = game(2, { hands: [[L('oxford'), L('oxford')], []], actions: 2 })
+    s.tiles['oxford:0'] = tile(0, 'cotton')
+    s.tiles['gloucester:1'] = tile(0, 'cotton')
+    s.links['reading-oxford'] = { owner: 1 }
+    s.links['london-reading'] = { owner: 1 }
+    s.links['birmingham-oxford'] = { owner: 1 }
+    s.links['wolverhampton-birmingham'] = { owner: 1 }
+    s.links['wolverhampton-gloucester'] = { owner: 1 }
+    s.distant.marker = 6
+    s.distant.deck = [0, 1] // move 1 → row 7: X
+    const after = act(s, { type: 'sell', cards: [s.players[0].hand[0].id], sale: { mill: 'oxford:0', distant: true } })
+    expect(after.distant).toMatchObject({ marker: 7, closed: true })
+    expect(after.players[0].incomeSpace).toBe(10)
+    expect(after.players[0].hand).toHaveLength(1)
+    expect(after.log.at(-1)).toMatchObject({ kind: 'sell-failed', mill: 'oxford:0', move: 1 })
+    expect(code(() => act(after, { type: 'sell', cards: [after.players[0].hand[0].id], sale: { mill: 'gloucester:1', distant: true } }))).toBe('sale')
   })
 
   it('after a sale you may sell more mills without another card, then stop', () => {

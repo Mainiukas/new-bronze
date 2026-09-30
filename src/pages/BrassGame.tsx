@@ -70,7 +70,7 @@ type Flow =
   /** Picking a slot. With chosen cards, `industry` narrows the glowing slots (null: every industry the cards allow). */
   | { kind: 'build'; industry: IndustryId | null }
   /** `alternatives`: the industries this slot takes with these cards (a choice when there are two). */
-  | { kind: 'build-confirm'; industry: IndustryId; plan: BuildPlan; sellCubes: boolean; alternatives: IndustryId[] }
+  | { kind: 'build-confirm'; industry: IndustryId; plan: BuildPlan; alternatives: IndustryId[] }
   | { kind: 'network'; count: 1 | 2; picked: string[] }
   | { kind: 'network-confirm'; count: 1 | 2; plan: NetworkPlan }
   | { kind: 'develop'; chips: IndustryId[] }
@@ -234,7 +234,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   /** Straight to the confirm popup for this slot (and the industries it takes with the picked cards). */
   const confirmCardBuild = (here: readonly CardBuildTarget[]) => {
     if (!here.length) return
-    setFlow({ kind: 'build-confirm', industry: here[0].industry, plan: here[0].plan, sellCubes: true, alternatives: here.map((o) => o.industry) })
+    setFlow({ kind: 'build-confirm', industry: here[0].industry, plan: here[0].plan, alternatives: here.map((o) => o.industry) })
   }
 
   const onSlot = (town: string, index: number) => {
@@ -243,7 +243,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       confirmCardBuild(cardTargets.filter((o) => o.slot === slot))
     } else if (flow.kind === 'build') {
       const option = autoTargets.find((o) => o.slot === slot)
-      if (option && flow.industry) setFlow({ kind: 'build-confirm', industry: flow.industry, plan: option.plan, sellCubes: true, alternatives: [flow.industry] })
+      if (option && flow.industry) setFlow({ kind: 'build-confirm', industry: flow.industry, plan: option.plan, alternatives: [flow.industry] })
     } else if (flow.kind === 'sell-mill') {
       if (sales.some((s) => s.mill === slot)) setFlow({ kind: 'sell-buyer', mill: slot, more: flow.more })
     } else if (flow.kind === 'sell-buyer') {
@@ -380,7 +380,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
     const card = actionCard
     switch (flow.kind) {
       case 'build-confirm':
-        afterHuman(dispatch(me, { type: 'build', cards: [...flow.plan.cards], slot: flow.plan.slot, industry: flow.industry, sellCubes: flow.sellCubes }))
+        afterHuman(dispatch(me, { type: 'build', cards: [...flow.plan.cards], slot: flow.plan.slot, industry: flow.industry }))
         break
       case 'network-confirm':
         afterHuman(dispatch(me, { type: 'network', cards: [flow.plan.card], links: [...flow.plan.links] }))
@@ -938,13 +938,6 @@ function ConfirmDialogs({
   let build: ReactNode = null
   if (flow.kind === 'build-confirm') {
     const p = flow.plan
-    let sellPlan: BuildPlan | null = null
-    try {
-      sellPlan = planBuild(state, ctx, me, { type: 'build', cards: [...p.cards], slot: p.slot, industry: flow.industry, sellCubes: true })
-    } catch {
-      sellPlan = null
-    }
-    const sold = sellPlan?.sold
     build = (
       <ConfirmBox open title={b.buildTitle(b.industry[flow.industry], roman(p.tile.level), slotTown(p.slot))} onConfirm={onConfirm} onCancel={onCancel}>
         <div className="flex flex-col gap-2 text-sm text-parchment-200">
@@ -958,7 +951,7 @@ function ConfirmDialogs({
                   role="radio"
                   aria-checked={flow.industry === industry}
                   onClick={() => {
-                    const plan = planBuild(state, ctx, me, { type: 'build', cards: [...p.cards], slot: p.slot, industry, sellCubes: true })
+                    const plan = planBuild(state, ctx, me, { type: 'build', cards: [...p.cards], slot: p.slot, industry })
                     onFlow({ ...flow, industry, plan })
                   }}
                   className={`rounded-md border-2 px-2.5 py-1 font-display text-xs font-bold tracking-[0.06em] uppercase ${flow.industry === industry ? 'border-brass-200 bg-brass-300/20 text-brass-100' : 'border-bronze-400/50 text-parchment-200 hover:border-brass-300'}`}
@@ -978,11 +971,10 @@ function ConfirmDialogs({
             {takes(p.iron, 'iron')}
           </ul>
           {p.overbuild && <p>{p.overbuild.owner === me ? b.overbuildOwn : b.overbuild(state.players[p.overbuild.owner].name)}</p>}
-          {sold && sold.cubes > 0 && (flow.industry === 'coal' || flow.industry === 'iron') && (
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={flow.sellCubes} onChange={(e) => onFlow({ ...flow, sellCubes: e.target.checked })} className="size-4 accent-brass-300" />
-              {b.sellCubes(sold.cubes, flow.industry, sold.money)}
-            </label>
+          {(flow.industry === 'coal' || flow.industry === 'iron') && p.tile.cubes > 0 && (
+            <p className={p.sold.cubes > 0 ? 'text-verdigris-200' : 'text-parchment-400'}>
+              {p.sold.cubes > 0 ? b.sellCubes(p.sold.cubes, flow.industry, p.sold.money) : flow.industry === 'coal' ? b.coalStays : b.marketFull}
+            </p>
           )}
           <p className="text-parchment-400">{b.cards(p.cards.map(cardName).join(', '))}</p>
           {p.actions === 2 && <p className="text-brass-200">{b.twoCards}</p>}

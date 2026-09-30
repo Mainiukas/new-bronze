@@ -1,7 +1,7 @@
 // GENERATED from docs/TILES.md by `npm run tiles`. Don't edit: change docs/TILES.md and run it again.
-// 297 value(s) still TODO: copy them from the player mat into docs/TILES.md.
+// 273 value(s) still TODO: copy them from the player mat into docs/TILES.md.
 
-import { todo, type TileTable } from './tileTable'
+import { todo, type TileTable } from '../tileTable'
 
 export const TILE_TABLE: TileTable = {
   industries: {
@@ -316,34 +316,6 @@ export const TILE_TABLE: TileTable = {
       ],
     },
   },
-  markets: {
-    coal: {
-      spaces: [
-        todo("Coal market: space 1 price"),
-        todo("Coal market: space 2 price"),
-        todo("Coal market: space 3 price"),
-        todo("Coal market: space 4 price"),
-        todo("Coal market: space 5 price"),
-        todo("Coal market: space 6 price"),
-        todo("Coal market: space 7 price"),
-        todo("Coal market: space 8 price"),
-      ],
-      empty: 5,
-    },
-    iron: {
-      spaces: [
-        todo("Iron market: space 1 price"),
-        todo("Iron market: space 2 price"),
-        todo("Iron market: space 3 price"),
-        todo("Iron market: space 4 price"),
-        todo("Iron market: space 5 price"),
-        todo("Iron market: space 6 price"),
-        todo("Iron market: space 7 price"),
-        todo("Iron market: space 8 price"),
-      ],
-      empty: 5,
-    },
-  },
   incomeTrack: [
     {
       income: -10,
@@ -551,37 +523,25 @@ export const TILE_TABLE: TileTable = {
       last: todo("Income track: £30 last space"),
     },
   ],
-  distantMarket: {
-    tiles: [
-      {
-        move: todo("Distant market tile 1: move"),
-        players: todo("Distant market tile 1: players"),
-        flagged: todo("Distant market tile 1: \"!\""),
-      },
-    ],
-    track: [
-      todo("Distant market track row 1: income"),
-    ],
-  },
   hubs: [
     {
       name: "The North",
       id: "the_north",
       linkValue: todo("The North: link value"),
-      marketAccess: todo("The North: gives market access", true),
+      marketAccess: true,
     },
     {
       name: "London",
       id: "london",
       linkValue: todo("London: link value"),
-      marketAccess: todo("London: gives market access", true),
+      marketAccess: true,
     },
     {
       name: "West Wales",
       id: "west_wales",
       linkValue: todo("West Wales: link value"),
-      marketAccess: todo("West Wales: gives market access", true),
+      marketAccess: true,
     },
   ],
-  portTownsGiveMarketAccess: todo("Towns with a port slot give market access", true),
+  portTownsGiveMarketAccess: true,
 }

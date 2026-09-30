@@ -26,7 +26,7 @@ import {
   START_INCOME_SPACE,
   START_MONEY,
 } from './constants'
-import { buildDeck, CANAL_SET_ASIDE_PER_PLAYER, LOANS_STOP, RAIL_MARKER_CARDS_PER_PLAYER, roundsFor } from './cards'
+import { buildDeck, CANAL_SET_ASIDE_PER_PLAYER, LOANS_STOP, RAIL_MARKER_CARDS_PER_PLAYER, roundsFor } from './config/cards'
 import { incomeAt, perIndustry, topSpaceOfLevel, type IndustryId, type IndustryLevel, type RulesData } from './data'
 import { linkInEra, type BrassMap, type MapLink, type MapTown } from './map'
 import { nextRandom, shuffle } from './random'
@@ -107,7 +107,7 @@ export function createGame(ctx: RulesContext, seats: readonly SeatSetup[], seed:
     setAside,
     tiles: {},
     links: {},
-    market: { coal: ctx.data.markets.coal.spaces.length, iron: ctx.data.markets.iron.spaces.length },
+    market: { coal: ctx.data.markets.coal.start, iron: ctx.data.markets.iron.start },
     distant: { deck: distantDeck, used: [], marker: 0, closed: false },
     selling: null,
     finished: false,
@@ -436,11 +436,12 @@ export function planBuild(state: GameState, ctx: RulesContext, playerId: number,
   const money = tile.cost.money + cost(coal.takes) + cost(iron.takes)
   if (money > player.money) throw new RuleError('money', `This costs £${money}; you have £${player.money}`)
 
-  // Selling the new tile's cubes to its market (coal or iron, when connected to a market place).
+  // A new iron works sells its cubes to the iron market at once; a new coal mine does too when its town is
+  // connected to a trade location (a hub, or a town with a port slot). Most expensive empty spaces first;
+  // cubes that don't fit stay on the tile.
   let sold = { cubes: 0, money: 0 }
-  if (action.sellCubes && (industry === 'coal' || industry === 'iron') && tile.cubes > 0) {
-    const reach = distancesFrom(state, ctx, [town.id])
-    if (hasMarketAccess(ctx, reach)) {
+  if ((industry === 'coal' || industry === 'iron') && tile.cubes > 0) {
+    if (industry === 'iron' || hasMarketAccess(ctx, distancesFrom(state, ctx, [town.id]))) {
       let cubes = industry === 'coal' ? coal.marketLeft : iron.marketLeft
       let n = 0
       let income = 0
@@ -682,6 +683,7 @@ export function applyAction(state: GameState, ctx: RulesContext, playerId: numbe
         tile.cubes -= plan.sold.cubes
         next.market[plan.industry] += plan.sold.cubes
         player.money += plan.sold.money
+        next.log.push({ kind: 'market-sale', player: playerId, slot: plan.slot, industry: plan.industry, cubes: plan.sold.cubes, money: plan.sold.money })
         if (tile.cubes === 0) flip(next, ctx, plan.slot)
       }
       break

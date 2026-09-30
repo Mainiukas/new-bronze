@@ -13,9 +13,9 @@
  * towns on their map.
  */
 
-import type { BrassMap } from './map'
-import type { Card } from './state'
-import type { IndustryId } from './tileTable'
+import type { BrassMap } from '../map'
+import type { Card } from '../state'
+import type { IndustryId } from '../tileTable'
 
 /** Location cards per town id (our towns: see src/data/board.json). */
 export const LOCATION_CARDS: Readonly<Record<string, number>> = {
@@ -81,13 +81,12 @@ export const CANAL_SET_ASIDE_PER_PLAYER = 1
 export const RAIL_MARKER_CARDS_PER_PLAYER = 2
 
 /**
- * When loans stop in the rail era. 'deck-empty' is RULES.md §3 ("not allowed
- * once the draw deck is empty"): with 2 cards per player under the marker,
- * that's the end of the round after the draw reaches the marker, so the
- * marker is the warning that one round of loans is left. 'marker' stops them
- * as soon as the draw reaches the marker.
+ * When loans stop in the rail era: 'marker' (the gameplay spec: once the draw
+ * reaches the Rothschild marker, no more loans; that round is the last in
+ * which one was possible) or 'deck-empty' (RULES.md §3's wording: once the
+ * draw deck is empty, one round later).
  */
-export const LOANS_STOP: 'deck-empty' | 'marker' = 'deck-empty'
+export const LOANS_STOP: 'deck-empty' | 'marker' = 'marker'
 
 /* ---- Card faces --------------------------------------------------------------- */
 

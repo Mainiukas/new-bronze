@@ -5,7 +5,7 @@
 
 import type { MatchSummary } from '../data/achievements'
 import { getGameMode, isGameModeId, type GameModeConfig } from '../data/gameModes'
-import { buildDeck, CANAL_SET_ASIDE_PER_PLAYER, roundsFor } from './cards'
+import { buildDeck, CANAL_SET_ASIDE_PER_PLAYER, roundsFor } from './config/cards'
 import { ACTIONS_PER_TURN, FIRST_ROUND_ACTIONS, HAND_SIZE, MAX_PLAYERS, MIN_PLAYERS } from './constants'
 import { createGame, type RulesContext, type SeatSetup } from './engine'
 import { BRASS_MAP } from './map'

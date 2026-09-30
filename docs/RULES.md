@@ -43,8 +43,10 @@ The engine must never guess a TODO value.
 - **Overbuilding:** your own tile may be replaced by a higher-level tile of the same industry
   (its cubes return to supply). An opponent's tile may only be replaced if it is a coal mine /
   iron works AND there are **no cubes of that type left on the whole board**.
-- Coal mines / iron works: on building, place their cubes on the tile; if connected to a market,
-  cubes may be sold to the market (most expensive free space first) for money as printed.
+- Coal mines / iron works: on building, place their cubes on the tile, then sell them to the market
+  at once (most expensive empty space first; the owner is paid each space's price; cubes that
+  don't fit stay on the tile). Iron works always sell (no connection needed); a coal mine sells only
+  if its location is connected to a trade location (on our map: a hub or a town with a port slot).
 - Shipyards **flip immediately** when built.
 
 ### Network (link)
@@ -71,18 +73,19 @@ The engine must never guess a TODO value.
 ### Loan
 - Discard 1 card. **£10 / £20 / £30** → income marker back **1 / 2 / 3 levels**.
 - Not allowed if income would drop below −10, or once the draw deck is empty.
-  Rail era: the **Rothschild marker** sits above the last 2 cards per player; when the draw reaches
-  it, one round of loans is left.
+  Rail era: the **Rothschild marker** sits above the last 2 cards per player; once the draw reaches
+  it, **no more loans** (the cards beneath it are still drawn and played).
 
 ### Pass
 - Discard 1 card, do nothing.
 
 ## 4. Coal & iron
 - **Coal:** take free from the **closest connected unflipped coal mine** (fewest links; any player's;
-  choose if tied). If none connected: buy from the coal market at the printed price
-  (needs connection to a market/port location as printed). Market empty: **£5** per cube.
+  choose if tied). If none connected: buy from the coal market, cheapest cube first (needs a
+  connection to a trade location: on our map a hub or a town with a port slot). Market empty:
+  **£5** per cube, always available.
 - **Iron:** take free from **any unflipped iron works** (any player, no connection needed).
-  If none: iron market price; market empty: **£5** per cube.
+  If none: iron market, cheapest cube first; market empty: **£5** per cube, always available.
 - When a mine/works has its last cube removed, it **flips** and its owner advances income by its arrow.
 
 ## 5. End of canal era

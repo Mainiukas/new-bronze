@@ -72,7 +72,7 @@ function scanCardBuilds(state: GameState, ctx: RulesContext, playerId: number, c
     for (const industry of slot.industries) {
       if (card?.kind === 'industry' && industry !== card.industry) continue
       if (only && industry !== only) continue
-      const plan = attempt(() => planBuild(state, ctx, playerId, { type: 'build', cards: [...cards], slot: slot.key, industry, sellCubes: true }))
+      const plan = attempt(() => planBuild(state, ctx, playerId, { type: 'build', cards: [...cards], slot: slot.key, industry }))
       if (plan instanceof RuleError) reasons.push(plan.code)
       else targets.push({ slot: slot.key, industry, plan })
     }
@@ -131,12 +131,12 @@ export interface BuildOption {
 }
 
 /** Every slot where `industry` can be built now, each with the plan (cards chosen as in buildCardChoices). */
-export function buildOptions(state: GameState, ctx: RulesContext, playerId: number, industry: IndustryId, sellCubes = true, joker = jokerPair(state, ctx, playerId)): BuildOption[] {
+export function buildOptions(state: GameState, ctx: RulesContext, playerId: number, industry: IndustryId, joker = jokerPair(state, ctx, playerId)): BuildOption[] {
   const out: BuildOption[] = []
   for (const slot of Object.values(ctx.map.slots)) {
     if (!slot.industries.includes(industry)) continue
     for (const cards of buildCardChoices(state, ctx, playerId, slot.town, industry, joker)) {
-      const plan = attempt(() => planBuild(state, ctx, playerId, { type: 'build', cards, slot: slot.key, industry, sellCubes }))
+      const plan = attempt(() => planBuild(state, ctx, playerId, { type: 'build', cards, slot: slot.key, industry }))
       if (!(plan instanceof RuleError)) {
         out.push({ slot: slot.key, plan })
         break
@@ -160,7 +160,7 @@ export function buildBlocker(state: GameState, ctx: RulesContext, playerId: numb
   if ((state.era === 'canal' && tile.noCanal) || (state.era === 'rail' && tile.noRail)) return 'era'
   if (state.actionsLeft < 1 || state.selling) return 'no-actions'
   const joker = jokerPair(state, ctx, playerId)
-  if (buildOptions(state, ctx, playerId, industry, true, joker).length) return null
+  if (buildOptions(state, ctx, playerId, industry, joker).length) return null
   const reasons: RuleErrorCode[] = []
   for (const slot of Object.values(ctx.map.slots)) {
     if (!slot.industries.includes(industry)) continue
@@ -279,8 +279,8 @@ export function legalActions(state: GameState, ctx: RulesContext, playerId: numb
   const actions: Action[] = []
   const joker = jokerPair(state, ctx, playerId)
   for (const industry of INDUSTRY_ORDER) {
-    for (const option of buildOptions(state, ctx, playerId, industry, true, joker)) {
-      actions.push({ type: 'build', cards: [...option.plan.cards], slot: option.slot, industry, sellCubes: true })
+    for (const option of buildOptions(state, ctx, playerId, industry, joker)) {
+      actions.push({ type: 'build', cards: [...option.plan.cards], slot: option.slot, industry })
     }
   }
   for (const { link } of linkOptions(state, ctx, playerId, 1, [], card)) actions.push({ type: 'network', cards: [card], links: [link] })

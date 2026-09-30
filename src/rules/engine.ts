@@ -26,7 +26,7 @@ import {
   START_INCOME_SPACE,
   START_MONEY,
 } from './constants'
-import { buildDeck, CANAL_SET_ASIDE_PER_PLAYER, LOANS_STOP, RAIL_MARKER_CARDS_PER_PLAYER, roundsFor } from './config/cards'
+import { buildDeck, cardsRemoved, LOANS_STOP, RAIL_MARKER_CARDS_PER_PLAYER, roundsFor } from './config/cards'
 import { incomeAt, perIndustry, topSpaceOfLevel, type IndustryId, type IndustryLevel, type RulesData } from './data'
 import { linkInEra, type BrassMap, type MapLink, type MapTown } from './map'
 import { nextRandom, shuffle } from './random'
@@ -65,11 +65,11 @@ export function createGame(ctx: RulesContext, seats: readonly SeatSetup[], seed:
     rng,
   )
 
-  // The deck (cards.ts), shuffled; 1 card per player set aside under it for the canal era.
+  // The deck (cards.ts), shuffled; the canal era's cards put aside face down (they come back for the rail era).
   const mapRing = options.mapRing ?? 3
   let deck: Card[]
   ;[deck, rng] = shuffle(buildDeck(ctx.map, n, mapRing), rng)
-  const setAside = deck.splice(Math.max(0, deck.length - CANAL_SET_ASIDE_PER_PLAYER * n))
+  const setAside = deck.splice(Math.max(0, deck.length - cardsRemoved('canal', n, mapRing)))
 
   const players: PlayerState[] = seats.map((seat, i) => ({
     name: seat.name,
@@ -146,13 +146,11 @@ export function totalCards(state: GameState): number {
   return state.deck.length + state.discard.length + state.setAside.length + state.players.reduce((n, p) => n + p.hand.length, 0)
 }
 
-/** Rounds an era lasts: until everyone has played their hand out (canal era: without the cards set aside). */
+/** Rounds an era lasts: until everyone has played their hand out (without the cards put aside that era). */
 export function roundsInEra(state: GameState, era: Era = state.era): number {
   const n = state.players.length
-  const total = totalCards(state)
-  return era === 'canal'
-    ? roundsFor(Math.max(0, total - CANAL_SET_ASIDE_PER_PLAYER * n), n, HAND_SIZE, ACTIONS_PER_TURN, FIRST_ROUND_ACTIONS)
-    : roundsFor(total, n, HAND_SIZE, ACTIONS_PER_TURN)
+  const cards = Math.max(0, totalCards(state) - cardsRemoved(era, n, state.mapRing))
+  return era === 'canal' ? roundsFor(cards, n, HAND_SIZE, ACTIONS_PER_TURN, FIRST_ROUND_ACTIONS) : roundsFor(cards, n, HAND_SIZE, ACTIONS_PER_TURN)
 }
 
 /** Rail era: the draw has reached the Rothschild marker (only the cards under it are left). */
@@ -231,6 +229,16 @@ function isMarketPlace(ctx: RulesContext, place: string): boolean {
 export function hasMarketAccess(ctx: RulesContext, reachable: Map<string, number>): boolean {
   for (const place of reachable.keys()) if (isMarketPlace(ctx, place)) return true
   return false
+}
+
+/**
+ * Cubes of a kind left in the general supply: all there are, less the
+ * market's and those on tiles (a tile being built over gives its back).
+ */
+export function supplyLeft(state: GameState, ctx: RulesContext, kind: 'coal' | 'iron', replacing: Tile | null = null): number {
+  let used = state.market[kind]
+  for (const t of Object.values(state.tiles)) if (t.industry === kind && t !== replacing) used += t.cubes
+  return Math.max(0, ctx.data.markets[kind].supply - used)
 }
 
 /** Price of the next cube bought from a market holding `cubes` (filled spaces are the most expensive ones). */
@@ -362,6 +370,8 @@ export interface BuildPlan {
   readonly industry: IndustryId
   readonly levelIndex: number
   readonly tile: IndustryLevel
+  /** Cubes the new mine or works gets: its level's, or fewer when the supply runs short. */
+  readonly cubes: number
   readonly cards: readonly string[]
   /** 2 when two cards are discarded (as any location card). */
   readonly actions: number
@@ -445,7 +455,7 @@ export function planBuild(state: GameState, ctx: RulesContext, playerId: number,
       let cubes = industry === 'coal' ? coal.marketLeft : iron.marketLeft
       let n = 0
       let income = 0
-      while (n < tile.cubes) {
+      while (n < Math.min(tile.cubes, supplyLeft(state, ctx, industry, existing))) {
         const price = marketSellPrice(ctx, industry, cubes)
         if (price === null) break
         income += price
@@ -456,7 +466,8 @@ export function planBuild(state: GameState, ctx: RulesContext, playerId: number,
     }
   }
 
-  return { player: playerId, slot: action.slot, town: town.id, industry, levelIndex, tile, cards: action.cards, actions, overbuild: existing, coal: coal.takes, iron: iron.takes, money, sold }
+  const cubes = industry === 'coal' || industry === 'iron' ? Math.min(tile.cubes, supplyLeft(state, ctx, industry, existing)) : 0
+  return { player: playerId, slot: action.slot, town: town.id, industry, levelIndex, tile, cubes, cards: action.cards, actions, overbuild: existing, coal: coal.takes, iron: iron.takes, money, sold: { ...sold, cubes: Math.min(sold.cubes, cubes) } }
 }
 
 /* ---- Network -------------------------------------------------------------------- */
@@ -665,7 +676,7 @@ export function applyAction(state: GameState, ctx: RulesContext, playerId: numbe
       takeCubes(next, ctx, 'coal', plan.coal)
       takeCubes(next, ctx, 'iron', plan.iron)
       pay(player, plan.money)
-      next.tiles[plan.slot] = { owner: playerId, industry: plan.industry, level: plan.tile.level, cubes: plan.tile.cubes, flipped: false }
+      next.tiles[plan.slot] = { owner: playerId, industry: plan.industry, level: plan.tile.level, cubes: plan.cubes, flipped: false }
       next.log.push({
         kind: 'build',
         player: playerId,
@@ -677,7 +688,8 @@ export function applyAction(state: GameState, ctx: RulesContext, playerId: numbe
         iron: plan.iron.length,
         money: plan.money,
       })
-      if (plan.industry === 'shipyard') flip(next, ctx, plan.slot)
+      // A shipyard flips at once; so does a mine or works that got no cubes (the supply was empty).
+      if (plan.industry === 'shipyard' || ((plan.industry === 'coal' || plan.industry === 'iron') && plan.cubes === 0)) flip(next, ctx, plan.slot)
       if (plan.sold.cubes > 0 && (plan.industry === 'coal' || plan.industry === 'iron')) {
         const tile = next.tiles[plan.slot]
         tile.cubes -= plan.sold.cubes
@@ -899,7 +911,8 @@ function endEra(state: GameState, ctx: RulesContext) {
   ;[state.deck, rng] = shuffle(all, rng)
   state.rng = rng
   state.discard = []
-  state.setAside = []
+  // The rail era's cards put aside face down: out of play for the rest of the game.
+  state.setAside = state.deck.splice(Math.max(0, state.deck.length - cardsRemoved('rail', state.players.length, state.mapRing)))
   state.log.push({ kind: 'deal', era: 'rail', cards: HAND_SIZE })
   for (const id of state.order) state.players[id].hand = state.deck.splice(0, HAND_SIZE)
   state.era = 'rail'

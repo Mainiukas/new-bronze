@@ -711,11 +711,6 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
   return (
     <div className="brass-screen flex min-h-dvh flex-col">
-      {RULES.placeholder && (
-        <p role="alert" className="bg-ember-500/90 px-3 py-1 text-center text-xs font-semibold text-soot-950 sm:text-sm">
-          {b.placeholder}
-        </p>
-      )}
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-bronze-500/30 bg-soot-950/90 px-3 py-1">
         <GameMenuButton onRules={onOpenRules} onSettings={onOpenSettings} onLeave={onLeave} />
         <span className={`rounded-full border px-2.5 py-0.5 font-display text-xs font-bold tracking-[0.12em] uppercase ${state.era === 'canal' ? 'border-verdigris-400/50 text-verdigris-200' : 'border-brass-300/50 text-brass-200'}`}>{b.era[state.era]}</span>

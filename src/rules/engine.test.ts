@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { applyAction, createGame, currentPlayerId, eraScores, incomeOf, linkValueAt, planBuild, rankPlayers, roundsInEra, saleOptions, type RulesContext } from './engine'
+import { applyAction, supplyLeft, createGame, currentPlayerId, eraScores, incomeOf, linkValueAt, planBuild, rankPlayers, roundsInEra, saleOptions, type RulesContext } from './engine'
 import { resolveRulesData, type RulesData } from './data'
+import { buildDeck, cardsRemoved } from './config/cards'
 import { BRASS_MAP } from './map'
 import { buildBlocker, buildOptions, legalActions, linkOptions, loanOptions } from './options'
-import { PLACEHOLDER_DATA, placeholderTables } from './placeholder'
+import { configTables, RULES_DATA } from './rulesData'
 import { COLORS, RuleError, type Action, type Card, type GameState, type Tile } from './state'
 import type { IndustryId } from './tileTable'
 
@@ -12,7 +13,7 @@ import type { IndustryId } from './tileTable'
  * ones aren't in docs/TILES.md yet). Tests name the placeholder values they
  * rely on, e.g. "cotton I costs £12 (placeholder)".
  */
-const ctx: RulesContext = { data: PLACEHOLDER_DATA, map: BRASS_MAP }
+const ctx: RulesContext = { data: RULES_DATA, map: BRASS_MAP }
 const seats = (n: number) => Array.from({ length: n }, (_, i) => ({ name: `P${i}`, isAI: false }))
 
 let serial = 0
@@ -74,7 +75,7 @@ describe('setup (RULES.md §1)', () => {
         expect(p.vp).toBe(0)
         expect(p.hand).toHaveLength(8)
         expect(p.mat.cotton.reduce((a, b) => a + b)).toBe(12)
-        expect(p.mat.shipyard[0]).toBe(PLACEHOLDER_DATA.industries.shipyard.levels[0].tiles)
+        expect(p.mat.shipyard[0]).toBe(RULES_DATA.industries.shipyard.levels[0].tiles)
       }
     }
   })
@@ -108,7 +109,7 @@ describe('setup (RULES.md §1)', () => {
       const s = createGame(ctx, seats(n), 1)
       return s.deck.length + s.setAside.length + n * 8
     }
-    expect([size(4), size(3), size(2)]).toEqual([64, 54, 40])
+    expect([size(4), size(3), size(2)]).toEqual([66, 60, 42])
   })
 
   it('lasts 8 / 9 / 10 rounds per era for 4 / 3 / 2 players (the deck sizes), and starts with full markets', () => {
@@ -374,6 +375,18 @@ describe('coal and iron (§4)', () => {
     expect(after.log).toContainEqual({ kind: 'market-sale', player: 0, slot: 'bristol:3', industry: 'coal', cubes: 2, money: 4 })
   })
 
+  it('a new mine gets only the cubes left in the supply (24 coal, 16 iron: config)', () => {
+    const s = game(2, { hands: [[L('lichfield')], []] })
+    const supply = ctx.data.markets.coal.supply
+    // The market holds 8; put all but one of the rest on another mine.
+    s.market.coal = 8
+    s.tiles['wolverhampton:0'] = tile(1, 'coal', 2, supply - 8 - 1)
+    expect(supplyLeft(s, ctx, 'coal')).toBe(1)
+    const after = act(s, { type: 'build', cards: [s.players[0].hand[0].id], slot: 'lichfield:0', industry: 'coal' })
+    expect(after.tiles['lichfield:0']).toMatchObject({ cubes: 1, flipped: false }) // coal I would get 2
+    expect(supplyLeft(after, ctx, 'coal')).toBe(0)
+  })
+
   it('a coal mine not connected to a trade location keeps its cubes', () => {
     const s = game(2, { hands: [[L('lichfield')], []] })
     s.market.coal = 4
@@ -472,7 +485,7 @@ describe('develop (§3)', () => {
   })
 
   it("can't remove a non-developable tile", () => {
-    const tables = placeholderTables()
+    const tables = configTables()
     const table = tables.tiles
     const data: RulesData = resolveRulesData({
       ...tables,
@@ -687,8 +700,8 @@ describe('end of the canal era (§5)', () => {
     s.discard = [...s.deck, ...s.players.flatMap((p) => p.hand.slice(1))]
     s.deck = []
     s.players.forEach((p) => (p.hand = p.hand.slice(0, 1)))
-    s.tiles['gloucester:1'] = tile(0, 'cotton', 1, 0, true) // VP 5, link 1 (placeholder)
-    s.tiles['gloucester:0'] = tile(1, 'port', 1, 0, true) // VP 4, link 2
+    s.tiles['gloucester:1'] = tile(0, 'cotton', 1, 0, true)
+    s.tiles['gloucester:0'] = tile(1, 'port', 1, 0, true)
     s.tiles['wolverhampton:0'] = tile(1, 'iron', 2, 4) // unflipped: no VP, no link icons
     s.links['wolverhampton-gloucester'] = { owner: 0 }
     s.links['london-reading'] = { owner: 1 }
@@ -696,14 +709,19 @@ describe('end of the canal era (§5)', () => {
     return s
   }
 
+  // The values come from config: level I of each industry, and London's link value.
+  const cottonI = ctx.data.industries.cotton.levels[0]
+  const portI = ctx.data.industries.port.levels[0]
+  const london = ctx.data.hubs.london.linkValue
+
   it('scores links (flipped tiles\' link values, and hubs\') and flipped tiles', () => {
     const s = canalEnd()
-    expect(linkValueAt(s, ctx, 'gloucester')).toBe(3)
-    expect(linkValueAt(s, ctx, 'london')).toBe(2) // hub link value (placeholder)
+    expect(linkValueAt(s, ctx, 'gloucester')).toBe(cottonI.link + portI.link)
+    expect(linkValueAt(s, ctx, 'london')).toBe(london)
     expect(linkValueAt(s, ctx, 'reading')).toBe(0) // a stop
     expect(eraScores(s, ctx)).toEqual([
-      { player: 0, links: 3, tiles: 5 },
-      { player: 1, links: 2, tiles: 4 },
+      { player: 0, links: cottonI.link + portI.link, tiles: cottonI.vp },
+      { player: 1, links: london, tiles: portI.vp },
     ])
   })
 
@@ -711,7 +729,7 @@ describe('end of the canal era (§5)', () => {
     const s = finishRound(canalEnd())
     expect(s.era).toBe('rail')
     expect(s.round).toBe(1)
-    expect(s.players.map((p) => p.vp)).toEqual([8, 6])
+    expect(s.players.map((p) => p.vp)).toEqual([cottonI.link + portI.link + cottonI.vp, london + portI.vp])
     expect(s.links).toEqual({})
     expect(s.tiles).toEqual({ 'wolverhampton:0': tile(1, 'iron', 2, 4) })
     expect(s.distant).toMatchObject({ used: [], marker: 0, closed: false })
@@ -719,8 +737,9 @@ describe('end of the canal era (§5)', () => {
     expect(s.players.map((p) => p.hand.length)).toEqual([8, 8])
     expect(s.actionsLeft).toBe(2)
     expect(s.discard).toEqual([])
-    expect(s.setAside).toEqual([])
-    expect(s.deck.length + 16).toBe(40) // every card again, the 2 set aside in the canal era too
+    // Every card again (the canal era's set-aside ones too), less the rail era's put aside.
+    expect(s.setAside).toHaveLength(cardsRemoved('rail', 2))
+    expect(s.deck.length + s.setAside.length + 16).toBe(buildDeck(BRASS_MAP, 2).length)
     // The log names what came off (the board fades it away).
     const ended = s.log.find((e) => e.kind === 'era-end')
     expect(ended?.kind === 'era-end' && ended.removed).toEqual({

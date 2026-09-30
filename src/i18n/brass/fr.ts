@@ -135,7 +135,6 @@ const brassWords: BrassWords = {
   backToMine: 'Retour à votre plateau',
   showPanel: 'Votre plateau',
   hidePanel: 'Voir le plateau de jeu',
-  placeholder: 'Nombres provisoires : docs/TILES.md n’est pas encore rempli, ce n’est donc pas le vrai jeu.',
   rulesIncomplete: 'La partie ne peut pas commencer : la table des règles (docs/TILES.md) a encore des valeurs à recopier depuis le plateau joueur.',
   handoffTitle: (name) => `Passez à ${name}`,
   handoffBody: 'Passez l’appareil. Les cartes restent cachées jusqu’à ce que la personne soit prête.',

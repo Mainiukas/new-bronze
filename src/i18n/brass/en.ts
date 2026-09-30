@@ -144,7 +144,6 @@ const brassWords = {
   backToMine: 'Back to your mat',
   showPanel: 'Your mat',
   hidePanel: 'Show the board',
-  placeholder: 'Placeholder numbers: docs/TILES.md isn’t filled in yet, so this isn’t the real game.',
   rulesIncomplete: 'The game can’t start: the rules table (docs/TILES.md) still has values to copy from the player mat.',
   handoffTitle: (name: string) => `Pass to ${name}`,
   handoffBody: 'Hand the device over. Their cards stay hidden until they’re ready.',

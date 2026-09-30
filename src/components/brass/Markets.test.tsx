@@ -2,10 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { createGame, marketBuyPrice, marketSellPrice, type RulesContext } from '../../rules/engine'
 import { BRASS_MAP } from '../../rules/map'
-import { PLACEHOLDER_DATA } from '../../rules/placeholder'
+import { RULES_DATA } from '../../rules/rulesData'
 import { MarketStrip } from './Markets'
 
-const ctx: RulesContext = { data: PLACEHOLDER_DATA, map: BRASS_MAP }
+const ctx: RulesContext = { data: RULES_DATA, map: BRASS_MAP }
 
 /** The coal row's markup with `cubes` in the market. */
 function coalRow(cubes: number): string {

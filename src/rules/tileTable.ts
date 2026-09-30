@@ -4,8 +4,13 @@
  * docs/TILES.md holds the player mat's numbers (tiles, income track, hubs).
  * `npm run tiles` reads it with parseTilesMarkdown and writes
  * src/rules/config/tiles.ts with renderTilesModule. (The markets, the distant
- * market and the cards are hand-written files in src/rules/config.) A value that isn't filled
- * in yet stays a Todo: the engine refuses to use it (resolveRulesData in
+ * market and the cards are hand-written files in src/rules/config.)
+ *
+ * Every value is either checked against the physical game (a plain value,
+ * `verified: true`) or not yet (`unverified(label, value)`, which carries
+ * `verified: false`): the engine plays with it, and it's listed under "To
+ * check against the physical game" in docs/TILES.md. A value not known at
+ * all stays a Todo: the engine refuses to use it (resolveRulesData in
  * data.ts), and `npm run build` refuses to build while any remain.
  *
  * This file has no imports, so Node can run it directly (scripts/tiles.mjs).
@@ -19,7 +24,28 @@ export interface Todo<T> {
   readonly todo: string
   readonly proposed?: T
 }
-export type Maybe<T> = T | Todo<T>
+/** A value the engine uses that hasn't been checked against the physical game yet. */
+export interface Unverified<T> {
+  readonly value: T
+  readonly verified: false
+  /** What it is, for the "To check" list. */
+  readonly label: string
+}
+export type Maybe<T> = T | Todo<T> | Unverified<T>
+
+export function unverified<T>(label: string, value: T): Unverified<T> {
+  return { value, verified: false, label }
+}
+
+export function isUnverified(value: unknown): value is Unverified<unknown> {
+  return typeof value === 'object' && value !== null && (value as { verified?: unknown }).verified === false && 'value' in value
+}
+
+/** A value as the engine uses it: unverified values count, TODOs don't exist yet (undefined). */
+export function valueOf<T>(v: Maybe<T>): T | undefined {
+  if (isTodo(v)) return undefined
+  return isUnverified(v) ? (v.value as T) : (v as T)
+}
 
 /** An object with one entry per industry. */
 export function perIndustry<T>(make: (id: IndustryId) => T): Record<IndustryId, T> {
@@ -125,14 +151,14 @@ function tables(lines: { text: string; line: number }[]): { header: string[]; ro
 
 type Kind = 'number' | 'boolean' | 'numberOrX'
 
-/** A cell as a value: '?' → Todo, '3?' → Todo with a proposal, '–' → null. */
+/** A cell as a value: '?' → Todo, '3?' → 3, not verified yet, '–' → null. */
 function cell(c: Cell | undefined, kind: Kind, label: string, allowNull = true): Maybe<number | boolean | null | 'X'> {
   if (!c) throw new TilesFormatError(`${label}: missing cell`)
   let text = c.text.replace(/\s*\(.*\)\s*$/, '').trim()
   if (text === '?' || text === '') return todo(label)
-  let proposal = false
+  let check = false
   if (text.endsWith('?')) {
-    proposal = true
+    check = true
     text = text.slice(0, -1).trim()
   }
   let value: number | boolean | null | 'X'
@@ -149,7 +175,7 @@ function cell(c: Cell | undefined, kind: Kind, label: string, allowNull = true):
     if (!Number.isFinite(n)) throw new TilesFormatError(`line ${c.line}: ${label} should be a number, not "${c.text}"`)
     value = n
   }
-  return proposal ? todo(label, value) : value
+  return check ? unverified(label, value) : value
 }
 
 function num(c: Cell | undefined, label: string, allowNull = false) {
@@ -255,9 +281,28 @@ export function missingValues(table: unknown): Todo<unknown>[] {
   return found
 }
 
+/** Every value used but not yet checked against the physical game, in reading order. */
+export function unverifiedValues(table: unknown): Unverified<unknown>[] {
+  const found: Unverified<unknown>[] = []
+  const walk = (value: unknown) => {
+    if (isUnverified(value)) found.push(value)
+    else if (Array.isArray(value)) value.forEach(walk)
+    else if (typeof value === 'object' && value !== null && !isTodo(value)) Object.values(value).forEach(walk)
+  }
+  walk(table)
+  return found
+}
+
+/** One line of the "To check" list: "Cotton mill I: VP — 3". */
+export function describeUnverified(u: Unverified<unknown>): string {
+  const shown = u.value === null ? '–' : typeof u.value === 'boolean' ? (u.value ? 'yes' : 'no') : Array.isArray(u.value) ? u.value.join(', ') : String(u.value)
+  return `${u.label}: **${shown}**`
+}
+
 /* ---- Writing src/rules/config/tiles.ts ---------------------------------------------- */
 
 function literal(value: unknown, indent: string): string {
+  if (isUnverified(value)) return `unverified(${JSON.stringify(value.label)}, ${JSON.stringify(value.value)})`
   if (isTodo(value)) {
     const args = [JSON.stringify(value.todo)]
     if (value.proposed !== undefined) args.push(JSON.stringify(value.proposed))
@@ -279,10 +324,12 @@ function literal(value: unknown, indent: string): string {
 /** The source of src/rules/tiles.ts for a table. */
 export function renderTilesModule(table: TileTable): string {
   const missing = missingValues(table).length
+  const check = unverifiedValues(table).length
+  const helpers = [missing ? 'todo' : '', check ? 'unverified' : ''].filter(Boolean)
   return `// GENERATED from docs/TILES.md by \`npm run tiles\`. Don't edit: change docs/TILES.md and run it again.
-// ${missing === 0 ? 'Every value is filled in.' : `${missing} value(s) still TODO: copy them from the player mat into docs/TILES.md.`}
+// ${missing === 0 ? 'Every value is filled in' : `${missing} value(s) still TODO: copy them from the player mat into docs/TILES.md`}; ${check} still to check against the physical game.
 
-import { ${missing === 0 ? '' : 'todo, '}type TileTable } from '../tileTable'
+import { ${helpers.map((h) => `${h}, `).join('')}type TileTable } from '../tileTable'
 
 export const TILE_TABLE: TileTable = ${literal(table, '')}
 `

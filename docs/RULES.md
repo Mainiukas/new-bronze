@@ -1,15 +1,16 @@
 # Bronze — Rules Reference (based on Brass: Lancashire)
 
-Written in our own words from public sources (see bottom). Numbers marked **TODO**
-must be copied from the physical player mat / board — see `TILES.md`.
-The engine must never guess a TODO value.
+Written in our own words from public sources (see bottom). Every number lives in
+`src/rules/config` (tiles via `TILES.md`); numbers not yet checked against the physical game are
+marked `verified: false` and listed at the bottom of `TILES.md`.
 
 ## 1. Setup
 - Each player: **£30**, Income marker on progress-track space **10** (= £0 income), VP marker on **0**.
 - Each player gets their full player mat of industry tiles and their link tokens.
-- Shuffle the deck, set **1 card per player** aside face down under it (not drawn in the canal era),
-  and deal **8 cards** to each player. Deck composition depends on player count
-  (2P / 3P remove some location cards — on our map: `src/rules/cards.ts`).
+- The deck has **66 cards**. Cards with a player-count mark higher than the number of players are
+  left out (on our map: 66 / 60 / 42 cards for 4 / 3 / 2 players; `src/rules/config/cards.ts`).
+- Shuffle the deck, put cards aside face down for the canal era (**4 players 6, 3 players 9**;
+  2 players: to check), and deal **8 cards** to each player.
 - Coal market: 1 black cube per space. Iron market: 1 orange cube per space.
 - Distant cotton market: remove tiles above the player count and those marked "!" (see TILES.md).
 - Random turn order for round 1. Random player colours each match.
@@ -25,8 +26,8 @@ The engine must never guess a TODO value.
      If they can't pay: sell industry tiles for 50% of cost (round down); if still short, lose 1 VP per £1.
      (No income is collected after the very last turn of the game.)
 - **After each turn** the player draws back up to 8 cards while the deck has cards.
-- An era ends when **every hand has been played out** (the deck is used up first). With the
-  4 / 3 / 2-player decks (64 / 54 / 40 cards) that is **8 / 9 / 10** rounds per era.
+- An era ends when **every hand has been played out** (the deck is used up first). With the cards
+  put aside, that is **8 / 9 / 10** rounds per era with 4 / 3 / 2 players.
 
 ## 3. Actions
 ### Build (industry)
@@ -93,8 +94,9 @@ The engine must never guess a TODO value.
 2. Score **flipped industry tiles** (their VP).
 3. Remove **all canal links** and **all level-I industry tiles** from the board.
 4. Reset distant market marker; shuffle its discarded tiles back.
-5. Shuffle all cards (the set-aside ones too) to form the rail-era deck; deal 8 each; place the
-   Rothschild marker above the last 2 cards per player.
+5. Shuffle all cards (the set-aside ones too) to form the rail-era deck; put cards aside face down
+   (**4 players 2, 3 players 6**; 2 players: to check); deal 8 each; place the Rothschild marker
+   above the last 2 cards per player.
 
 ## 6. End of rail era / game end
 - Score rail links and flipped tiles as above.

@@ -4,90 +4,53 @@ What's built, what's still needed from you, and every place where our board or
 `RULES.md` left a choice. The rules are in `src/rules`, the match screen in
 `src/pages/BrassGame.tsx` and `src/components/brass`.
 
-## 1. Values still to fill in (src/rules/config)
+## 1. The game's numbers (src/rules/config)
 
 Every rules number lives in `src/rules/config`:
 
-- `tiles.ts`, generated from `docs/TILES.md` by `npm run tiles`: the player mat, the income track and the hubs;
-- `markets.ts`: the coal and iron markets;
+- `tiles.ts`, generated from `docs/TILES.md` by `npm run tiles`: the player mat (37 industry tiles
+  per player), the income track and the hubs;
+- `markets.ts`: the coal and iron markets and the cube supply (24 coal, 16 iron);
 - `distantMarket.ts`: the 12 distant-market tiles and the track;
-- `cards.ts`: the deck (§2).
+- `cards.ts`: the deck (§2);
+- `game.ts`: setup and fixed costs (£30, 8 cards, loans £10/£20/£30, link costs, …).
 
-A value not known yet is `?` in TILES.md, or `todo(...)` in the other files. The
-engine never uses one: the game plays on labelled placeholder numbers, and
-`npm run build` stops, listing them all. `node scripts/tiles.mjs --check`
-prints the full labelled list. Today: **325 values**.
+Each value is either checked (a plain value) or not yet (`unverified(...)` in the TypeScript files,
+a value ending in `?` in TILES.md; `verified: false`). The game plays with unverified values, and
+`npm run tiles` lists every one of them at the bottom of `docs/TILES.md`, under **To check against
+the physical game**. To correct one, change it where it's defined (TILES.md or the config file),
+drop the `?` / `unverified(...)` once it's checked, and run `npm run tiles`. The build stops only
+if a value is unknown altogether (`?` on its own) or the generated files are out of date.
 
-| Where | Section | Values |
-| --- | --- | --- |
-| docs/TILES.md | Income track (first/last space of each level, −10 … 30) | 82 |
-| docs/TILES.md | Coal mine I–IV | 44 |
-| docs/TILES.md | Iron works I–IV | 44 |
-| docs/TILES.md | Port I–IV | 40 |
-| docs/TILES.md | Cotton mill I–IV (VP of level I is known: 5) | 39 |
-| docs/TILES.md | Shipyard 0 (locked), I, II | 21 |
-| docs/TILES.md | Hubs: link value | 3 |
-| config/markets.ts | Coal market: price and spaces of each of 4 steps | 8 |
-| config/markets.ts | Iron market: price and spaces of each of 4 steps | 8 |
-| config/distantMarket.ts | 12 tiles × (value 0–4, player count printed, "!") | 36 |
+Where values came from:
 
-- **Proposals:** 9 of these are proposals, which count as not filled in until you accept them.
-  - The market prices £1–£4, taken from the example in your gameplay spec. Write the number in place of `todo(...)` to accept one.
-  - "Shipyard II: not in canal era" (`yes?` in TILES.md).
-- **Known values:**
-  - £5 per cube when a market is empty (RULES.md §4).
-  - Markets full at the start (RULES.md §1: one cube per space).
-  - 12 distant-market tiles (the rulebook's component list).
-- **Trade locations:** the hubs and towns with a port slot now give access to the markets, as your gameplay spec says ("a port/hub on our map").
-
-`src/rules/__snapshots__/tiles.test.ts.snap` shows every number laid out like
-the mat. After filling them in, run `npm run tiles` and then `npx vitest -u`,
-and check the new snapshot line by line against the physical mat.
+- **Your numbers (Phase 1 spec), all to verify:** every industry tile, the link VP (1 per tile),
+  the cube supply, the distant-market tiles, the deck (66 cards, the split and the player-count
+  marks) and the 2-player card removals.
+- **Rulebook, checked:** £30, 8 cards, loans, £5 when a market is empty, markets full at the start,
+  cards removed per era with 3 and 4 players (9 / 6 and 6 / 2).
+- **Proposals, to verify:** the income track (the usual Brass track: spaces 0–10 one per level,
+  then 2, 3 and 4 per level), the market steps (£1–£4, two spaces each), the hubs' link value (2),
+  level I not buildable in the rail era, every level developable, and which towns' cards carry
+  the player-count marks.
+- **Changed from before:** cotton mill I is 3 VP (TILES.md used to say 5).
 
 ## 2. The cards (src/rules/config/cards.ts)
 
-Every card number is in `src/rules/config/cards.ts`; a test checks the full deck is 64.
+66 cards: 43 location cards (one per building slot) and 23 industry cards (cotton mill 8, coal
+mine 5, iron works 3, port 5, shipyard 2). Cards with a player-count mark are left out of smaller
+games, and some cards go aside face down at the start of each era (the canal era's come back for
+the rail era):
 
-- **Location cards:** one per building slot, 43. Birmingham and Bristol have 4
-  each; Stoke-on-Trent, Wolverhampton, Merthyr Tydfil and Southampton 3; Derby,
-  Leicester, Gloucester, Oxford, Swindon, Wrexham, Carmarthen, Nottingham,
-  Exeter and Plymouth 2; Lichfield, Caernarfon and Barnstaple 1.
-- **Industry cards:** 21 (cotton mill 7, coal mine 5, iron works 3, port 4,
-  shipyard 2).
+| Players | Marks left out | Cards | Put aside: canal / rail | Rounds per era |
+| --- | --- | --- | --- | --- |
+| 4 | none | 66 | 6 / 2 | 8 |
+| 3 | "4": Caernarfon 1, Barnstaple 1, Exeter 2, Plymouth 2 | 60 | 9 / 6 | 9 |
+| 2 | also "3": Carmarthen 2, Nottingham 2, Wrexham 2, Merthyr Tydfil 3, Southampton 3, Stoke-on-Trent 3, Leicester 2, Lichfield 1 | 42 | 4 / 2 (to verify) | 10 |
 
-### Player-count removals: for your approval
-
-The rulebook's decks are 64 / 54 / 40 cards for 4 / 3 / 2 players, which is
-what makes its 8 / 9 / 10 rounds per era (an era lasts until the hands are
-played out). So I removed exactly 10 cards for 3 players and 24 for 2, taking
-the outer ring first:
-
-| Players | Location cards left out | Cards |
-| --- | --- | --- |
-| 4 | none | 64 |
-| 3 | the outer ring: Caernarfon 1, Barnstaple 1, Exeter 2, Plymouth 2; and Carmarthen 2, Nottingham 2 | 54 |
-| 2 | all of the above, and the rest of the middle ring: Wrexham 2, Merthyr Tydfil 3, Southampton 3; and Stoke-on-Trent 3, Leicester 2, Lichfield 1 | 40 |
-
-The towns stay on the board: without their cards they can still be built in
-with an industry card (in your network) or the two-card joker, as in the
-rulebook. For comparison, leaving out only the outer ring in 2-player games
-(6 cards) gives 58 cards and 15 rounds per era.
-
-### Smaller maps (Blitz, Bullet)
-
-Blitz plays without the outer ring and Bullet only the core. The towns outside
-are out of play (no cards, no building, no links) and are drawn faded. The
-rounds follow the deck:
-
-| Mode | 4 players | 3 players | 2 players |
-| --- | --- | --- | --- |
-| Normal | 64 cards, 8 rounds per era | 54, 9 | 40, 10 |
-| Blitz | 58, 8 (the last round short) | 54, 9 | 40, 10 |
-| Bullet | 46, 6 | 46, 8 | 40, 10 |
-
-So Blitz is only a little shorter than Normal, and with 2 players nothing
-changes. If Blitz and Bullet should be shorter games, they need their own
-removals (or fewer industry cards).
+The towns stay on the board: without their cards they can still be built in with an industry card
+(in your network) or the two-card joker, as in the rulebook. On a smaller map (Blitz, Bullet: not
+playable yet) only the towns on it have cards, and 1 card per player is put aside in the canal era.
 
 ## 3. Rules that don't map onto our board (need your answer)
 

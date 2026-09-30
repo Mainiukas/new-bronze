@@ -140,7 +140,6 @@ const brassWords: BrassWords = {
   backToMine: 'Atgal į jūsų lentelę',
   showPanel: 'Jūsų lentelė',
   hidePanel: 'Rodyti lentą',
-  placeholder: 'Laikini skaičiai: docs/TILES.md dar neužpildytas, todėl tai ne tikrasis žaidimas.',
   rulesIncomplete: 'Žaidimo pradėti negalima: taisyklių lentelėje (docs/TILES.md) dar yra reikšmių, kurias reikia nukopijuoti iš žaidėjo lentelės.',
   handoffTitle: (name) => `Perduokite: ${name}`,
   handoffBody: 'Perduokite įrenginį. Kortos lieka paslėptos, kol žaidėjas pasiruoš.',

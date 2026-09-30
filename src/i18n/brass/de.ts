@@ -135,7 +135,6 @@ const brassWords: BrassWords = {
   backToMine: 'Zurück zu deinem Tableau',
   showPanel: 'Dein Tableau',
   hidePanel: 'Plan zeigen',
-  placeholder: 'Platzhalterzahlen: docs/TILES.md ist noch nicht ausgefüllt, das ist also nicht das echte Spiel.',
   rulesIncomplete: 'Das Spiel kann nicht starten: In der Regeltabelle (docs/TILES.md) fehlen noch Werte vom Spielertableau.',
   handoffTitle: (name) => `Weitergeben an ${name}`,
   handoffBody: 'Gib das Gerät weiter. Die Karten bleiben verdeckt, bis die Person bereit ist.',

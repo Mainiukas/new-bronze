@@ -1,81 +1,104 @@
 /**
  * The cards: every card number in one place, so they're easy to change.
  *
- * - LOCATION_CARDS: cards per town, one per building slot (43 on the full map).
- * - INDUSTRY_CARDS: cards per industry (21).
- * - LOCATION_CARDS_MIN_PLAYERS: like the rulebook, 2- and 3-player games leave
- *   some location cards out. A town listed here only has its cards in games
- *   with at least that many players. (A proposal: see docs/BRASS_STATUS.md.)
- * - The deck flow: cards set aside in the canal era, cards under the
- *   Rothschild marker in the rail era, and when loans stop.
+ * - LOCATION_CARDS: cards per town (one per building slot on our map).
+ * - INDUSTRY_CARDS: cards per industry. 66 cards in all.
+ * - PLAYER_MARK: towns whose cards carry a player-count mark: they're only in
+ *   games with at least that many players.
+ * - CARDS_REMOVED: cards put aside face down at the start of each era (the
+ *   canal-era ones come back when the rail era's deck is shuffled).
+ * - The Rothschild marker in the rail era, and when loans stop.
  *
- * Lobby modes on a smaller map (Blitz, Bullet) only use the cards of the
- * towns on their map.
+ * `unverified(label, value)` marks a number not checked against the physical
+ * game yet (`verified: false`, listed in docs/TILES.md); a plain number is
+ * checked. Lobby modes on a smaller map (Blitz, Bullet) only use the cards of
+ * the towns on their map.
  */
 
-import type { BrassMap } from '../map'
-import type { Card } from '../state'
-import type { IndustryId } from '../tileTable'
+import type { BrassMap } from '../map.ts'
+import type { Card } from '../state.ts'
+import { unverified, valueOf, type IndustryId, type Maybe } from '../tileTable.ts'
+
+const check = <T,>(label: string, value: T) => unverified(label, value)
+const n = <T,>(v: Maybe<T>): T => valueOf(v) as T
 
 /** Location cards per town id (our towns: see src/data/board.json). */
-export const LOCATION_CARDS: Readonly<Record<string, number>> = {
-  // Inner ring
-  birmingham: 4,
-  bristol: 4,
-  stoke: 3,
-  wolverhampton: 3,
-  derby: 2,
-  leicester: 2,
-  gloucester: 2,
-  oxford: 2,
-  swindon: 2,
-  lichfield: 1,
-  // Middle ring
-  merthyr: 3,
-  southampton: 3,
-  wrexham: 2,
-  carmarthen: 2,
-  nottingham: 2,
-  // Outer ring
-  exeter: 2,
-  plymouth: 2,
-  caernarfon: 1,
-  barnstaple: 1,
-}
+export const LOCATION_CARDS: Readonly<Record<string, Maybe<number>>> = Object.fromEntries(
+  Object.entries({
+    // Inner ring
+    birmingham: 4,
+    bristol: 4,
+    stoke: 3,
+    wolverhampton: 3,
+    derby: 2,
+    leicester: 2,
+    gloucester: 2,
+    oxford: 2,
+    swindon: 2,
+    lichfield: 1,
+    // Middle ring
+    merthyr: 3,
+    southampton: 3,
+    wrexham: 2,
+    carmarthen: 2,
+    nottingham: 2,
+    // Outer ring
+    exeter: 2,
+    plymouth: 2,
+    caernarfon: 1,
+    barnstaple: 1,
+  }).map(([town, count]) => [town, check(`Cards: ${town} location cards`, count)]),
+)
 
 /** Industry cards per industry. */
-export const INDUSTRY_CARDS: Readonly<Record<IndustryId, number>> = {
-  cotton: 7,
-  coal: 5,
-  iron: 3,
-  port: 4,
-  shipyard: 2,
+export const INDUSTRY_CARDS: Readonly<Record<IndustryId, Maybe<number>>> = {
+  cotton: check('Cards: cotton mill industry cards', 8),
+  coal: check('Cards: coal mine industry cards', 5),
+  iron: check('Cards: iron works industry cards', 3),
+  port: check('Cards: port industry cards', 5),
+  shipyard: check('Cards: shipyard industry cards', 2),
 }
+
+/** Cards in the full deck (the rulebook's component list). */
+export const DECK_SIZE = 66
 
 /**
- * Towns whose location cards are only in games with at least this many
- * players. Chosen so the decks have the rulebook's sizes: 64 cards for 4
- * players, 54 for 3 and 40 for 2, which gives its 8, 9 and 10 rounds per era.
+ * Towns whose location cards carry a player-count mark: in games with fewer
+ * players than the mark they're left out. With 4 players all 66 are used;
+ * with 3, the six "4" cards are out (60); with 2, the "3" cards too (42).
  */
-export const LOCATION_CARDS_MIN_PLAYERS: Readonly<Record<string, 3 | 4>> = {
-  // Out of 3- and 2-player games: the outer ring, Carmarthen and Nottingham (10 cards).
-  caernarfon: 4,
-  barnstaple: 4,
-  exeter: 4,
-  plymouth: 4,
-  carmarthen: 4,
-  nottingham: 4,
-  // Also out of 2-player games: the rest of the middle ring, Stoke, Leicester and Lichfield (14 more).
-  wrexham: 3,
-  merthyr: 3,
-  southampton: 3,
-  stoke: 3,
-  leicester: 3,
-  lichfield: 3,
+export const PLAYER_MARK: Readonly<Record<string, Maybe<3 | 4>>> = Object.fromEntries(
+  Object.entries({
+    caernarfon: 4,
+    barnstaple: 4,
+    exeter: 4,
+    plymouth: 4,
+    carmarthen: 3,
+    nottingham: 3,
+    wrexham: 3,
+    merthyr: 3,
+    southampton: 3,
+    stoke: 3,
+    leicester: 3,
+    lichfield: 3,
+  } as const).map(([town, mark]) => [town, check(`Cards: player-count mark on ${town}'s cards`, mark)]),
+)
+
+/**
+ * Cards put aside face down at the start of each era, by player count
+ * (rulebook: 3 players 9 / 6, 4 players 6 / 2). With them out, an era lasts
+ * 8 / 9 / 10 rounds with 4 / 3 / 2 players.
+ */
+export const CARDS_REMOVED: Readonly<Record<'canal' | 'rail', Readonly<Record<2 | 3 | 4, Maybe<number>>>>> = {
+  canal: { 2: check('Cards removed at the start of the canal era, 2 players', 4), 3: 9, 4: 6 },
+  rail: { 2: check('Cards removed at the start of the rail era, 2 players', 2), 3: 6, 4: 2 },
 }
 
-/** Canal era: cards per player set aside face down under the deck, not drawn that era. */
-export const CANAL_SET_ASIDE_PER_PLAYER = 1
+/** Cards put aside at the start of an era. A mode on a smaller map sets aside 1 per player in the canal era, none in the rail era. */
+export function cardsRemoved(era: 'canal' | 'rail', players: number, mapRing: 1 | 2 | 3 = 3): number {
+  if (mapRing < 3) return era === 'canal' ? players : 0
+  return n(CARDS_REMOVED[era][players as 2 | 3 | 4] ?? 0)
+}
 
 /** Rail era: cards per player under the Rothschild marker. */
 export const RAIL_MARKER_CARDS_PER_PLAYER = 2
@@ -113,12 +136,13 @@ export function buildDeck(map: BrassMap, players: number, mapRing: 1 | 2 | 3 = 3
   for (const [town, count] of Object.entries(LOCATION_CARDS)) {
     const place = map.places[town]
     if (!place || place.kind !== 'town') throw new Error(`Cards: "${town}" isn't a town on the board`)
-    if (place.ring > mapRing || (LOCATION_CARDS_MIN_PLAYERS[town] ?? 2) > players) continue
+    const mark = PLAYER_MARK[town]
+    if (place.ring > mapRing || (mark === undefined ? 2 : n(mark)) > players) continue
     const face = `loc_${slug(place.name)}`
-    for (let i = 1; i <= count; i++) cards.push({ id: `${face}#${i}`, kind: 'location', town })
+    for (let i = 1; i <= n(count); i++) cards.push({ id: `${face}#${i}`, kind: 'location', town })
   }
-  for (const [industry, count] of Object.entries(INDUSTRY_CARDS) as [IndustryId, number][]) {
-    for (let i = 1; i <= count; i++) cards.push({ id: `${INDUSTRY_FACES[industry]}#${i}`, kind: 'industry', industry })
+  for (const [industry, count] of Object.entries(INDUSTRY_CARDS) as [IndustryId, Maybe<number>][]) {
+    for (let i = 1; i <= n(count); i++) cards.push({ id: `${INDUSTRY_FACES[industry]}#${i}`, kind: 'industry', industry })
   }
   return cards
 }

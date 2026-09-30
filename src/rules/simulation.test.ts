@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { chooseAction } from './ai'
 import { applyAction, currentPlayerId, levelFor, linkValueAt, type RulesContext } from './engine'
 import { BRASS_MAP } from './map'
-import { PLACEHOLDER_DATA } from './placeholder'
+import { RULES_DATA } from './rulesData'
 import type { AILevel, GameState } from './state'
 
 /*
@@ -10,7 +10,7 @@ import type { AILevel, GameState } from './state'
  * after every move: no errors, money never negative, cubes and markets in
  * range, and a final score that matches an independent count.
  */
-const ctx: RulesContext = { data: PLACEHOLDER_DATA, map: BRASS_MAP }
+const ctx: RulesContext = { data: RULES_DATA, map: BRASS_MAP }
 const LEVELS: AILevel[] = ['hard', 'normal', 'easy', 'normal']
 
 function checkInvariants(s: GameState) {

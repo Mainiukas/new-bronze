@@ -135,7 +135,6 @@ const brassWords: BrassWords = {
   backToMine: 'Volver a tu tablero',
   showPanel: 'Tu tablero',
   hidePanel: 'Ver el mapa',
-  placeholder: 'Números provisionales: docs/TILES.md aún no está completo, así que no es el juego real.',
   rulesIncomplete: 'La partida no puede empezar: la tabla de reglas (docs/TILES.md) aún tiene valores por copiar del tablero del jugador.',
   handoffTitle: (name) => `Pásalo a ${name}`,
   handoffBody: 'Pasa el dispositivo. Las cartas siguen ocultas hasta que la persona esté lista.',

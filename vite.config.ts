@@ -127,18 +127,17 @@ function preloadFonts(): Plugin {
 }
 
 /**
- * The rules' numbers come from docs/TILES.md (copied from the player mat).
- * A build stops while any are still TODO, or while src/rules/tiles.ts is out
- * of date, so the game never ships with made-up numbers. For a local preview
- * only, BRONZE_ALLOW_TODO_TILES=1 lets it build with the placeholder numbers
- * (the game then says so on screen).
+ * The rules' numbers come from docs/TILES.md and src/rules/config. A build
+ * stops while any is still unknown (`?`), or while src/rules/config/tiles.ts
+ * or the "To check" list in docs/TILES.md is out of date. Values not yet
+ * checked against the physical game don't stop it: they're listed there.
  */
 function tilesGuard(): Plugin {
   return {
     name: 'bronze-tiles-guard',
     apply: 'build',
     buildStart() {
-      const problems = tilesProblems({ allowTodo: process.env.BRONZE_ALLOW_TODO_TILES === '1' })
+      const problems = tilesProblems()
       if (problems.length) this.error(problems.join('\n\n'))
     },
   }

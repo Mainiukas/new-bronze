@@ -6,7 +6,7 @@
 
 import type { DistantMarketConfig, DistantSpaceId } from './config/distantMarket'
 import type { MarketConfig } from './config/markets'
-import { INDUSTRY_LABEL, INDUSTRY_ORDER, isTodo, missingValues, perIndustry, roman, type IndustryId, type Maybe, type TileTable } from './tileTable'
+import { INDUSTRY_LABEL, INDUSTRY_ORDER, isTodo, missingValues, perIndustry, roman, valueOf, type IndustryId, type Maybe, type TileTable } from './tileTable'
 
 export type { IndustryId } from './tileTable'
 export { INDUSTRY_ORDER, perIndustry } from './tileTable'
@@ -41,7 +41,7 @@ export interface IndustryLevel {
 export interface RulesData {
   readonly industries: Readonly<Record<IndustryId, { readonly total: number; readonly levels: readonly IndustryLevel[] }>>
   /** Each market: the price of every space, cheapest first; the price when empty; the cubes at the start. */
-  readonly markets: Readonly<Record<'coal' | 'iron', { readonly spaces: readonly number[]; readonly empty: number; readonly start: number }>>
+  readonly markets: Readonly<Record<'coal' | 'iron', { readonly spaces: readonly number[]; readonly empty: number; readonly start: number; readonly supply: number }>>
   /** Income per progress-track space (index 0–100). */
   readonly incomeBySpace: readonly number[]
   readonly distantMarket: {
@@ -75,7 +75,7 @@ export class IncompleteRulesError extends Error {
 
 function value<T>(v: Maybe<T>): T {
   if (isTodo(v)) throw new IncompleteRulesError([v.todo])
-  return v
+  return valueOf(v) as T
 }
 
 /** The rules' numbers as the engine's data. Throws IncompleteRulesError (listing every TODO) or an Error for inconsistent values. */
@@ -134,7 +134,7 @@ export const DISTANT_SPACES: readonly DistantSpaceId[] = ['3a', '3b', '2a', '2b'
 function market(config: MarketConfig): RulesData['markets']['coal'] {
   const spaces = config.steps.flatMap((step) => Array.from({ length: value(step.spaces) }, () => value(step.price)))
   const start = value(config.startingCubes)
-  return { spaces, empty: value(config.emptyPrice), start: start === 'full' ? spaces.length : start }
+  return { spaces, empty: value(config.emptyPrice), start: start === 'full' ? spaces.length : start, supply: value(config.supply) }
 }
 
 /** Consistency checks on a filled-in table (the numbers must add up). */
@@ -159,6 +159,7 @@ export function checkRulesData(data: RulesData): string[] {
   for (const name of ['coal', 'iron'] as const) {
     const m = data.markets[name]
     if (m.start < 0 || m.start > m.spaces.length) problems.push(`${name} market: starting cubes must fit its ${m.spaces.length} spaces`)
+    if (m.supply < m.start) problems.push(`${name} cubes: the supply (${m.supply}) must hold at least the market's starting cubes`)
     if (m.spaces.length && m.empty < m.spaces[m.spaces.length - 1]) problems.push(`${name} market: the empty price must be at least the dearest space`)
   }
   const track = data.distantMarket.track

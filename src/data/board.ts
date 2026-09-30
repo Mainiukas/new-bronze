@@ -97,8 +97,13 @@ export interface BoardLink {
   from: string
   to: string
   type: LinkType
-  /** Up to 3 bend points in %, set in the editor. Without them the link gets an automatic bend. */
-  points?: [number, number][]
+  /**
+   * How much the link bows, set in the editor: its control point sits this
+   * many % of the link's length off the midpoint, to the right going from
+   * `from` to `to` (negative: to the left). 0 or missing: straight. At most
+   * ±MAX_BEND, so every link is near-straight.
+   */
+  bend?: number
 }
 
 export interface BoardData {
@@ -122,7 +127,8 @@ export interface BuiltState {
 export const EMPTY_BUILT: BuiltState = { slots: {}, links: {} }
 
 export const MAX_SLOTS = 4
-export const MAX_BEND_POINTS = 3
+/** The largest bend a link may have, in % of its length. */
+export const MAX_BEND = 8
 
 export function slotKey(locationId: string, slotIndex: number): string {
   return `${locationId}:${slotIndex}`
@@ -215,16 +221,10 @@ export function validateBoardData(raw: unknown): string[] {
     if (pairs.has(pair)) errors.push(`${where}: another link already joins these two locations`)
     pairs.add(pair)
     if (!['canal', 'rail', 'both'].includes(link.type as string)) errors.push(`${where}: type must be canal, rail or both`)
-    if (link.points !== undefined) {
-      const points = link.points
-      if (
-        !Array.isArray(points) ||
-        points.length > MAX_BEND_POINTS ||
-        !points.every((p) => Array.isArray(p) && p.length === 2 && isPercent(p[0]) && isPercent(p[1]))
-      ) {
-        errors.push(`${where}: points must be up to ${MAX_BEND_POINTS} [x, y] pairs from 0 to 100`)
-      }
+    if (link.bend !== undefined && !(typeof link.bend === 'number' && Math.abs(link.bend) <= MAX_BEND)) {
+      errors.push(`${where}: bend must be a number from −${MAX_BEND} to ${MAX_BEND} (% of the link's length)`)
     }
+    if ('points' in link) errors.push(`${where}: bend points are gone: a link is one gentle arc, set with "bend"`)
   }
   return errors
 }
@@ -317,7 +317,7 @@ export function designProblems(board: BoardData, design: BoardDesign): string[] 
 /* ------------------------------------------------------------------------ */
 
 const LOCATION_KEYS = ['id', 'name', 'type', 'x', 'y', 'region', 'ring', 'era', 'labelOffset', 'slots', 'price', 'buys']
-const LINK_KEYS = ['id', 'from', 'to', 'type', 'points']
+const LINK_KEYS = ['id', 'from', 'to', 'type', 'bend']
 
 /** One object per line, `{ "key": value, ... }` in a fixed key order, as board.json is laid out. */
 function inline(obj: object, keys?: string[]): string {

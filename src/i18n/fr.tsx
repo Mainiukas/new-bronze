@@ -450,7 +450,7 @@ const fr: Messages = {
     hubKey: 'Pôle commercial',
     nothing: 'Rien de sélectionné pour l’instant.',
     usable: (active: boolean, era: Era) => `${active ? 'utilisable' : 'fermée'} à ${era === 'canal' ? 'l’ère des canaux' : 'l’ère du rail'}`,
-    bends: (n: number) => (n === 0 ? 'courbe automatique' : p(n, { one: `${n} point de courbure`, other: `${n} points de courbure` })),
+    bend: (value: number) => (value === 0 ? 'droite' : `courbure ${value > 0 ? '+' : ''}${value} %`),
     stop: 'Halte',
     hub: 'Pôle commercial',
     offset: (x: number, y: number) => `plaque décalée de ${x} %, ${y} %`,

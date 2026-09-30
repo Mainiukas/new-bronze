@@ -284,7 +284,7 @@ function SelectionDetails({ board, era, built, selected }: { board: BoardData; e
         <p className="mt-1">{owner ? t.boardLabels.builtBy(t.common.player(owner.player + 1)) : t.boardLabels.notBuilt}</p>
         <p className="mt-1 font-mono text-xs text-parchment-400">
           id {link.id}
-          {` · ${mb.bends(link.points?.length ?? 0)}`}
+          {` · ${mb.bend(link.bend ?? 0)}`}
         </p>
       </div>
     )
@@ -352,11 +352,11 @@ function EditorPanel({
   const original = (id: string) => BOARD.locations.find((o) => o.id === id)
   const moved = board.locations.filter((l) => original(l.id) && (original(l.id)!.x !== l.x || original(l.id)!.y !== l.y)).length
   const placed = board.locations.filter((l) => !same(original(l.id)?.labelOffset, l.labelOffset)).length
-  const bent = board.links.filter((l) => !same(BOARD.links.find((o) => o.id === l.id)?.points, l.points)).length
+  const bent = board.links.filter((l) => (BOARD.links.find((o) => o.id === l.id)?.bend ?? 0) !== (l.bend ?? 0)).length
   const changes = [
     moved && `${moved} location${moved === 1 ? '' : 's'} moved`,
     placed && `${placed} plaque${placed === 1 ? '' : 's'} placed`,
-    bent && `${bent} link${bent === 1 ? '' : 's'} reshaped`,
+    bent && `${bent} link${bent === 1 ? '' : 's'} re-bent`,
   ].filter(Boolean)
 
   const exportJson = async () => {
@@ -387,7 +387,7 @@ function EditorPanel({
       <ul className="flex list-disc flex-col gap-1 pl-4 text-xs text-parchment-300">
         <li>Drag a crosshair to move a location.</li>
         <li>Drag a plaque or tile group to place it by hand; double-click it to go back to automatic.</li>
-        <li>Drag a “+” on a link to add a bend point (up to 3); drag squares to move them, double-click to remove.</li>
+        <li>Drag the dot in the middle of a link across it to bend it gently (up to ±8 % of its length); double-click the dot to straighten the link. With a dot picked, the arrow keys change its bend by 0.5 % (Shift: 2 %).</li>
         <li>Arrow keys nudge the last one by 0.1 % (Shift: 1 %).</li>
         <li>Press E or “Done editing” to preview.</li>
       </ul>

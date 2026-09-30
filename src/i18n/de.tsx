@@ -450,7 +450,7 @@ const de: Messages = {
     hubKey: 'Handelsknoten',
     nothing: 'Noch nichts ausgewählt.',
     usable: (active: boolean, era: Era) => `in der ${era === 'canal' ? 'Kanal-Ära' : 'Eisenbahn-Ära'} ${active ? 'nutzbar' : 'geschlossen'}`,
-    bends: (n: number) => (n === 0 ? 'automatische Biegung' : p(n, { one: `${n} Biegepunkt`, other: `${n} Biegepunkte` })),
+    bend: (value: number) => (value === 0 ? 'gerade' : `Biegung ${value > 0 ? '+' : ''}${value} %`),
     stop: 'Haltepunkt',
     hub: 'Handelsknoten',
     offset: (x: number, y: number) => `Schild versetzt um ${x}%, ${y}%`,

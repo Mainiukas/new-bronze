@@ -39,3 +39,24 @@ export const SHORTFALL_TILE_SHARE = 0.5
 
 /** §6 End of game: +1 VP per this many £. */
 export const MONEY_PER_VP = 10
+
+/*
+ * Online play (the game server): the chess clock per player, timeouts and
+ * disconnections. Only Normal is playable; Blitz and Bullet are ready for when
+ * they are.
+ */
+
+/** Each player's clock for the whole game, and the time added after each of their turns. */
+export const TIME_CONTROL: Readonly<Record<'normal' | 'blitz' | 'bullet', { readonly baseMs: number; readonly incrementMs: number }>> = {
+  normal: { baseMs: 20 * 60_000, incrementMs: 30_000 },
+  blitz: { baseMs: 10 * 60_000, incrementMs: 15_000 },
+  bullet: { baseMs: 5 * 60_000, incrementMs: 10_000 },
+}
+
+/** Running out of time this many times in one game forfeits it (a bot takes the seat; last place). */
+export const MAX_TIMEOUTS = 3
+
+/** A player who hasn't been heard from for this long is disconnected… */
+export const CONNECTION_LOST_MS = 30_000
+/** …and after this grace time a bot plays their seat until they come back. */
+export const DISCONNECT_GRACE_MS = 120_000

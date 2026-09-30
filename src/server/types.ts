@@ -1,0 +1,217 @@
+/**
+ * The online game server's records and messages. Plain JSON: the server keeps
+ * a whole game as one GameRecord (its full state, hidden cards and all, never
+ * leaves the server), and sends each viewer a GameView made for them.
+ */
+
+import type { Action, Card, GameState } from '../rules/state'
+
+export type GameStatus = 'lobby' | 'playing' | 'finished' | 'aborted'
+export type Visibility = 'public' | 'private'
+export type ModeId = 'normal' | 'blitz' | 'bullet'
+export type BotLevel = 'easy' | 'normal'
+
+export interface Seat {
+  seat: number
+  /** Null for a bot seat (and for a player whose account was deleted). */
+  userId: string | null
+  username: string
+  /** A computer seat, and its level. */
+  bot: BotLevel | null
+  ready: boolean
+  /** When the server last heard from this player (ms). */
+  lastSeen: number
+  /** A bot is playing this seat: the player was disconnected past the grace time (until they come back), or forfeited. */
+  botPlaying: boolean
+  /** Times their clock ran out this game. */
+  timeouts: number
+  /** Time left on their chess clock (ms). */
+  clockMs: number
+  /** Gave up the game (3 timeouts or left after the first round): a bot plays on, and they finish last. */
+  forfeited: boolean
+}
+
+export interface RatingResult {
+  userId: string
+  before: number
+  after: number
+  delta: number
+}
+
+export interface GameResult {
+  /** Place of each seat (1 = first; forfeits share the last place). */
+  places: number[]
+  ratings: RatingResult[]
+  /** Ended in the first round because someone left: nobody is rated. */
+  aborted: boolean
+}
+
+export interface GameRecord {
+  id: string
+  /** Six letters, for invites. */
+  code: string
+  hostId: string
+  status: GameStatus
+  visibility: Visibility
+  /** Rated at the end (decided when it starts: public, Normal, no bots; or a private game the host marked rated). */
+  rated: boolean
+  /** The host asked for a rated private game. */
+  ratedRequested: boolean
+  allowSpectators: boolean
+  mode: ModeId
+  mapId: string
+  maxPlayers: number
+  createdAt: number
+  startedAt: number | null
+  finishedAt: number | null
+  /** Goes up by one with every change: a save that isn't based on the latest version is refused. */
+  version: number
+  seats: Seat[]
+  /** The full game (hidden information included): server only. */
+  state: GameState | null
+  /** The shuffle seed, made on the server (revealed only for replays of finished games). */
+  seed: number | null
+  /** Whose turn the clock is timing, since when. */
+  turn: { seat: number; startedAt: number } | null
+  result: GameResult | null
+  /** Moves made so far (the action log's length). */
+  moves: number
+  /** A rematch of this game, once one is made. */
+  rematchId: string | null
+}
+
+/** One row of the action log: every move in order, from which a game can be replayed. */
+export interface ActionRow {
+  seq: number
+  seat: number
+  action: Action
+  /** Who made it: the player, a bot (a bot seat or a stand-in), or the clock (a timeout's pass). */
+  by: 'player' | 'bot' | 'clock'
+  at: number
+}
+
+export interface SeatView {
+  seat: number
+  username: string
+  bot: BotLevel | null
+  /** A signed-in player (not a bot). */
+  human: boolean
+  ready: boolean
+  connected: boolean
+  /** Disconnected: when the bot takes over (the grace timer everyone sees), until then. */
+  graceEndsAt: number | null
+  botPlaying: boolean
+  timeouts: number
+  clockMs: number
+  forfeited: boolean
+  host: boolean
+  rating: number | null
+  provisional: boolean
+}
+
+/** What one viewer sees of a game: only their own hand; spectators see no hands. */
+export interface GameView {
+  id: string
+  /** The invite code: for the players, and anyone who opened the game with it. */
+  code: string | null
+  status: GameStatus
+  visibility: Visibility
+  rated: boolean
+  ratedRequested: boolean
+  allowSpectators: boolean
+  mode: ModeId
+  mapId: string
+  maxPlayers: number
+  version: number
+  seats: SeatView[]
+  /** The viewer's seat, or null when watching. */
+  mySeat: number | null
+  isHost: boolean
+  /** The game as this viewer may see it (other hands, the deck and the distant-market order hidden). */
+  state: GameState | null
+  turn: { seat: number; startedAt: number } | null
+  result: GameResult | null
+  rematchId: string | null
+  /** The server's clock, for showing timers. */
+  serverNow: number
+}
+
+export interface GameSummary {
+  id: string
+  code: string | null
+  status: GameStatus
+  visibility: Visibility
+  rated: boolean
+  mode: ModeId
+  mapId: string
+  maxPlayers: number
+  players: { username: string; bot: boolean; ready: boolean }[]
+  averageRating: number | null
+  host: string
+  createdAt: number
+  /** Round and era, while playing. */
+  progress: { era: string; round: number } | null
+  mine: boolean
+}
+
+export interface RatingRow {
+  userId: string
+  mapId: string
+  rating: number
+  rd: number
+  volatility: number
+  gamesPlayed: number
+  peakRating: number
+  updatedAt: number
+}
+
+export interface QueueEntry {
+  userId: string
+  username: string
+  rating: number
+  players: number
+  mode: ModeId
+  mapId: string
+  since: number
+  /** Set when matched: the game to go to. */
+  matchedGameId: string | null
+}
+
+/** Where the server keeps games. The Supabase version runs every save in one transaction. */
+export interface GameStore {
+  insertGame(record: GameRecord): Promise<void>
+  loadGame(id: string): Promise<GameRecord | null>
+  findByCode(code: string): Promise<string | null>
+  /** Save if the stored version is still `expectedVersion` (then it's record.version), with new log rows. False: someone else saved first. */
+  saveGame(record: GameRecord, expectedVersion: number, actions: ActionRow[]): Promise<boolean>
+  loadActions(gameId: string): Promise<ActionRow[]>
+  /** Lobbies open to join, and games being played that anyone may watch. */
+  listPublic(): Promise<GameRecord[]>
+  /** The caller's games that aren't over (lobby or playing), and their recent finished ones. */
+  listFor(userId: string): Promise<GameRecord[]>
+  getRatings(userIds: string[], mapId: string): Promise<Record<string, RatingRow>>
+  saveRatings(rows: RatingRow[], history: { userId: string; mapId: string; gameId: string; before: number; after: number; delta: number; mode: ModeId; at: number }[]): Promise<void>
+  getQueue(): Promise<QueueEntry[]>
+  putQueue(entry: QueueEntry): Promise<void>
+  removeQueue(userIds: string[]): Promise<void>
+}
+
+export type Request =
+  | { op: 'create'; players: number; visibility: Visibility; rated?: boolean; allowSpectators?: boolean; mode?: ModeId; mapId?: string }
+  | { op: 'join'; code?: string; gameId?: string }
+  | { op: 'leave'; gameId: string }
+  | { op: 'ready'; gameId: string; ready: boolean }
+  | { op: 'settings'; gameId: string; visibility?: Visibility; rated?: boolean; allowSpectators?: boolean }
+  | { op: 'add-bot'; gameId: string; level: BotLevel }
+  | { op: 'remove-seat'; gameId: string; seat: number }
+  | { op: 'start'; gameId: string }
+  | { op: 'act'; gameId: string; version: number; action: Action }
+  | { op: 'ping'; gameId: string }
+  | { op: 'view'; gameId?: string; code?: string }
+  | { op: 'list' }
+  | { op: 'rematch'; gameId: string }
+  | { op: 'replay'; gameId: string }
+  | { op: 'quick-play'; players: number; mode?: ModeId; mapId?: string }
+  | { op: 'quick-cancel' }
+
+export type { Action, Card, GameState }

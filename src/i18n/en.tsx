@@ -7,6 +7,7 @@ import type { RULES } from '../game/rules'
 import type { GoodsKind, IndustryKind, LogEntry, RouteKind } from '../game/types'
 import accountWords from './account/en'
 import brassWords from './brass/en'
+import onlineWords from './online/en'
 import welcomeWords from './welcome/en'
 import game, { renderWith } from './game/en'
 import { pluralizer } from './languages'
@@ -80,6 +81,7 @@ const en = {
     locker: 'Locker',
     shop: 'Shop',
     achievements: 'Achievements',
+    online: 'Play online',
     board: 'Map board',
     howToPlay: 'How to Play',
     settings: 'Settings',
@@ -132,7 +134,6 @@ const en = {
     opponentsTitle: 'Opponents',
     mixed: 'Custom: a mix of humans and computers (see Seats)',
     opponents: { computer: 'vs Computer', pass: 'Pass & Play', online: 'Online' },
-    onlineNeedsServer: 'Online play needs a game server, which Bronze doesn’t have yet',
   },
   friends: {
     title: 'Friends',
@@ -784,6 +785,7 @@ const en = {
   ...accountWords,
   brass: brassWords,
   welcome: welcomeWords,
+  online: onlineWords,
 }
 
 export default en

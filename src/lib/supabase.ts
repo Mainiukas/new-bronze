@@ -147,3 +147,10 @@ export async function createSupabaseClient(): Promise<BronzeSupabase | null> {
     return null
   }
 }
+
+let shared: Promise<BronzeSupabase | null> | null = null
+
+/** The app's one Supabase client (accounts and online play share its session). */
+export function sharedSupabaseClient(): Promise<BronzeSupabase | null> {
+  return (shared ??= createSupabaseClient())
+}

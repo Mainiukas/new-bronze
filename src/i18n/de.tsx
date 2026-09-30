@@ -8,6 +8,7 @@ import { renderWith } from './game/en'
 import { pluralizer } from './languages'
 import accountWords from './account/de'
 import brassWords from './brass/de'
+import onlineWords from './online/de'
 import welcomeWords from './welcome/de'
 import type { Messages } from './messages'
 
@@ -67,6 +68,7 @@ const de: Messages = {
     locker: 'Spind',
     shop: 'Laden',
     achievements: 'Erfolge',
+    online: 'Online spielen',
     board: 'Kartenbrett',
     howToPlay: 'Spielanleitung',
     settings: 'Einstellungen',
@@ -118,7 +120,6 @@ const de: Messages = {
     opponentsTitle: 'Gegner',
     mixed: 'Eigene Wahl: Menschen und Computer gemischt (siehe Plätze)',
     opponents: { computer: 'Gegen Computer', pass: 'Hot-Seat', online: 'Online' },
-    onlineNeedsServer: 'Online-Partien brauchen einen Spielserver, den Bronze noch nicht hat',
   },
   friends: {
     title: 'Freunde',
@@ -799,6 +800,7 @@ const de: Messages = {
   ...accountWords,
   brass: brassWords,
   welcome: welcomeWords,
+  online: onlineWords,
 }
 
 export default de

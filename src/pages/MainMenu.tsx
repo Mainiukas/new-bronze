@@ -10,11 +10,10 @@ import type { PlayerStats } from '../data/achievements'
 import type { Era } from '../data/board'
 import { GAME_MODES, type GameModeId } from '../data/gameModes'
 import type { MapId } from '../data/maps'
-import { accountPath } from '../data/navigation'
+import { accountPath, PATHS } from '../data/navigation'
 import { opponentsOf, seatCount, withOpponents, type Opponents, type SavedSetup } from '../data/matchSetup'
 import type { PlayerColor } from '../game/types'
 import { useAccountAccess } from '../hooks/useAccountAccess'
-import { useAuth } from '../hooks/useAuth'
 import { useOpenAuth } from '../hooks/useOpenAuth'
 import { displayName, useT, type Messages } from '../i18n'
 
@@ -235,12 +234,10 @@ const OPPONENT_OPTIONS: { value: keyof Messages['lobby']['opponents']; Icon: Com
 
 /**
  * Who you play: a preset for the seats below (you against computers, or
- * everyone human on this device). Online needs a server Bronze doesn't have,
- * so it is disabled and marked "Coming soon".
+ * everyone human on this device), or Online, which opens online play.
  */
 function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (value: Exclude<Opponents, 'mixed'>) => void }) {
   const t = useT()
-  const { signedIn } = useAuth()
   const access = useAccountAccess()
   const navigate = useNavigate()
   const openAuth = useOpenAuth()
@@ -254,34 +251,33 @@ function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (va
         {OPPONENT_OPTIONS.map(({ value: option, Icon }) => {
           const label = t.lobby.opponents[option]
           const online = option === 'online'
-          const checked = !online && value === option
-          // Guests: Online needs an account first, so it's a lock that opens the log-in screen.
-          // Signed in without a verified email: the lock leads to verifying it.
-          if (online && access !== 'ready') {
+          const checked = value === option
+          // Online opens online play. Guests: a lock that opens the log-in screen;
+          // signed in without a verified email: the lock leads to verifying it.
+          if (online) {
             return (
               <button
                 key={option}
                 type="button"
-                onClick={() => (access === 'guest' ? openAuth('login') : navigate(accountPath('security')))}
+                onClick={() => (access === 'guest' ? openAuth('login') : access === 'ready' ? navigate(PATHS.online) : navigate(accountPath('security')))}
                 className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-center font-display text-sm font-bold tracking-[0.08em] text-parchment-400 uppercase transition hover:bg-soot-700/60 hover:text-parchment-100 @xl:flex-row @xl:gap-2 @xl:text-base"
               >
                 <Icon className="size-5 shrink-0" />
                 <span className="leading-tight">{label}</span>
-                <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-brass-300/50 bg-soot-950/80 px-2 py-0.5 text-[0.62rem] leading-tight tracking-[0.1em] text-balance text-brass-200">
-                  <IconLock className="size-3" strokeWidth={2.4} />
-                  {access === 'guest' ? t.common.logInToUse : t.verifyEmail.needed}
-                </span>
+                {access !== 'ready' && (
+                  <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-brass-300/50 bg-soot-950/80 px-2 py-0.5 text-[0.62rem] leading-tight tracking-[0.1em] text-balance text-brass-200">
+                    <IconLock className="size-3" strokeWidth={2.4} />
+                    {access === 'guest' ? t.common.logInToUse : t.verifyEmail.needed}
+                  </span>
+                )}
               </button>
             )
           }
           return (
             <label
               key={option}
-              title={online ? t.lobby.onlineNeedsServer : undefined}
               className={`relative flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-center font-display text-sm font-bold tracking-[0.08em] uppercase transition has-focus-visible:outline-2 has-focus-visible:outline-ember-400 @xl:flex-row @xl:gap-2 @xl:text-base ${
-                online
-                  ? 'cursor-not-allowed text-parchment-500'
-                  : checked
+                checked
                     ? 'cursor-pointer bg-linear-to-b from-bronze-400/35 to-bronze-600/25 text-parchment-50 shadow-[inset_0_0_0_1px_rgb(240_215_138/0.55)]'
                     : 'cursor-pointer text-parchment-300 hover:bg-soot-700/60 hover:text-parchment-50'
               }`}
@@ -291,13 +287,11 @@ function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (va
                 name="opponents"
                 value={option}
                 checked={checked}
-                disabled={online}
-                onChange={() => option !== 'online' && onChange(option)}
+                onChange={() => onChange(option)}
                 className="sr-only"
               />
               <Icon className={`size-5 shrink-0 ${checked ? 'text-brass-300' : ''}`} />
               <span className="leading-tight">{label}</span>
-              {online && signedIn && <span className="soon-tag">{t.common.comingSoon}</span>}
             </label>
           )
         })}

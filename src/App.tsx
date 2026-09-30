@@ -59,6 +59,9 @@ const DataRequest = lazy(() => import('./pages/legal/DataRequest').then((module)
 const Credits = lazy(() => import('./pages/legal/Credits').then((module) => ({ default: module.Credits })))
 const Unsubscribe = lazy(() => import('./pages/legal/Unsubscribe').then((module) => ({ default: module.Unsubscribe })))
 const PublicProfile = lazy(() => import('./pages/PublicProfile').then((module) => ({ default: module.PublicProfile })))
+const OnlineLobby = lazy(() => import('./pages/OnlineLobby').then((module) => ({ default: module.OnlineLobby })))
+const OnlineGame = lazy(() => import('./pages/OnlineGame').then((module) => ({ default: module.OnlineGame })))
+const JoinInvite = lazy(() => import('./pages/OnlineGame').then((module) => ({ default: module.JoinInvite })))
 const AccountPage = lazy(() => import('./pages/AccountPage').then((module) => ({ default: module.AccountPage })))
 
 /** Which dialog is open. Only one at a time. */
@@ -226,6 +229,22 @@ function AppShell() {
             )
           }
         />
+        <Route
+          path={PATHS.onlineGame}
+          element={
+            <Suspense fallback={null}>
+              <OnlineGame settings={settings} onOpenRules={() => setOverlay('how-to-play')} onOpenSettings={() => setOverlay('settings')} overlayOpen={overlay !== null} />
+            </Suspense>
+          }
+        />
+        <Route
+          path={PATHS.join}
+          element={
+            <Suspense fallback={null}>
+              <JoinInvite />
+            </Suspense>
+          }
+        />
         <Route element={<LobbyLayout profile={profile} onMenuAction={setOverlay} covered={onAuthRoute} />}>
           <Route
             path={PATHS.mainMenu}
@@ -253,6 +272,7 @@ function AppShell() {
               />
             }
           />
+          <Route path={PATHS.online} element={<OnlineLobby />} />
           <Route path={PATHS.locker} element={<Locker />} />
           <Route path={PATHS.shop} element={<Shop />} />
           <Route path={PATHS.achievements} element={<Achievements stats={stats} />} />

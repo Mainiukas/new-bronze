@@ -478,3 +478,56 @@ What changes for players:
 - Players can read ratings (for the leaderboard and profiles) but never
   write them: only these functions and the game server do.
 
+
+## 14. Online play (run `004`, deploy the `game` function)
+
+This switches on **Play online**: public and private games for 2–4 players,
+invite links and codes, Quick play, spectators, and bots for empty seats.
+Every move goes to the `game` Edge Function, which runs the same rules engine
+as the browser, checks whose turn it is and whether the move is legal, and
+saves the game and its move log in one transaction. Other players' cards, the
+deck and the shuffle seed never leave the server.
+
+1. **SQL Editor → + New query**. Open
+   `supabase/migrations/004_multiplayer.sql`, copy **all** of it, paste,
+   **Run**. It should say **Success. No rows returned**. (Needs 001–003. Safe
+   to run again.)
+2. Check in **Table Editor**: new tables `games`, `game_players`,
+   `game_hands`, `game_actions`, `game_secrets` and `matchmaking_queue`, each
+   with **RLS enabled**.
+3. Deploy the function with the Supabase CLI (from this folder, after
+   `supabase login` and `supabase link --project-ref <your project ref>`):
+
+   ```bash
+   supabase functions deploy game --no-verify-jwt
+   ```
+
+   `--no-verify-jwt` because visitors may watch public games; the function
+   checks every player's log-in itself.
+4. **Secrets**: nothing to add. Supabase gives every function
+   `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. The
+   service-role key is used **only inside the function**: never put it in
+   `.env`, Vercel or the repository.
+5. **Realtime**: nothing to switch on. The function announces changes on
+   Realtime broadcast channels (`game:<id>` and `lobby`); if Realtime is
+   unavailable the app falls back to asking every few seconds.
+
+Check it: log in as two players (two browsers, or a private window), open
+**Play online**, create a public 2-player game with one, join it from
+**Open games** with the other, press **I'm ready**, then **Start game**.
+Both see the same board and only their own hand.
+
+What the server enforces:
+
+- Moves only on your turn, only legal moves, only as the next move after the
+  version you saw (two moves at once: the second is refused and that player's
+  screen reloads). A request that sends anything but a move is refused.
+- A player who loses connection has 2 minutes (a timer everyone sees) before
+  a bot plays their turns; when they come back they take over again.
+- Bots can only fill seats in private games, and a game with bots is never
+  rated.
+
+If you change anything in `src/rules` or `src/server`, run
+`npm run build:server` and deploy `game` again: the function runs
+`supabase/functions/_shared/game-server.js`, built from that code (a test
+fails if it's out of date).

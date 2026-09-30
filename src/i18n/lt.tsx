@@ -8,6 +8,7 @@ import game from './game/lt'
 import { pluralizer } from './languages'
 import accountWords from './account/lt'
 import brassWords from './brass/lt'
+import onlineWords from './online/lt'
 import welcomeWords from './welcome/lt'
 import type { Messages } from './messages'
 
@@ -69,6 +70,7 @@ const lt: Messages = {
     locker: 'Spintelė',
     shop: 'Parduotuvė',
     achievements: 'Pasiekimai',
+    online: 'Žaisti internetu',
     board: 'Žemėlapio lenta',
     howToPlay: 'Kaip žaisti',
     settings: 'Nustatymai',
@@ -120,7 +122,6 @@ const lt: Messages = {
     opponentsTitle: 'Varžovai',
     mixed: 'Pasirinktinai: žmonės ir kompiuteriai (žr. Vietas)',
     opponents: { computer: 'Prieš kompiuterį', pass: 'Perduok ir žaisk', online: 'Internetu' },
-    onlineNeedsServer: 'Žaidimui internetu reikia žaidimų serverio, kurio Bronze kol kas neturi',
   },
   friends: {
     title: 'Draugai',
@@ -801,6 +802,7 @@ const lt: Messages = {
   ...accountWords,
   brass: brassWords,
   welcome: welcomeWords,
+  online: onlineWords,
 }
 
 export default lt

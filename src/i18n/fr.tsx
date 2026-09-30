@@ -8,6 +8,7 @@ import game from './game/fr'
 import { pluralizer } from './languages'
 import accountWords from './account/fr'
 import brassWords from './brass/fr'
+import onlineWords from './online/fr'
 import welcomeWords from './welcome/fr'
 import type { Messages } from './messages'
 
@@ -68,6 +69,7 @@ const fr: Messages = {
     locker: 'Vestiaire',
     shop: 'Boutique',
     achievements: 'Succès',
+    online: 'Jouer en ligne',
     board: 'Plateau',
     howToPlay: 'Comment jouer',
     settings: 'Paramètres',
@@ -119,7 +121,6 @@ const fr: Messages = {
     opponentsTitle: 'Adversaires',
     mixed: 'Personnalisé : humains et ordinateurs mélangés (voir Places)',
     opponents: { computer: 'Contre l’ordinateur', pass: 'Chacun son tour', online: 'En ligne' },
-    onlineNeedsServer: 'Le jeu en ligne nécessite un serveur de jeu, que Bronze n’a pas encore',
   },
   friends: {
     title: 'Amis',
@@ -799,6 +800,7 @@ const fr: Messages = {
   ...accountWords,
   brass: brassWords,
   welcome: welcomeWords,
+  online: onlineWords,
 }
 
 export default fr

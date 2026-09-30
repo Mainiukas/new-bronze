@@ -74,6 +74,21 @@ interface BrassGameProps {
   overlayOpen: boolean
   /** The signed-in player's avatar (seat 1 when it's a person), if any. */
   localAvatarUrl?: string | null
+  /** An online game: the server plays the moves, and this device is one seat (or watches). */
+  online?: OnlineSeat
+  /** Drawn over the board (online: who's disconnected, the connection). */
+  banner?: ReactNode
+}
+
+/** How an online game plugs in: moves go to the server; the match changes when it answers. */
+export interface OnlineSeat {
+  /** This device's seat, or null when watching. */
+  seat: number
+  spectating: boolean
+  /** A move is on its way to the server. */
+  busy: boolean
+  /** Sends the moves in order; resolves true when the server took them all (a refusal has been shown). */
+  submit: (actions: Action[]) => Promise<boolean>
 }
 
 type Flow =
@@ -106,7 +121,7 @@ function useViewportHeight(): number {
   )
 }
 
-export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRematch, settings, onOpenRules, onOpenSettings, overlayOpen, localAvatarUrl = null }: BrassGameProps) {
+export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRematch, settings, onOpenRules, onOpenSettings, overlayOpen, localAvatarUrl = null, online, banner }: BrassGameProps) {
   const t = useT()
   const b = t.brass
   const notify = useToast()
@@ -130,11 +145,12 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const current = currentPlayerId(state)
   const humans = state.players.flatMap((p, i) => (p.isAI ? [] : [i]))
   const [seatAtDevice, setSeatAtDevice] = useState<number | null>(humans.length === 1 ? humans[0] : null)
-  const currentIsHuman = !state.finished && !state.players[current].isAI
-  const needsHandoff = currentIsHuman && humans.length > 1 && seatAtDevice !== current
+  // Online, every seat is a person somewhere (or a bot on the server): this device is only its own seat.
+  const currentIsHuman = !state.finished && (online ? current === online.seat && !online.spectating : !state.players[current].isAI)
+  const needsHandoff = !online && currentIsHuman && humans.length > 1 && seatAtDevice !== current
   // Whose mat and hand this device shows: the human playing now, else the last human at the device.
-  const me = currentIsHuman && !needsHandoff ? current : (seatAtDevice ?? humans[0] ?? 0)
-  const myTurn = currentIsHuman && !needsHandoff && current === me
+  const me = online ? online.seat : currentIsHuman && !needsHandoff ? current : (seatAtDevice ?? humans[0] ?? 0)
+  const myTurn = currentIsHuman && !needsHandoff && current === me && !online?.busy
   const paused = overlayOpen || needsHandoff || resultsOpen
   const colorOf = (p: number) => colorHex(state.players[p].color as PlayerColor)
   const townName = (id: string) => ctx.map.places[id]?.name ?? id
@@ -145,7 +161,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const cardKind = (card: Card) => (card.kind === 'location' ? b.locationCard : b.industryCard)
   // Avatars on the turn order track: the signed-in player's own, else an illustrated one per seat.
   const avatarOf = (p: number) => {
-    if (p === 0 && !state.players[0].isAI && localAvatarUrl) return localAvatarUrl
+    if (p === (online ? online.seat : 0) && !online?.spectating && !state.players[p].isAI && localAvatarUrl) return localAvatarUrl
     return `${PRESET_PREFIX}${PRESET_AVATARS[(Math.abs(state.seed) + p) % PRESET_AVATARS.length].id}`
   }
   // The hand's cards: 72 px wide at least, bigger on taller screens; the board gets the rest.
@@ -173,6 +189,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
   /** Apply an action for a player; errors become toasts (and change nothing). */
   const dispatch = (player: number, action: Action): GameState | null => {
+    if (online) return dispatchOnline([action])
     try {
       const next = applyAction(state, ctx, player, action)
       const nextMatch = { ...match, state: next }
@@ -192,6 +209,35 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       }
       throw error
     }
+  }
+
+  /**
+   * Online: check the moves here first (the same rules, so a mistake is explained at once), then send them.
+   * The server checks them again and its answer becomes the match. Returns what the moves lead to here.
+   */
+  const dispatchOnline = (actions: Action[]): GameState | null => {
+    if (!online) return null
+    let next: GameState = state
+    try {
+      for (const action of actions) next = applyAction(next, ctx, me, action)
+    } catch (error) {
+      if (error instanceof RuleError) {
+        notify(b.errors[error.code])
+        return null
+      }
+      // Something only the server knows (a hidden card, say) decides it: let the server judge.
+    }
+    const entry = [...next.log.slice(state.log.length)].reverse().find((e) => ['build', 'network', 'develop', 'sell', 'sell-failed', 'loan', 'pass'].includes(e.kind))
+    if (entry) setRecent({ entry, key: next.log.length })
+    void online.submit(actions)
+    return next
+  }
+
+  // Online, the match ends on the server: open the results when it does.
+  const [seenFinished, setSeenFinished] = useState(state.finished)
+  if (online && state.finished !== seenFinished) {
+    setSeenFinished(state.finished)
+    if (state.finished) setResultsOpen(true)
   }
 
   const afterHuman = (next: GameState | null) => {
@@ -235,11 +281,11 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
     dispatch(id, chooseAction(state, ctx, id))
   })
   useEffect(() => {
-    if (state.finished || !state.players[current].isAI || paused) return
+    if (online || state.finished || !state.players[current].isAI || paused) return
     const delay = (mode?.aiDelayMs ?? 800) * AI_DELAY_SCALE[settings.aiSpeed]
     const timer = window.setTimeout(playComputer, delay)
     return () => window.clearTimeout(timer)
-  }, [state, current, paused, mode?.aiDelayMs, settings.aiSpeed])
+  }, [online, state, current, paused, mode?.aiDelayMs, settings.aiSpeed])
 
   /* ---- What the board shows ---------------------------------------------------- */
 
@@ -456,6 +502,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         break
       case 'skip': {
         let s: GameState | null = state
+        const passes: Action[] = []
         const n = state.actionsLeft
         for (let i = 0; i < n && s && currentPlayerId(s) === me && !s.finished; i++) {
           const next: GameState = s
@@ -463,11 +510,14 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
           if (!c) break
           try {
             s = applyAction(next, ctx, me, { type: 'pass', cards: [c] })
+            passes.push({ type: 'pass', cards: [c] })
           } catch {
             break
           }
         }
-        if (s && s !== state) {
+        if (online) {
+          if (passes.length) dispatchOnline(passes)
+        } else if (s && s !== state) {
           const nextMatch = { ...match, state: s }
           if (!state.finished && s.finished) {
             setUnlocked(onMatchFinished(nextMatch))
@@ -755,6 +805,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
                 colorOf={colorOf}
               />
             </ZoomPan>
+            {banner}
             {closedBanner !== null && (
               <div key={closedBanner} className="pointer-events-none absolute inset-x-0 top-[38%] z-20 flex justify-center px-4">
                 <button
@@ -774,7 +825,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
         <div className="brass-hand flex flex-col items-center">
           <div className="flex min-h-9 w-full items-center justify-center">{handBar}</div>
-          <HandRow cards={hand} selected={fanSelected} interactive={myTurn && !state.selling} cardWidth={cardWidth} name={cardName} kind={cardKind} label={b.handTitle} onSelect={onCard} onZoom={setZoom} />
+          {!online?.spectating && <HandRow cards={hand} selected={fanSelected} interactive={myTurn && !state.selling} cardWidth={cardWidth} name={cardName} kind={cardKind} label={b.handTitle} onSelect={onCard} onZoom={setZoom} />}
         </div>
 
         <div className="brass-left flex flex-wrap items-start gap-2 lg:flex-col lg:flex-nowrap">

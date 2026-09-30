@@ -14,6 +14,7 @@ export interface NavTab {
 /** Pages and dialogs named in the navigation (keys of t.nav). */
 export type NavKey =
   | 'mainMenu'
+  | 'online'
   | 'tournaments'
   | 'locker'
   | 'shop'
@@ -33,6 +34,12 @@ export const PATHS = {
   shop: '/shop',
   achievements: '/achievements',
   tournaments: '/tournaments',
+  /** Online play: create or join games, open and live games, my games. */
+  online: '/online',
+  /** One online game: its room before it starts, then the match (/online/<id>). */
+  onlineGame: '/online/:gameId',
+  /** An invite link: /join/<code>. */
+  join: '/join/:code',
   /** The match screen (not in the sidebar: the lobby is hidden during a match). */
   play: '/play',
   /** The illustrated map board and its calibration editor. */
@@ -57,6 +64,12 @@ export const PATHS = {
   /** One-click unsubscribe from non-essential emails (?token=…&list=…). */
   unsubscribe: '/unsubscribe',
 } as const
+
+/** An online game's page. */
+export const onlineGamePath = (id: string) => `/online/${encodeURIComponent(id)}`
+
+/** The invite link's path for a game code. */
+export const joinPath = (code: string) => `/join/${encodeURIComponent(code)}`
 
 /** A player's profile page. */
 export const profilePath = (username: string) => `/u/${encodeURIComponent(username)}`
@@ -95,6 +108,7 @@ export const isAuthPath = (pathname: string) => (Object.values(AUTH_PATHS) as st
 /** Pages, in sidebar order. */
 export const NAV_TABS: readonly NavTab[] = [
   { path: PATHS.mainMenu, key: 'mainMenu', label: 'Main Menu' },
+  { path: PATHS.online, key: 'online', label: 'Play online' },
   { path: PATHS.tournaments, key: 'tournaments', label: 'Tournaments' },
   { path: PATHS.locker, key: 'locker', label: 'Locker' },
   { path: PATHS.shop, key: 'shop', label: 'Shop' },

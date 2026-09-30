@@ -9,6 +9,7 @@ import {
   IconBracket,
   IconClose,
   IconCrate,
+  IconGlobe,
   IconLogin,
   IconMore,
   IconPlay,
@@ -57,8 +58,8 @@ export function MobileTopBar({ profile }: { profile: LobbyProfile | null }) {
 
 const TABS: { path: string; key: keyof Messages['nav']; Icon: ComponentType<IconProps> }[] = [
   { path: PATHS.mainMenu, key: 'play', Icon: IconPlay },
+  { path: PATHS.online, key: 'online', Icon: IconGlobe },
   { path: PATHS.tournaments, key: 'tournaments', Icon: IconBracket },
-  { path: PATHS.locker, key: 'locker', Icon: IconTopHat },
   { path: PATHS.shop, key: 'shop', Icon: IconCrate },
 ]
 
@@ -146,6 +147,7 @@ export function MoreSheet({ open, onClose, onMenuAction, profile }: MoreSheetPro
   }
 
   const links: { path: string; label: string; Icon: ComponentType<IconProps> }[] = [
+    { path: PATHS.locker, label: t.nav.locker, Icon: IconTopHat },
     { path: PATHS.achievements, label: t.nav.achievements, Icon: IconTrophy },
     { path: BOARD_ITEM.path, label: t.nav.board, Icon: BOARD_ITEM.Icon },
     ...(profile

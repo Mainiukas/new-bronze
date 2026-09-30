@@ -1,7 +1,7 @@
 import { isAuthError, type EmailOtpType, type Factor, type User } from '@supabase/supabase-js'
 import { parseStats } from '../data/achievements'
 import { TERMS_VERSION } from '../legal/operator'
-import { createSupabaseClient, SESSION_STORAGE_KEY, SUPABASE_ANON_KEY, SUPABASE_URL, type BronzeSupabase, type ProfileRow, type SettingsRow } from '../lib/supabase'
+import { sharedSupabaseClient, SESSION_STORAGE_KEY, SUPABASE_ANON_KEY, SUPABASE_URL, type BronzeSupabase, type ProfileRow, type SettingsRow } from '../lib/supabase'
 import {
   AuthError,
   type AccountDetails,
@@ -249,7 +249,7 @@ const toAccount = (row: Record<string, unknown>): AccountDetails => ({
 /** Connect to the configured project. Null when accounts aren't configured. */
 export async function loadSupabaseBackend(): Promise<AuthBackend | null> {
   expireForgottenSession()
-  const client = await createSupabaseClient()
+  const client = await sharedSupabaseClient()
   return client ? createSupabaseBackend(client) : null
 }
 

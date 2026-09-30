@@ -367,6 +367,31 @@ export function createSupabaseBackend(client: BronzeSupabase): AuthBackend {
       await auth.signOut({ scope: 'local' })
     },
 
+    async getOnboarding() {
+      const { data, error } = await client.rpc('my_onboarding')
+      // The database hasn't been updated with 003_onboarding_ratings.sql: no welcome slides (never lock anyone out).
+      if (error && (error.code === 'PGRST202' || error.code === '42883')) return null
+      if (error) throw toAuthError(error)
+      if (!data) return null
+      return { step: Math.min(5, Math.max(1, data.step)), done: !!data.done_at, canPickLevel: data.can_pick_level, rulesAccepted: data.rules_accepted }
+    },
+
+    async setOnboardingStep(step) {
+      const { error } = await client.rpc('set_onboarding_step', { p_step: step })
+      if (error) throw toAuthError(error)
+    },
+
+    async acceptRules(version) {
+      const { error } = await client.rpc('accept_rules', { p_version: version })
+      if (error) throw toAuthError(error)
+    },
+
+    async finishOnboarding(level) {
+      const { data, error } = await client.rpc('finish_onboarding', { p_level: level })
+      if (error) throw toAuthError(error)
+      return data?.rating ?? 0
+    },
+
     async exportData() {
       const { data, error } = await client.rpc('export_my_data')
       if (error) throw toAuthError(error)

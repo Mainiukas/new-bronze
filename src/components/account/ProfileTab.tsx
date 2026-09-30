@@ -6,7 +6,7 @@ import { rememberReturnTo } from '../../auth/redirect'
 import { canChangeUsername, nextUsernameChange, validateUsernameChange } from '../../auth/validation'
 import { PRESET_AVATARS, PRESET_PREFIX, presetAvatar } from '../../data/avatars'
 import { countriesByName, countryFlag } from '../../data/countries'
-import { accountPath, profilePath } from '../../data/navigation'
+import { accountPath, PATHS, profilePath } from '../../data/navigation'
 import { useAccountDetails } from '../../hooks/useAccountDetails'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../hooks/useToast'
@@ -35,6 +35,13 @@ export function ProfileTab() {
       ) : (
         error && <FormAlert message={error} />
       )}
+      <Panel title={t.welcome.replay} intro={t.welcome.replayHint}>
+        <Actions>
+          <Link to={PATHS.welcome} className="btn btn-ghost">
+            {t.welcome.replay}
+          </Link>
+        </Actions>
+      </Panel>
       <p className="text-center">
         <Link to={profilePath(profile.username)} className="font-semibold text-brass-300 underline-offset-2 hover:underline">
           {t.accountPage.profile.viewProfile} →

@@ -8,6 +8,7 @@ import { renderWith } from './game/en'
 import { pluralizer } from './languages'
 import accountWords from './account/de'
 import brassWords from './brass/de'
+import welcomeWords from './welcome/de'
 import type { Messages } from './messages'
 
 /* Alle Worte auf dem Bildschirm auf Deutsch (übersetzt aus en.tsx). */
@@ -797,6 +798,7 @@ const de: Messages = {
   },
   ...accountWords,
   brass: brassWords,
+  welcome: welcomeWords,
 }
 
 export default de

@@ -32,6 +32,16 @@ psql -v ON_ERROR_STOP=1 -d bronze_002 -f supabase/migrations/002_profiles_securi
 psql -v ON_ERROR_STOP=1 -d bronze_002 -f supabase/migrations/002_profiles_security.sql
 psql -v ON_ERROR_STOP=1 -d bronze_002 -f supabase/tests/002_profiles_security.test.sql   # ends with: ALL 002 CHECKS PASSED
 dropdb bronze_002
+
+# 001 + 002 + 003 (003 twice)
+createdb bronze_003
+psql -v ON_ERROR_STOP=1 -d bronze_003 -f supabase/tests/stub_supabase.sql
+head -n -2 supabase/migrations/001_accounts.sql | psql -v ON_ERROR_STOP=1 -d bronze_003
+psql -v ON_ERROR_STOP=1 -d bronze_003 -f supabase/migrations/002_profiles_security.sql
+psql -v ON_ERROR_STOP=1 -d bronze_003 -f supabase/migrations/003_onboarding_ratings.sql
+psql -v ON_ERROR_STOP=1 -d bronze_003 -f supabase/migrations/003_onboarding_ratings.sql
+psql -v ON_ERROR_STOP=1 -d bronze_003 -f supabase/tests/003_onboarding_ratings.test.sql   # ends with: ALL 003 CHECKS PASSED
+dropdb bronze_003
 ```
 
 Don't run these against your real Supabase project: they create and delete

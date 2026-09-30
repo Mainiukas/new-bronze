@@ -8,6 +8,7 @@ import game from './game/fr'
 import { pluralizer } from './languages'
 import accountWords from './account/fr'
 import brassWords from './brass/fr'
+import welcomeWords from './welcome/fr'
 import type { Messages } from './messages'
 
 /* Tous les mots de l’écran en français (traduits de en.tsx). */
@@ -797,6 +798,7 @@ const fr: Messages = {
   },
   ...accountWords,
   brass: brassWords,
+  welcome: welcomeWords,
 }
 
 export default fr

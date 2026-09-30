@@ -7,11 +7,13 @@ import {
   type EmailPreferences,
   type GuestMerge,
   type MatchResult,
+  type OnboardingState,
   type Profile,
   type ReportReason,
   type SignupConsent,
   type Visibility,
 } from './backend'
+import type { StartLevel } from '../rating/config'
 import { authRedirectUrl } from './redirect'
 import { isEmail } from './validation'
 
@@ -33,6 +35,8 @@ export interface AuthState {
   profile: Profile | null
   /** Signed in from a password-reset link (PASSWORD_RECOVERY): the reset page may set a new password. */
   passwordRecovery: boolean
+  /** The first-time welcome slides (signed in only); null when the service doesn't have them. */
+  onboarding?: OnboardingState | null
 }
 
 const GUEST: AuthState = { status: 'guest', user: null, profile: null, passwordRecovery: false }
@@ -81,10 +85,24 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
       if (id !== loadId) return
       if (mfa.next === 'aal2' && mfa.current !== 'aal2') return set({ status: 'needs-mfa', user, profile: null, passwordRecovery })
       const profile = await need().getProfile(user.id)
-      if (id === loadId) set({ status: profile ? 'signed-in' : 'needs-username', user, profile, passwordRecovery })
+      // The welcome slides: a service without them (or a failure to ask) never keeps anyone out of the lobby.
+      const onboarding = profile ? await loadOnboarding() : null
+      if (id === loadId) set({ status: profile ? 'signed-in' : 'needs-username', user, profile, passwordRecovery, onboarding })
     } catch {
       if (id === loadId) set({ status: 'error', user, profile: null, passwordRecovery })
     }
+  }
+
+  async function loadOnboarding(): Promise<OnboardingState | null> {
+    try {
+      return typeof backend?.getOnboarding === 'function' ? await backend.getOnboarding() : null
+    } catch {
+      return null
+    }
+  }
+
+  function setOnboarding(change: Partial<OnboardingState>) {
+    if (state.onboarding) set({ ...state, onboarding: { ...state.onboarding, ...change } })
   }
 
   /** A newer copy of the signed-in profile from the server (if it's still the same player). */
@@ -203,7 +221,7 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
       if (!user) throw new AuthError('unknown', 'Not signed in.')
       const profile = await need().createProfile(user, username.trim(), consent)
       loadId++
-      set({ ...state, status: 'signed-in', user, profile })
+      set({ ...state, status: 'signed-in', user, profile, onboarding: await loadOnboarding() })
       return profile
     },
 
@@ -229,6 +247,25 @@ export function createAuthStore(backend: AuthBackend | null, { redirectUrl = aut
     unsubscribe: (token: string, list: EmailList | 'all') => need().unsubscribe(token, list),
 
     isUsernameAvailable: (username: string) => need().isUsernameAvailable(username.trim()),
+
+    // ------------------------------------------------------------ the welcome slides
+    /** Show this slide (saved on the server so a closed tab resumes there; a failed save only costs that). */
+    async setOnboardingStep(step: number) {
+      setOnboarding({ step })
+      await need()
+        .setOnboardingStep(step)
+        .catch(() => undefined)
+    },
+    async acceptRules(version: string) {
+      await need().acceptRules(version)
+      setOnboarding({ rulesAccepted: true })
+    },
+    /** The starting level: sets the rating and ends the slides. Resolves to the rating. */
+    async finishOnboarding(level: StartLevel) {
+      const rating = await need().finishOnboarding(level)
+      setOnboarding({ done: true, step: 5, canPickLevel: true })
+      return rating
+    },
 
     /**
      * A finished match for the signed-in player: `shown` (their stats with it

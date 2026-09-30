@@ -8,6 +8,7 @@ import game from './game/lt'
 import { pluralizer } from './languages'
 import accountWords from './account/lt'
 import brassWords from './brass/lt'
+import welcomeWords from './welcome/lt'
 import type { Messages } from './messages'
 
 /* Visi ekrano žodžiai lietuviškai (vertimas iš en.tsx). */
@@ -799,6 +800,7 @@ const lt: Messages = {
   },
   ...accountWords,
   brass: brassWords,
+  welcome: welcomeWords,
 }
 
 export default lt

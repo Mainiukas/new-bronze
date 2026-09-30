@@ -41,6 +41,8 @@ export const PATHS = {
   profile: '/profile',
   /** A player's public profile: /u/<username>. */
   publicProfile: '/u/:username',
+  /** The first three welcome slides again (Settings → Account → Replay welcome). */
+  welcome: '/welcome',
   /** Account settings: Profile, Security, Privacy, Notifications, Data (?tab=…). */
   account: '/settings/account',
   terms: '/terms',

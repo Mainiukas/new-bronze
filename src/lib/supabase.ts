@@ -109,6 +109,11 @@ export type Database = {
       note_phone_attempt: { Args: NoArgs; Returns: boolean }
       note_card_check: { Args: NoArgs; Returns: boolean }
       remove_card_verification: { Args: NoArgs; Returns: ProfileRow[] }
+      // 003_onboarding_ratings.sql
+      my_onboarding: { Args: NoArgs; Returns: { step: number; done_at: string | null; can_pick_level: boolean; rules_accepted: boolean } }
+      set_onboarding_step: { Args: { p_step: number }; Returns: undefined }
+      accept_rules: { Args: { p_version: string }; Returns: undefined }
+      finish_onboarding: { Args: { p_level: string }; Returns: { rating: number; map_id: string } }
       recent_sign_ins: {
         Args: NoArgs
         Returns: { id: string; signed_in_at: string; last_active_at: string; user_agent: string | null; ip: string | null; current: boolean }[]

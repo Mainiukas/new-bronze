@@ -47,6 +47,7 @@ import { Tournaments } from './pages/Tournaments'
 const BrassGame = lazy(() => import('./pages/BrassGame').then((module) => ({ default: module.BrassGame })))
 const MapBoard = lazy(() => import('./pages/MapBoard').then((module) => ({ default: module.MapBoard })))
 const AuthScreen = lazy(() => import('./pages/AuthScreen').then((module) => ({ default: module.AuthScreen })))
+const Welcome = lazy(() => import('./pages/Welcome').then((module) => ({ default: module.Welcome })))
 const SettingsModal = lazy(() => import('./components/SettingsModal').then((module) => ({ default: module.SettingsModal })))
 const HowToPlayModal = lazy(() => import('./components/InfoModals').then((module) => ({ default: module.HowToPlayModal })))
 const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy').then((module) => ({ default: module.PrivacyPolicy })))
@@ -276,8 +277,23 @@ function AppShell() {
           <Route path={PATHS.credits} element={<Credits />} />
           <Route path={PATHS.unsubscribe} element={<Unsubscribe />} />
         </Route>
+        <Route
+          path={PATHS.welcome}
+          element={
+            <Suspense fallback={null}>
+              <Welcome mode="replay" onClose={() => navigate(PATHS.mainMenu)} />
+            </Suspense>
+          }
+        />
         <Route path="*" element={<NotFound />} />
       </Routes>
+
+      {/* A signed-in player who hasn't finished the welcome slides sees them before anything else (resuming on their slide). */}
+      {auth.status === 'signed-in' && auth.onboarding && !auth.onboarding.done && !onAuthRoute && (
+        <Suspense fallback={<div className="fixed inset-0 z-[80] bg-soot-950" />}>
+          <Welcome mode="first" startStep={auth.onboarding.step} canPickLevel={auth.onboarding.canPickLevel} rulesAccepted={auth.onboarding.rulesAccepted} />
+        </Suspense>
+      )}
 
       {/* A signed-in player without a username, or with a two-factor code still to give, gets that step wherever they are. */}
       {(onAuthRoute || auth.status === 'needs-username' || auth.status === 'needs-mfa') && (

@@ -44,6 +44,8 @@ explains the features they unlock until they're done.
       password change, manual linking (for **Link Google**), security
       notification emails.
 - [ ] **12.** Try the new features.
+- [ ] **13.** Run `supabase/migrations/003_onboarding_ratings.sql` (safe to
+      run again): the first-time welcome slides and ratings.
 
 ---
 
@@ -444,3 +446,35 @@ With `npm run dev` running and 002 run:
   this guide needs them. [VERIFICATION.md](VERIFICATION.md) says how to turn
   them on.
 - Deleting a user under **Authentication → Users** also deletes their profile.
+
+---
+
+## 13. Welcome slides and ratings (run `003`)
+
+This adds the first-time **welcome slides** (shown once after a player's
+first sign-in, before the lobby) and **ratings** (one per player per map).
+
+1. **SQL Editor → + New query**.
+2. Open `supabase/migrations/003_onboarding_ratings.sql`, copy **all** of it,
+   paste, **Run**. It should say **Success. No rows returned**.
+3. Check in **Table Editor**: `account_settings` has the new columns
+   `onboarding_step` and `onboarding_done_at`, and there are new tables
+   `ratings` and `rating_history`.
+
+It's safe to run again, and needs 001 and 002 first. Until it's run, Bronze
+simply skips the welcome slides (nobody is locked out of the lobby).
+
+What changes for players:
+
+- **Everyone who signs in sees the welcome slides once**, existing accounts
+  included (they haven't picked a level or promised fair play yet). Closing
+  the tab resumes on the same slide.
+- **Slide 4** records three consents (Terms, Privacy Policy, fair play) with
+  the current Terms version in `consents`.
+- **Slide 5** sets the starting rating on the Wales & the West map: New 800,
+  Beginner 1000, Intermediate 1200, Advanced 1400 (RD 350, volatility 0.06).
+  The level can't be changed after the first rated game.
+- **Settings → Account → Replay welcome** shows slides 1–3 again.
+- Players can read ratings (for the leaderboard and profiles) but never
+  write them: only these functions and the game server do.
+

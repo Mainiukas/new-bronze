@@ -8,6 +8,7 @@ import game from './game/es'
 import { pluralizer } from './languages'
 import accountWords from './account/es'
 import brassWords from './brass/es'
+import welcomeWords from './welcome/es'
 import type { Messages } from './messages'
 
 /* Todas las palabras de la pantalla en español (traducidas de en.tsx). */
@@ -797,6 +798,7 @@ const es: Messages = {
   },
   ...accountWords,
   brass: brassWords,
+  welcome: welcomeWords,
 }
 
 export default es

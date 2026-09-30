@@ -127,13 +127,14 @@ describe('Supabase accounts (mocked client)', () => {
     const state = await store.signIn('ada', PASSWORD, true)
     expect(state.status).toBe('signed-in')
     expect(state.profile).toMatchObject({ username: 'Ada', stats: { wins: 2, matches: 5, bestScore: 31 } })
-    expect(calls).toEqual([`rpc:email_for_username:{"name":"ada","password":"${PASSWORD}"}`, 'signIn:ada@example.com'])
+    // Then the welcome slides: where the player is in them.
+    expect(calls).toEqual([`rpc:email_for_username:{"name":"ada","password":"${PASSWORD}"}`, 'signIn:ada@example.com', 'rpc:my_onboarding:undefined'])
   })
 
   it('logs in with an email without looking anything up', async () => {
     const { store, calls } = await started()
     expect((await store.signIn('ada@example.com', PASSWORD, true)).status).toBe('signed-in')
-    expect(calls).toEqual(['signIn:ada@example.com'])
+    expect(calls).toEqual(['signIn:ada@example.com', 'rpc:my_onboarding:undefined'])
   })
 
   it('fails an unknown username, a wrong password and a wrong email the same way', async () => {

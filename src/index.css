@@ -897,3 +897,65 @@ svg [role='button']:focus-visible {
     animation: rm-fade 0.3s ease-out both !important;
   }
 }
+
+/* The welcome slides: each new slide fades in moving 40 px to the left (back: from the left); reduced motion: fade only. */
+@keyframes welcome-in {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+@keyframes welcome-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+}
+@keyframes welcome-fade {
+  from {
+    opacity: 0;
+  }
+}
+.welcome-slide {
+  animation: welcome-in 250ms ease-out both;
+}
+.welcome-slide--back {
+  animation-name: welcome-in-back;
+}
+/* Slide 2's banner: the canal, then the mill town, and back. */
+@keyframes welcome-crossfade {
+  0%,
+  35% {
+    opacity: 0;
+  }
+  50%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.welcome-crossfade {
+  animation: welcome-crossfade 9s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome-slide,
+  .welcome-slide--back {
+    animation-name: welcome-fade;
+  }
+  .welcome-crossfade {
+    animation: none;
+    opacity: 0;
+  }
+}
+:root[data-animations='off'] .welcome-slide,
+:root[data-animations='off'] .welcome-crossfade {
+  animation: none;
+}
+/* On a phone the card fills the screen (16 px from the edges). */
+@media (max-width: 639px) {
+  .welcome-card {
+    height: 100%;
+  }
+}

@@ -6,6 +6,7 @@
 
 import type { PlayerStats } from '../data/achievements'
 import { TERMS_VERSION } from '../legal/operator'
+import type { StartLevel } from '../rating/config'
 
 /** A signed-in user, as the sign-in service reports them. */
 export interface AuthUser {
@@ -265,6 +266,16 @@ export interface EmailPreferences {
   adult: boolean
 }
 
+/** Where a signed-in player is in the first-time welcome slides. */
+export interface OnboardingState {
+  /** The slide to show (1–5): saved as they go, so a closed tab resumes there. */
+  step: number
+  done: boolean
+  /** The starting level can be picked until the first rated game. */
+  canPickLevel: boolean
+  rulesAccepted: boolean
+}
+
 export interface AuthBackend {
   /**
    * Calls back with the signed-in user (or null) soon after subscribing, then
@@ -302,6 +313,13 @@ export interface AuthBackend {
   /** Add a guest record to the signed-in player's record, once. Returns the updated profile. */
   mergeGuestStats(merge: GuestMerge): Promise<Profile | null>
   isUsernameAvailable(username: string): Promise<boolean>
+  /** The welcome slides; null when the service doesn't have them (its database isn't updated yet). */
+  getOnboarding(): Promise<OnboardingState | null>
+  setOnboardingStep(step: number): Promise<void>
+  /** Slide 4: the Terms, the Privacy Policy and fair play, this version. */
+  acceptRules(version: string): Promise<void>
+  /** Slide 5: the starting rating for the level; the slides are done. Returns the rating. */
+  finishOnboarding(level: StartLevel): Promise<number>
   /** Off: the session ends when the browser closes. */
   setRememberMe(remember: boolean): void
 

@@ -186,7 +186,7 @@ const brassWords: BrassWords = {
     develop: 'Šios plytelės tobulinti negalima.',
     sale: 'Ten nėra ką parduoti.',
     loan: 'Paskolos negalima: pajamos negali taip nukristi.',
-    'no-more-loans': 'Paskolų nebėra: traukimo kaladė tuščia.',
+    'no-more-loans': 'Paskolų nebėra',
     input: 'Taip negalima.',
   },
 }

@@ -190,7 +190,7 @@ const brassWords = {
     develop: 'That tile can’t be developed.',
     sale: 'Nothing to sell there.',
     loan: 'No loan: your income can’t drop that far.',
-    'no-more-loans': 'No more loans: the draw deck is empty.',
+    'no-more-loans': 'No more loans',
     input: 'That isn’t possible.',
   } satisfies Record<RuleErrorCode, string>,
 }

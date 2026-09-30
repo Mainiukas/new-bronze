@@ -4,40 +4,50 @@ What's built, what's still needed from you, and every place where our board or
 `RULES.md` left a choice. The rules are in `src/rules`, the match screen in
 `src/pages/BrassGame.tsx` and `src/components/brass`.
 
-## 1. Values still to copy (docs/TILES.md)
+## 1. Values still to fill in (src/rules/config)
 
-`docs/TILES.md` is the one file for every tile, market and track number (the
-cards are in `src/rules/cards.ts`, see §2). `npm run tiles` regenerates
-`src/rules/tiles.ts` from it, and `npm run build` stops (listing what's
-missing) until nothing is `?` any more. `node scripts/tiles.mjs --check`
-prints the full labelled list. Today: **297 values**.
+Every rules number lives in `src/rules/config`:
 
-| Section | Values |
-| --- | --- |
-| Income track (first/last space of each level, −10 … 30) | 82 |
-| Coal mine I–IV | 44 |
-| Iron works I–IV | 44 |
-| Port I–IV | 40 |
-| Cotton mill I–IV (VP of level I is known: 5) | 39 |
-| Shipyard 0 (locked), I, II | 21 |
-| Coal market spaces | 8 |
-| Iron market spaces | 8 |
-| Distant market: tiles and track (add a row per tile and per track row) | 4 |
-| Hubs: link value and market access | 6 |
-| Towns with a port slot give market access | 1 |
+- `tiles.ts`, generated from `docs/TILES.md` by `npm run tiles`: the player mat, the income track and the hubs;
+- `markets.ts`: the coal and iron markets;
+- `distantMarket.ts`: the 12 distant-market tiles and the track;
+- `cards.ts`: the deck (§2).
 
-5 of these are my proposals for our map (written like `yes?`: delete the `?`
-to accept them): the three hubs' market access, "towns with a port slot give
-market access", and "Shipyard II: not in canal era". The rest are plain `?` to
-copy from the player mat.
+A value not known yet is `?` in TILES.md, or `todo(...)` in the other files. The
+engine never uses one: the game plays on labelled placeholder numbers, and
+`npm run build` stops, listing them all. `node scripts/tiles.mjs --check`
+prints the full labelled list. Today: **326 values**.
 
-`src/rules/__snapshots__/tiles.test.ts.snap` shows the whole table laid out
-like the mat. After filling it in, run `npm run tiles` and then `npx vitest -u`,
+| Where | Section | Values |
+| --- | --- | --- |
+| docs/TILES.md | Income track (first/last space of each level, −10 … 30) | 82 |
+| docs/TILES.md | Coal mine I–IV | 44 |
+| docs/TILES.md | Iron works I–IV | 44 |
+| docs/TILES.md | Port I–IV | 40 |
+| docs/TILES.md | Cotton mill I–IV (VP of level I is known: 5) | 39 |
+| docs/TILES.md | Shipyard 0 (locked), I, II | 21 |
+| docs/TILES.md | Hubs: link value | 3 |
+| config/markets.ts | Coal market: price and spaces of each of 4 steps | 8 |
+| config/markets.ts | Iron market: price and spaces of each of 4 steps | 8 |
+| config/distantMarket.ts | 12 tiles × (value 0–4, player count printed, "!") | 36 |
+| config/distantMarket.ts | The track: income on each row, top first, ending with X | 1 |
+
+- **Proposals:** 9 of these are proposals, which count as not filled in until you accept them.
+  - The market prices £1–£4, taken from the example in your gameplay spec. Write the number in place of `todo(...)` to accept one.
+  - "Shipyard II: not in canal era" (`yes?` in TILES.md).
+- **Known values:**
+  - £5 per cube when a market is empty (RULES.md §4).
+  - Markets full at the start (RULES.md §1: one cube per space).
+  - 12 distant-market tiles (the rulebook's component list).
+- **Trade locations:** the hubs and towns with a port slot now give access to the markets, as your gameplay spec says ("a port/hub on our map").
+
+`src/rules/__snapshots__/tiles.test.ts.snap` shows every number laid out like
+the mat. After filling them in, run `npm run tiles` and then `npx vitest -u`,
 and check the new snapshot line by line against the physical mat.
 
-## 2. The cards (src/rules/cards.ts)
+## 2. The cards (src/rules/config/cards.ts)
 
-Every card number is in `src/rules/cards.ts`; a test checks the full deck is 64.
+Every card number is in `src/rules/config/cards.ts`; a test checks the full deck is 64.
 
 - **Location cards:** one per building slot, 43. Birmingham and Bristol have 4
   each; Stoke-on-Trent, Wolverhampton, Merthyr Tydfil and Southampton 3; Derby,
@@ -85,27 +95,16 @@ removals (or fewer industry cards).
 | # | Rulebook | Our board | What I did / propose |
 | --- | --- | --- | --- |
 | 1 | Trade-icon places for the distant market | hubs: The North, London, West Wales | Done as RULES.md §7 says. Their **link value** is still `?` |
-| 2 | The coal/iron market needs a connection to a market or port location "as printed" | nothing printed | **Proposal**: a hub, or a town with a port slot |
+| 2 | The coal/iron market needs a connection to a market or port location "as printed" | nothing printed | Decided in the gameplay spec: a hub, or a town with a port slot (a "trade location") |
 | 3 | Several shipyard locations | one shipyard slot, in Plymouth, which is a rail-only town | Not changed. Shipyard I can't be built in the canal era at all, and the "2 shipyards" achievement can't be earned. **Proposal**: add a port/shipyard option to Bristol and Southampton |
 | 4 | — | stops (Brecon, Reading, Taunton) | Links pass through them. Nothing is built there, they have no cards, and they have link value 0 |
 | 5 | — | rail-only places (Plymouth, Taunton, The North) | No canals to them, and no building there in the canal era |
 | 6 | — | the drawn practice maps have no ports or hubs | Brass matches always use the painted board |
-| 7 | Distant market tiles and track | — | Their shape is in TILES.md; the values are `?` |
+| 7 | Distant market tiles and track | — | 12 tiles and the track in `config/distantMarket.ts`; the values are `todo(...)` |
 
 ## 4. How I read the rules where they leave a choice (please confirm)
 
-- **Loans and the Rothschild marker:**
-  - Loans stop once the draw deck is empty, as RULES.md §3 says.
-  - The marker sits above the last 2 cards per player. When the draw reaches it,
-    the deck shows the no-loan coin with "No more loans after this round — this is
-    the last round to take one", and LOAN shows the coin as a warning.
-  - With 2 cards per player under it, the deck runs out exactly one round later.
-    From then on, loans are refused and LOAN is disabled with the coin.
-  - Your spec also says "NO MORE LOANS from then on" at the marker. If loans
-    should stop at the marker itself, change `LOANS_STOP` in `cards.ts` to
-    `'marker'`.
-  - "The round after that is the last": I read this as the last round for loans.
-    The game still ends when the hands are played out, as in the rulebook.
+- **Loans and the Rothschild marker:** as the gameplay spec says. Once the draw reaches the marker (the last 2 cards per player), no more loans can be taken; the cards under it are still drawn and played. The deck shows the no-loan coin ("No more loans"), and LOAN is disabled with the same coin. (`LOANS_STOP` in `config/cards.ts`; RULES.md §3 now says so too.)
 - **Canal era, deck used up:** RULES.md says "no loans once the draw deck is empty"
   without naming an era, so no loans are allowed then in the canal era either.
 - **Hands and eras:**
@@ -119,7 +118,7 @@ removals (or fewer industry cards).
 - **Overbuilding:**
   - Only your own tile needs a higher level; RULES.md sets no level rule for another player's mine or works.
   - "No cubes left on the whole board" also counts the market.
-- **New mines and works selling to the market:** optional. The player chooses it in the confirm popup, and it defaults to yes. It needs a market connection for both coal and iron, as RULES.md says; the printed rulebook may differ for iron.
+- **New mines and works selling to the market:** automatic, as the gameplay spec says. An iron works always sells (no connection needed); a coal mine only when its town is connected to a trade location. The most expensive empty spaces fill first, the owner is paid each space's price, and cubes that don't fit stay on the tile. RULES.md §3 now says so.
 - **Loan:** the income marker goes to the top space of the lower level.
 - **Coal for a rail:** it comes from mines connected to either end of the new rail, and the rail itself counts as connected.
 - **Negative income:** tiles are sold automatically, unflipped ones first, then those with the fewest VP. Letting the player choose is not built yet.
@@ -144,36 +143,54 @@ removals (or fewer industry cards).
     - slot priority, coal and iron are checked;
     - any card pays for the other actions.
   - **Computer players:** they discard their least useful card.
-- **Tests:** 86 for the rules, including the deck, dealing, the canal set-aside, the marker and loans, no income in the last round, refills, the joker, card legality, slot priority, the canal-era limit and the rail-era removal. Simulated 2-, 3- and 4-player games check:
+- **Tests:** 91 for the rules. They cover:
+  - the stable turn-order sort with ties (4 players);
+  - market buying (cheapest first) and the £5 fallback;
+  - automatic market selling: most expensive empty space first, with payment; coal needs a trade connection, iron doesn't; cubes that don't fit stay on the tile;
+  - distant-market sales, and failure when landing on or passing X;
+  - deck sizes and dealing, the canal set-aside, the Rothschild loan cut-off, no income in the last round, refills;
+  - the joker, card legality, slot priority, the canal-era limit and the rail-era removal.
+
+  Simulated 2-, 3- and 4-player games check:
   - no errors;
   - money never goes negative;
   - cubes and markets stay in range;
   - the final score matches an independent count.
 - **Match screen**, matching `ui-mockup.png`:
-  - the industry rows and the levels popup;
-  - the locked shipyard and the upgrade bar;
-  - the canal triangle, and RAIL / 2 RAILS in the rail era;
-  - loan, sell and skip;
-  - the stats bar, opponents and top bar with the markets;
-  - confirm popups and toasts;
-  - pass-and-play hand-off and results;
-  - a bottom sheet on narrow screens.
+  - **Layout:** a top bar, then [side strip | markets + board | player panel], then the hand strip.
+    - The board is scaled into the space left, so the whole board and its frame are always visible without scrolling. Checked at 1920×1080 (692 px board), 1440×900 (537), 1366×768 (423) and 1280×720 (382). The placeholder warning bar costs about 28 px until the numbers are in.
+    - The hand strip is below the board; the cards shrink (72 px at least), never the board.
+    - Hints and the "Play as" bar are in the hand strip. Nothing but confirm dialogs covers the board.
+    - Phones stack everything, and the player panel is a bottom sheet.
+  - **Turn order** in the top bar:
+    - one circle per player: their avatar (profile picture or an illustrated one) in a thick ring of their colour;
+    - the player acting is larger and glows; players who have finished their turn this round are dimmed;
+    - money spent this round under each circle;
+    - the circles slide into the new order at the end of a round;
+    - hovering a circle shows money, income, VP and cards; clicking it shows that player's mat.
+  - **Coal and iron market strip:** price steps with their spaces (cubes, or empty outlined squares), ×N left at each price, £5 ∞, and the next cube to be bought outlined.
+  - **Distant cotton market:**
+    - the zig-zag track with the income at each row, the marker, the face-down stack and the last tile flipped;
+    - greyed out with "The distant market has closed" (and a toast) when a sale reaches X.
+  - **Deck and discard pile** outside the board frame:
+    - the deck with its count, the train, or the no-loan coin;
+    - the discard pile is smaller, face up and turned, with a label and "Last card: … by …"; clicking it lists this round's cards.
+  - **Game log** in the player panel.
+  - "No coal connection" on dark slots and links that fail only for coal.
+  - The industry rows and levels popup, the upgrade bar, the canal triangle / RAIL / 2 RAILS, loan, sell and skip, the stats bar, confirm popups and toasts, the pass-and-play hand-off and the results.
 - **Cards on screen:**
   - **The hand:**
-    - a fan at the bottom of the screen, which re-centres as it shrinks;
-    - hover lifts a card; on touch screens, a tap enlarges it;
-    - picking a card highlights it and lights up only what it allows;
-    - the "Play … as:" bar has every option with its reason when disabled;
-    - a second card brings up the joker prompt; Esc backs out.
-  - **The deck:**
-    - the deck with its count;
-    - the train once the canal deck is used up;
-    - the no-loan coin on the deck and on LOAN;
-    - the discard pile beside it.
+    - one straight row, centred, which re-centres as it shrinks;
+    - when the cards don't fit, they overlap evenly and each name plate stays visible;
+    - hover lifts a card 6 px; picking one lifts it 16 px, outlines it in gold, and lights up only what it allows;
+    - on touch screens, a tap enlarges a card;
+    - the "Play as" bar has every option with its reason when disabled; a second card brings up the joker prompt; Esc backs out.
   - **Animations:**
-    - dealing, drawing and playing (other players' cards are shown face up);
+    - dealing, drawing and playing cards (other players' cards are shown face up);
+    - cubes fly to the market and coins to the owner when a new mine or works sells;
+    - the distant tile turns over mid-screen and the marker walks down;
     - canals and level I tiles fade off at the end of the canal era;
-    - none with reduced motion.
+    - with reduced motion, changes fade in instead.
 - **Lobby:** random colours each match (the colour picker is gone), Brass saves, and stats and achievements from the Brass result.
 - **Languages:** all new text in English, Lithuanian, German, French and Spanish.
 
@@ -183,7 +200,6 @@ removals (or fewer industry cards).
 - Approve the player-count removals (§2) and answer §3 and §4.
 - The **Rules / How to Play** screen and the lobby's mode descriptions still describe the old rules, in all five languages. (The mode cards and the setup summary now show the Brass rounds per era for the chosen player count, and £30 each.) The old engine (`src/game`) stays until that's rewritten, because the map sandbox and the rules screen still use it.
 - On the match screen:
-  - a game log;
   - the move timer;
   - picking among equally close coal mines and among iron works (the default is your own, then board order);
   - picking the tiles to sell when income can't be paid.

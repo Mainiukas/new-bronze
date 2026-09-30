@@ -181,7 +181,7 @@ const brassWords: BrassWords = {
     develop: 'Dieses Plättchen kann nicht entwickelt werden.',
     sale: 'Dort gibt es nichts zu verkaufen.',
     loan: 'Kein Kredit: Dein Einkommen darf nicht so weit sinken.',
-    'no-more-loans': 'Keine Kredite mehr: Der Nachziehstapel ist leer.',
+    'no-more-loans': 'Keine Kredite mehr',
     input: 'Das geht nicht.',
   },
 }

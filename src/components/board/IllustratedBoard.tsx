@@ -111,6 +111,8 @@ export interface IllustratedBoardProps {
   targetColor?: string
   /** Hide the hubs' price badges (the Brass rules have no hub prices). */
   hidePrices?: boolean
+  /** A line added to the hover card of a slot ("town:index") or link (its id), e.g. why it can't be used now. */
+  notes?: ReadonlyMap<string, string>
   /** Built pieces that are leaving the board (the end of the canal era): drawn fading out, links as canals. */
   fading?: { slots: ReadonlySet<string>; links: ReadonlySet<string> } | null
   className?: string
@@ -210,6 +212,7 @@ export function IllustratedBoard({
   targetColor,
   hidePrices = false,
   fading = null,
+  notes,
   className = '',
 }: IllustratedBoardProps) {
   const t = useT()
@@ -603,6 +606,7 @@ export function IllustratedBoard({
                     return (
                       <g
                         key={key}
+                        data-slot={key}
                         className={fading?.slots.has(key) ? 'board-fade-out' : slotClickable ? 'cursor-pointer' : undefined}
                         {...(shut ? {} : hoverHandlers({ type: 'location', id: location.id, slot: index }))}
                         {...(slotClickable ? asButton(labelForSlot(location.id, index), () => onSelectSlot!(location.id, index)) : {})}
@@ -911,7 +915,17 @@ export function IllustratedBoard({
         Tab through the board’s slots, links and locations; arrow keys move to the nearest one in that direction; Enter or Space picks it.
       </p>
       {hover && !editable && !drag && (
-        <BoardTooltip board={board} groups={groups} routes={routesLayout.routes} era={era} built={built} prices={prices} playerName={nameOf} target={hover} />
+        <BoardTooltip
+          board={board}
+          groups={groups}
+          routes={routesLayout.routes}
+          era={era}
+          built={built}
+          prices={prices}
+          playerName={nameOf}
+          target={hover}
+          note={notes?.get(hover.type === 'link' ? hover.id : hover.slot !== undefined ? slotKey(hover.id, hover.slot) : hover.id) ?? null}
+        />
       )}
     </div>
   )

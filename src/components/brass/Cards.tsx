@@ -4,7 +4,7 @@
  * two-card joker prompt.
  */
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import actCanalUrl from '../../../assets/ui/player/act_canal.svg'
 import actDevelopUrl from '../../../assets/ui/player/act_develop.svg'
 import actLoanUrl from '../../../assets/ui/player/act_loan.svg'
@@ -33,12 +33,12 @@ function useWidth(ref: React.RefObject<HTMLElement | null>): number {
 }
 
 /** One card: front and back, so it can flip. `label` lays a readable name over the front's name banner. */
-export function CardImage({ card, label, className = '' }: { card: Card | string; label?: string; className?: string }) {
+export function CardImage({ card, label, visible, className = '' }: { card: Card | string; label?: string; visible?: number; className?: string }) {
   return (
     <span className={`card3d block ${className}`}>
       <span className="card3d-inner block size-full">
         <img src={cardArt(card)} alt="" draggable={false} className="card3d-face size-full rounded-[7%] object-cover select-none" />
-        {label && <CardName name={label} />}
+        {label && <CardName name={label} visible={visible} />}
         <img src={CARD_BACK_URL} alt="" draggable={false} className="card3d-face card3d-back size-full rounded-[7%] object-cover select-none" />
       </span>
     </span>
@@ -49,20 +49,28 @@ export function CardImage({ card, label, className = '' }: { card: Card | string
  * The card's name, crisp and readable at hand size, laid over the name
  * banner at the foot of the card (the art's own lettering is too small there).
  */
-function CardName({ name }: { name: string }) {
+function CardName({ name, visible = 1 }: { name: string; visible?: number }) {
+  // Overlapped cards show only their left part: keep the plate inside it, text from the left.
+  const right = visible < 0.95 ? `${Math.max(4, Math.round((1 - visible) * 100) + 2)}%` : '9%'
   return (
-    <span aria-hidden="true" className="absolute inset-x-[9%] top-[84.6%] grid [transform:translateZ(1px)] [backface-visibility:hidden] h-[10.6%] place-items-center overflow-hidden rounded-[4px] border border-brass-300/40 bg-soot-950/90 px-0.5 [container-type:size]">
-      <span className="font-display leading-none font-bold whitespace-nowrap text-parchment-50 uppercase [font-size:min(60cqh,9.6cqw)]">{name}</span>
+    <span
+      aria-hidden="true"
+      className={`absolute top-[84.6%] grid h-[10.6%] [transform:translateZ(1px)] overflow-hidden rounded-[4px] border border-brass-300/40 bg-soot-950/90 px-1 [backface-visibility:hidden] [container-type:size] ${visible < 0.95 ? 'place-items-center justify-start' : 'place-items-center'}`}
+      style={{ left: visible < 0.95 ? '4%' : '9%', right }}
+    >
+      <span className="font-display leading-none font-bold whitespace-nowrap text-parchment-50 uppercase [font-size:min(60cqh,11cqw)]">{name}</span>
     </span>
   )
 }
 
-interface HandFanProps {
+interface HandRowProps {
   cards: readonly Card[]
   /** Cards chosen for the action being prepared (gold outline, lifted). */
   selected: readonly string[]
   /** Clicking plays (else it only enlarges). */
   interactive: boolean
+  /** Card width in px (the hand strip sets it from the screen height). */
+  cardWidth: number
   name: (card: Card) => string
   kind: (card: Card) => string
   label: string
@@ -70,44 +78,41 @@ interface HandFanProps {
   onZoom: (cardId: string) => void
 }
 
-/** The hand: a gentle fan, centred, that re-centres smoothly as the number of cards changes. */
-export function HandFan({ cards, selected, interactive, name, kind, label, onSelect, onZoom }: HandFanProps) {
+const GAP = 8
+/** A picked card rises 16 px (hovering: 6 px). */
+const LIFT_SELECTED = 16
+
+/**
+ * The hand: one straight row, centred, re-centring smoothly as the number of
+ * cards changes. When the cards don't fit they overlap evenly, and each
+ * card's name plate stays in its visible part.
+ */
+export function HandRow({ cards, selected, interactive, cardWidth, name, kind, label, onSelect, onZoom }: HandRowProps) {
   const t = useT()
   const ref = useRef<HTMLUListElement>(null)
   const width = useWidth(ref)
   const pointer = useRef('mouse')
-  const viewportH = typeof window === 'undefined' ? 900 : window.innerHeight
-  const cardW = Math.round(Math.max(66, Math.min(124, width / 6.6, viewportH * 0.19 * CARD_RATIO)))
+  const cardW = cardWidth
   const cardH = Math.round(cardW / CARD_RATIO)
   const n = cards.length
-  const room = Math.max(0, width - cardW - 12)
-  const step = n > 1 ? Math.min(cardW * 0.82, room / (n - 1)) : 0
-  const tilt = n > 1 ? Math.min(3.2, 20 / n) : 0
-  const lift = Math.round(cardH * 0.14)
-  const drop = cardW / 90
-  // The outer cards sit lower (the arc) and turn: keep the lowest corner inside the fan.
-  const sink = Math.ceil(((n - 1) / 2) ** 2 * drop + Math.sin(((((n - 1) / 2) * tilt) / 180) * Math.PI) * cardW * 0.5) + 4
-  const height = cardH + lift + sink
+  const natural = n * cardW + Math.max(0, n - 1) * GAP
+  const step = n > 1 ? (natural <= width ? cardW + GAP : Math.max(16, (width - cardW) / (n - 1))) : 0
+  const total = n ? cardW + step * (n - 1) : 0
+  const start = Math.max(0, (width - total) / 2)
+  const visible = step >= cardW ? 1 : step / cardW
   return (
-    <ul ref={ref} data-fan aria-label={label} className="relative w-full" style={{ height, '--lift': `${lift}px` } as CSSProperties}>
+    <ul ref={ref} data-fan aria-label={label} className="relative w-full" style={{ height: cardH + LIFT_SELECTED + 2 }}>
       {n === 0 && <li className="absolute inset-x-0 bottom-3 text-center text-sm text-parchment-400">{t.brass.handEmpty}</li>}
       {cards.map((card, i) => {
-        const mid = i - (n - 1) / 2
         const isSelected = selected.includes(card.id)
-        const style = {
-          width: cardW,
-          height: cardH,
-          bottom: sink,
-          '--z': isSelected ? 40 : i + 1,
-          transform: `translateX(calc(-50% + ${(mid * step).toFixed(1)}px)) translateY(${(mid * mid * drop).toFixed(1)}px) rotate(${(mid * tilt).toFixed(2)}deg)`,
-        } as CSSProperties
         const text = `${kind(card)}: ${name(card)}`
+        const last = i === n - 1
         return (
           <li
             key={card.id}
             data-card={card.id}
-            className="fan-card absolute left-1/2 z-[var(--z)] origin-bottom has-[:focus-visible]:z-50 has-[:hover]:z-50"
-            style={style}
+            className="fan-card absolute bottom-0 left-0 z-[var(--z)] has-[:focus-visible]:z-50 has-[:hover]:z-50"
+            style={{ width: cardW, height: cardH, '--z': isSelected ? 40 : i + 1, transform: `translateX(${(start + i * step).toFixed(1)}px)` } as CSSProperties}
           >
             <button
               type="button"
@@ -123,11 +128,12 @@ export function HandFan({ cards, selected, interactive, name, kind, label, onSel
               }}
               className={`fan-card-button relative block size-full rounded-[7%] outline-none ${
                 isSelected
-                  ? '-translate-y-[var(--lift)] shadow-[0_0_0_3px_#ffd66b,0_0_22px_6px_rgb(255_214_107/0.6)]'
-                  : 'shadow-[0_6px_14px_rgb(0_0_0/0.55)] hover:-translate-y-[calc(var(--lift)*0.55)] focus-visible:-translate-y-[calc(var(--lift)*0.55)] focus-visible:shadow-[0_0_0_3px_var(--color-brass-200)]'
+                  ? 'shadow-[0_0_0_3px_#ffd66b,0_0_22px_6px_rgb(255_214_107/0.6)]'
+                  : 'shadow-[0_6px_14px_rgb(0_0_0/0.55)] hover:-translate-y-[6px] focus-visible:-translate-y-[6px] focus-visible:shadow-[0_0_0_3px_var(--color-brass-200)]'
               }`}
+              style={isSelected ? { translate: `0 -${LIFT_SELECTED}px` } : undefined}
             >
-              <CardImage card={card} label={name(card)} className="size-full" />
+              <CardImage card={card} label={name(card)} visible={last || isSelected ? 1 : visible} className="size-full" />
             </button>
           </li>
         )
@@ -196,7 +202,7 @@ export function CardActionBar({
   const icon = (action: CardAction) =>
     action === 'build' ? (card.kind === 'industry' ? INDUSTRY_ICON_URLS[card.industry] : null) : action === 'network' ? (era === 'canal' ? actCanalUrl : actRailUrl) : action === 'loan' && noLoans ? NO_LOAN_URL : ACTION_ICONS[action]
   return (
-    <div role="toolbar" aria-label={b.playAs(name)} className="plate rivets flex flex-wrap items-center justify-center gap-1.5 bg-soot-900/[0.96] px-2.5 py-2 shadow-2xl">
+    <div role="toolbar" aria-label={b.playAs(name)} className="flex flex-wrap items-center justify-center gap-1.5 rounded-lg border border-brass-300/50 bg-soot-900/[0.96] px-2 py-1 shadow-lg">
       <span className="font-display text-sm font-bold tracking-[0.04em] text-parchment-100">{b.playAs(name)}</span>
       {(['build', 'network', 'develop', 'sell', 'loan', 'pass'] as const).map((action) => {
         const reason = blocked[action]
@@ -230,13 +236,8 @@ export function JokerPrompt({ first, second, blocked, onJoker, onSwitch, onCance
   const t = useT()
   const b = t.brass
   const id = useId()
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onCancel()
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onCancel])
   return (
-    <div role="dialog" aria-labelledby={id} className="plate rivets flex flex-col items-center gap-2 bg-soot-900/[0.97] px-4 py-3 text-center shadow-2xl">
+    <div role="dialog" aria-labelledby={id} className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-brass-300/50 bg-soot-900/[0.97] px-3 py-1 text-center shadow-lg">
       <p id={id} className="font-display text-sm font-bold text-parchment-100">
         {b.jokerTitle(first, second)}
       </p>
@@ -251,7 +252,7 @@ export function JokerPrompt({ first, second, blocked, onJoker, onSwitch, onCance
           {b.cancel}
         </button>
       </div>
-      {blocked && <p className="text-xs text-ember-300">{blocked}</p>}
+      {blocked && <p className="w-full text-xs text-ember-300">{blocked}</p>}
     </div>
   )
 }

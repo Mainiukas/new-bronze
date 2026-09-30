@@ -6,7 +6,7 @@
 import deckUrl from '../../../assets/cards/deck.svg'
 import deckTrainUrl from '../../../assets/cards/deck_train.svg'
 import noLoanUrl from '../../../assets/cards/no_loan.svg'
-import { faceOf } from '../../rules/config/cards'
+import { faceOf, LOANS_STOP } from '../../rules/config/cards'
 import { railMarkerReached } from '../../rules/engine'
 import type { Card, GameState } from '../../rules/state'
 
@@ -26,11 +26,17 @@ export function cardArt(card: Card | string): string {
 /** Card width ÷ height (600 × 840). */
 export const CARD_RATIO = 600 / 840
 
-/** What the deck shows: the deck, the train (canal deck used up), or the no-loan coin (rail era: last round of loans, then none). */
+/**
+ * What the deck shows: the deck, the train (canal deck used up), or the
+ * no-loan coin (rail era: no more loans once the draw reaches the Rothschild
+ * marker; 'last-loans' only if config/cards.ts lets loans run on until the
+ * deck is empty).
+ */
 export type DeckMode = 'deck' | 'train' | 'last-loans' | 'no-loans'
 
 export function deckMode(state: GameState): DeckMode {
   if (state.era === 'canal') return state.deck.length ? 'deck' : 'train'
   if (!state.deck.length) return 'no-loans'
-  return railMarkerReached(state) ? 'last-loans' : 'deck'
+  if (!railMarkerReached(state)) return 'deck'
+  return LOANS_STOP === 'marker' ? 'no-loans' : 'last-loans'
 }

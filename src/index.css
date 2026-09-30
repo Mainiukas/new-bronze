@@ -832,3 +832,68 @@ svg [role='button']:focus-visible {
   pointer-events: none;
   will-change: transform;
 }
+
+/* The match screen. Desktop: top bar, then a grid, [side strip | markets + board | player panel] with the
+   hand strip under the board. The board is scaled to fit the space left (it is square), so the whole
+   board and frame are always visible; nothing but the confirm dialogs covers it. Narrower screens stack. */
+.brass-board-fit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.brass-board-fit > [data-board] {
+  width: 100%;
+}
+@media (min-width: 64rem) {
+  .brass-screen {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .brass-layout {
+    display: grid;
+    min-height: 0;
+    flex: 1;
+    grid-template-columns: 13rem minmax(0, 1fr) minmax(20rem, 24rem);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'left market panel'
+      'left board panel'
+      'hand hand panel';
+  }
+  .brass-left {
+    grid-area: left;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .brass-market {
+    grid-area: market;
+  }
+  .brass-board-fit {
+    grid-area: board;
+    min-height: 0;
+    container-type: size;
+  }
+  .brass-board-fit > [data-board] {
+    width: min(100cqw, 100cqh);
+  }
+  .brass-hand {
+    grid-area: hand;
+  }
+  .brass-panel {
+    grid-area: panel;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+/* Reduced motion: cards, cubes and tiles don't fly; what changed fades in instead. */
+@keyframes rm-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-animations='off']) .rm-fade {
+    animation: rm-fade 0.3s ease-out both !important;
+  }
+}

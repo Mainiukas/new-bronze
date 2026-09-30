@@ -216,6 +216,7 @@ function AppShell() {
                     onOpenRules={() => setOverlay('how-to-play')}
                     onOpenSettings={() => setOverlay('settings')}
                     overlayOpen={overlay !== null}
+                    localAvatarUrl={auth.signedIn ? (auth.profile?.avatarUrl ?? null) : null}
                   />
                 </Suspense>
               </>

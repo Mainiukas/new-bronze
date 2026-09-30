@@ -14,10 +14,10 @@ import actSellUrl from '../../../assets/ui/player/act_sell.svg'
 import actSkipUrl from '../../../assets/ui/player/act_skip.svg'
 import { useT } from '../../i18n'
 import { CANAL_COST, DOUBLE_RAIL_COST, RAIL_COST } from '../../rules/constants'
-import { incomeOf, marketBuyPrice, roundsInEra, type RulesContext } from '../../rules/engine'
+import { incomeOf, marketBuyPrice, type RulesContext } from '../../rules/engine'
 import type { GameState, PlayerState } from '../../rules/state'
 import { roman, type IndustryId } from '../../rules/tileTable'
-import { CARD_BACK_URL, NO_LOAN_URL } from './cardArt'
+import { NO_LOAN_URL } from './cardArt'
 import { Coin, Cube, IncomeArrow, VpHex } from './Symbols'
 
 /* ---- Action buttons ---------------------------------------------------------- */
@@ -276,112 +276,6 @@ export function StatsBar({ player, ctx }: { player: PlayerState; ctx: RulesConte
       </span>
       <span className="flex justify-center">
         <Animated value={player.vp} render={(v) => <VpHex value={v} size="lg" label={`${t.brass.vp}: ${player.vp}`} />} />
-      </span>
-    </div>
-  )
-}
-
-/* ---- Opponents -------------------------------------------------------------------- */
-
-export function Opponents({
-  state,
-  ctx,
-  colorOf,
-  viewing,
-  current,
-  onView,
-}: {
-  state: GameState
-  ctx: RulesContext
-  colorOf: (player: number) => string
-  viewing: number | null
-  current: number
-  onView: (player: number) => void
-}) {
-  const t = useT()
-  const b = t.brass
-  return (
-    <ul className="flex flex-col gap-1" aria-label={b.opponents}>
-      {state.order.map((id) => {
-        const p = state.players[id]
-        const color = colorOf(id)
-        const playing = id === current && !state.finished
-        return (
-          <li key={id}>
-            <button
-              type="button"
-              onClick={() => onView(id)}
-              aria-pressed={viewing === id}
-              aria-label={b.opponentLabel(p.name, p.money, incomeOf(ctx, p), p.vp, p.hand.length)}
-              className={`flex w-full items-center gap-2 rounded-md border px-2 py-1 text-left transition ${
-                viewing === id ? 'border-brass-300/70 bg-bronze-500/20' : 'border-bronze-500/25 bg-soot-900/70 hover:border-bronze-400/60'
-              }`}
-            >
-              <span className="grid size-7 shrink-0 place-items-center rounded-full border-2 font-display text-sm font-bold text-soot-950" style={{ background: color, borderColor: playing ? '#fbe3a4' : '#000' }} aria-hidden="true">
-                {p.name.slice(0, 1).toUpperCase()}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-parchment-100">
-                {p.name}
-                {playing && <span className="ml-1.5 text-brass-200" title={b.turnMarker}>●</span>}
-              </span>
-              <span className="inline-flex items-center gap-0.5 text-sm font-bold text-parchment-50 tabular-nums" aria-hidden="true">
-                <Coin className="size-4" />
-                {p.money}
-              </span>
-              <span aria-hidden="true">
-                <IncomeArrow value={incomeOf(ctx, p)} size="sm" />
-              </span>
-              <span aria-hidden="true">
-                <VpHex value={p.vp} size="sm" />
-              </span>
-              <span data-seat={id} className="inline-flex w-9 items-center justify-end gap-1 text-xs font-bold text-parchment-200 tabular-nums" title={b.cardsInHand(p.hand.length)} aria-hidden="true">
-                <img src={CARD_BACK_URL} alt="" className="h-5 w-auto rounded-[2px] shadow" />
-                {p.hand.length}
-              </span>
-            </button>
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
-/* ---- Top bar ------------------------------------------------------------------------ */
-
-function MarketTrack({ kind, cubes, ctx, label }: { kind: 'coal' | 'iron'; cubes: number; ctx: RulesContext; label: string }) {
-  const spaces = ctx.data.markets[kind].spaces
-  const price = marketBuyPrice(ctx, kind, cubes)
-  return (
-    <span className="flex items-center gap-1.5" role="img" aria-label={`${label}: ${cubes}/${spaces.length}, £${price}`}>
-      <Cube kind={kind} className="size-4" />
-      <span className="flex gap-px" aria-hidden="true">
-        {spaces.map((p, i) => (
-          <span key={i} className={`grid h-5 w-4 place-items-center rounded-sm border text-[0.55rem] font-bold tabular-nums ${i >= spaces.length - cubes ? 'border-bronze-400/60 bg-bronze-500/40 text-parchment-50' : 'border-bronze-500/25 text-parchment-500'}`}>
-            {p}
-          </span>
-        ))}
-      </span>
-      <span className="text-xs font-bold text-parchment-200 tabular-nums" aria-hidden="true">
-        £{price}
-      </span>
-    </span>
-  )
-}
-
-export function TopBar({ state, ctx, status, children }: { state: GameState; ctx: RulesContext; status: ReactNode; children?: ReactNode }) {
-  const t = useT()
-  const b = t.brass
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-bronze-500/30 bg-soot-950/90 px-3 py-2">
-      {children}
-      <span className={`rounded-full border px-2.5 py-0.5 font-display text-xs font-bold tracking-[0.12em] uppercase ${state.era === 'canal' ? 'border-verdigris-400/50 text-verdigris-200' : 'border-brass-300/50 text-brass-200'}`}>
-        {b.era[state.era]}
-      </span>
-      <span className="text-sm text-parchment-300">{b.round(state.round, roundsInEra(state))}</span>
-      <span className="font-display text-sm font-bold tracking-[0.04em] text-parchment-50">{status}</span>
-      <span className="ml-auto flex flex-wrap items-center gap-3">
-        <MarketTrack kind="coal" cubes={state.market.coal} ctx={ctx} label={b.coalMarket} />
-        <MarketTrack kind="iron" cubes={state.market.iron} ctx={ctx} label={b.ironMarket} />
       </span>
     </div>
   )

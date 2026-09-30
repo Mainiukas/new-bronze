@@ -60,12 +60,24 @@ export function cardBuildBlocker(state: GameState, ctx: RulesContext, playerId: 
   return scan.targets.length ? null : mostTelling(scan.reasons, BUILD_REASONS, 'card')
 }
 
-function scanCardBuilds(state: GameState, ctx: RulesContext, playerId: number, cards: readonly string[], only?: IndustryId): { targets: CardBuildTarget[]; reasons: RuleErrorCode[] } {
+/**
+ * Slots the chosen cards could build in but for coal (nothing connected, and
+ * no connection to a trade location for the market): the board says
+ * "No coal connection" there.
+ */
+export function cardCoalBlocked(state: GameState, ctx: RulesContext, playerId: number, cards: readonly string[], industry?: IndustryId): string[] {
+  const scan = scanCardBuilds(state, ctx, playerId, cards, industry)
+  const ok = new Set(scan.targets.map((t) => t.slot))
+  return [...scan.coal].filter((slot) => !ok.has(slot))
+}
+
+function scanCardBuilds(state: GameState, ctx: RulesContext, playerId: number, cards: readonly string[], only?: IndustryId): { targets: CardBuildTarget[]; reasons: RuleErrorCode[]; coal: Set<string> } {
   const hand = state.players[playerId].hand
   const chosen = cards.map((id) => hand.find((c) => c.id === id)).filter((c): c is Card => !!c)
   const targets: CardBuildTarget[] = []
   const reasons: RuleErrorCode[] = []
-  if (chosen.length !== cards.length || chosen.length < 1 || chosen.length > 2) return { targets, reasons: ['card'] }
+  const coal = new Set<string>()
+  if (chosen.length !== cards.length || chosen.length < 1 || chosen.length > 2) return { targets, reasons: ['card'], coal }
   const card = chosen.length === 1 ? chosen[0] : null
   for (const slot of Object.values(ctx.map.slots)) {
     if (card?.kind === 'location' && slot.town !== card.town) continue
@@ -73,12 +85,14 @@ function scanCardBuilds(state: GameState, ctx: RulesContext, playerId: number, c
       if (card?.kind === 'industry' && industry !== card.industry) continue
       if (only && industry !== only) continue
       const plan = attempt(() => planBuild(state, ctx, playerId, { type: 'build', cards: [...cards], slot: slot.key, industry }))
-      if (plan instanceof RuleError) reasons.push(plan.code)
-      else targets.push({ slot: slot.key, industry, plan })
+      if (plan instanceof RuleError) {
+        reasons.push(plan.code)
+        if (plan.code === 'coal') coal.add(slot.key)
+      } else targets.push({ slot: slot.key, industry, plan })
     }
   }
   if (!targets.length && !reasons.length) reasons.push(card?.kind === 'industry' ? 'slot' : 'card')
-  return { targets, reasons }
+  return { targets, reasons, coal }
 }
 
 /* ---- Which card to give up ---------------------------------------------------------- */
@@ -189,6 +203,30 @@ export function linkOptions(state: GameState, ctx: RulesContext, playerId: numbe
       const ok = candidates.some((m) => m.id !== l.id && !(attempt(() => planNetwork(state, ctx, playerId, { type: 'network', cards: [card], links: [...links, m.id] })) instanceof RuleError))
       if (ok) out.push({ link: l.id, plan: null })
     }
+  }
+  return out
+}
+
+/** Link spaces that could be built but for coal (rail era): the board says "No coal connection" there. */
+export function linkCoalBlocked(state: GameState, ctx: RulesContext, playerId: number, picked: readonly string[] = [], card = discardChoice(state, ctx, playerId)): string[] {
+  if (!card || state.era !== 'rail' || state.actionsLeft < 1 || state.selling) return []
+  const out: string[] = []
+  for (const l of Object.values(ctx.map.links)) {
+    if (!linkOpen(state, ctx, l) || state.links[l.id] || picked.includes(l.id)) continue
+    const r = attempt(() => planNetwork(state, ctx, playerId, { type: 'network', cards: [card], links: [...picked, l.id] }))
+    if (r instanceof RuleError && r.code === 'coal') out.push(l.id)
+  }
+  return out
+}
+
+/** Slots of an industry that could be built but for coal (building without a picked card). */
+export function coalBlockedSlots(state: GameState, ctx: RulesContext, playerId: number, industry: IndustryId): string[] {
+  const joker = jokerPair(state, ctx, playerId)
+  const out: string[] = []
+  for (const slot of Object.values(ctx.map.slots)) {
+    if (!slot.industries.includes(industry)) continue
+    const tries = buildCardChoices(state, ctx, playerId, slot.town, industry, joker).map((cards) => attempt(() => planBuild(state, ctx, playerId, { type: 'build', cards, slot: slot.key, industry })))
+    if (tries.length && tries.every((r) => r instanceof RuleError) && tries.some((r) => r instanceof RuleError && r.code === 'coal')) out.push(slot.key)
   }
   return out
 }

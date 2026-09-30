@@ -7,20 +7,25 @@
  * Escape or Cancel backs out with nothing changed.
  */
 
-import { useEffect, useEffectEvent, useId, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useId, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { IllustratedBoard, type BoardRecent, type BoardTargets } from '../components/board/IllustratedBoard'
 import { IndustryRow } from '../components/brass/IndustryRow'
 import { deckMode } from '../components/brass/cardArt'
-import { CardActionBar, CardZoom, HandFan, JokerPrompt } from '../components/brass/Cards'
-import { DeckIndicator } from '../components/brass/Deck'
+import { CardActionBar, CardZoom, HandRow, JokerPrompt } from '../components/brass/Cards'
+import { DeckIndicator, DiscardPile } from '../components/brass/Deck'
+import { DistantMarketPanel } from '../components/brass/DistantMarket'
+import { GameLog } from '../components/brass/GameLog'
+import { MarketStrip } from '../components/brass/Markets'
+import { TurnOrder } from '../components/brass/TurnOrder'
 import { useCardFlights } from '../components/brass/useCardFlights'
-import { ActionButtons, Opponents, StatsBar, TopBar, UpgradeBar, type ActionState } from '../components/brass/Panel'
+import { ActionButtons, StatsBar, UpgradeBar, type ActionState } from '../components/brass/Panel'
 import { rowInfo } from '../components/brass/rowInfo'
 import { Coin, Cube, IncomeArrow, VpHex } from '../components/brass/Symbols'
 import { Dialog } from '../components/Dialog'
 import { colorHex } from '../components/game/glyphs'
 import { ZoomPan } from '../components/game/ZoomPan'
 import type { Achievement } from '../data/achievements'
+import { PRESET_AVATARS, PRESET_PREFIX } from '../data/avatars'
 import { BOARD, parseBoardData, slotKey, type BoardData, type BuiltState } from '../data/board'
 import { getGameMode, isGameModeId } from '../data/gameModes'
 import { AI_DELAY_SCALE, ANIMATION_SCALE, type GameSettings } from '../data/settings'
@@ -31,7 +36,7 @@ import { STORAGE_KEYS } from '../lib/storage'
 import { chooseAction } from '../rules/ai'
 import { LOANS } from '../rules/constants'
 import { RULES } from '../rules/context'
-import { applyAction, currentPlayerId, inPlay, networkOf, planBuild, saleOptions, type BuildPlan, type NetworkPlan } from '../rules/engine'
+import { applyAction, currentPlayerId, inPlay, networkOf, planBuild, roundsInEra, saleOptions, type BuildPlan, type NetworkPlan } from '../rules/engine'
 import type { BrassMatch } from '../rules/match'
 import {
   buildBlocker,
@@ -40,9 +45,12 @@ import {
   cardActions,
   cardBuildBlocker,
   cardBuildTargets,
+  cardCoalBlocked,
+  coalBlockedSlots,
   developBlocker,
   developPlan,
   discardChoice,
+  linkCoalBlocked,
   linkOptions,
   loanOptions,
   networkBlocker,
@@ -63,6 +71,8 @@ interface BrassGameProps {
   onOpenRules: () => void
   onOpenSettings: () => void
   overlayOpen: boolean
+  /** The signed-in player's avatar (seat 1 when it's a person), if any. */
+  localAvatarUrl?: string | null
 }
 
 type Flow =
@@ -83,7 +93,19 @@ type Flow =
 
 const ctx = RULES.ctx
 
-export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRematch, settings, onOpenRules, onOpenSettings, overlayOpen }: BrassGameProps) {
+/** The window's height, kept up to date (the hand's cards are sized from it). */
+function useViewportHeight(): number {
+  return useSyncExternalStore(
+    (onChange) => {
+      window.addEventListener('resize', onChange)
+      return () => window.removeEventListener('resize', onChange)
+    },
+    () => window.innerHeight,
+    () => 900,
+  )
+}
+
+export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRematch, settings, onOpenRules, onOpenSettings, overlayOpen, localAvatarUrl = null }: BrassGameProps) {
   const t = useT()
   const b = t.brass
   const notify = useToast()
@@ -118,6 +140,14 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const hand = state.players[me].hand
   const cardName = (card: Card) => (card.kind === 'location' ? townName(card.town) : b.industry[card.industry])
   const cardKind = (card: Card) => (card.kind === 'location' ? b.locationCard : b.industryCard)
+  // Avatars on the turn order track: the signed-in player's own, else an illustrated one per seat.
+  const avatarOf = (p: number) => {
+    if (p === 0 && !state.players[0].isAI && localAvatarUrl) return localAvatarUrl
+    return `${PRESET_PREFIX}${PRESET_AVATARS[(Math.abs(state.seed) + p) % PRESET_AVATARS.length].id}`
+  }
+  // The hand's cards: 72 px wide at least, bigger on taller screens; the board gets the rest.
+  const viewportHeight = useViewportHeight()
+  const cardWidth = Math.round(Math.min(118, Math.max(72, viewportHeight * 0.1)))
   const nameOf = (id: string) => {
     const card = hand.find((c) => c.id === id)
     return card ? cardName(card) : ''
@@ -129,7 +159,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const autoCard = useMemo(() => (myTurn ? discardChoice(state, ctx, me) : null), [myTurn, state, me])
   const actionCard = chosen.length === 1 ? chosen[0] : autoCard
 
-  const flights = useCardFlights(state, me, ANIMATION_SCALE[settings.animationSpeed])
+  const flights = useCardFlights(state, ctx, me, ANIMATION_SCALE[settings.animationSpeed])
 
   const cancel = () => setFlow({ kind: 'idle' })
   const cancelAll = () => {
@@ -145,6 +175,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       const nextMatch = { ...match, state: next }
       const entry = [...next.log.slice(state.log.length)].reverse().find((e) => ['build', 'network', 'develop', 'sell', 'sell-failed', 'loan', 'pass'].includes(e.kind))
       if (entry) setRecent({ entry, key: next.log.length })
+      if (next.log.slice(state.log.length).some((e) => e.kind === 'sell-failed')) notify(b.distantClosed)
       if (!state.finished && next.finished) {
         setUnlocked(onMatchFinished(nextMatch))
         setResultsOpen(true)
@@ -230,6 +261,21 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
     }
     return undefined
   })()
+
+  // Dark slots and links that fail only for want of coal say so on hover.
+  const boardNotes = useMemo(() => {
+    const notes = new Map<string, string>()
+    if (!myTurn) return notes
+    const add = (keys: readonly string[]) => keys.forEach((key) => notes.set(key, b.errors.coal))
+    if (flow.kind === 'build' || (flow.kind === 'idle' && chosen.length)) {
+      if (chosen.length) add(cardCoalBlocked(state, ctx, me, chosen, flow.kind === 'build' ? (flow.industry ?? undefined) : undefined))
+      else if (flow.kind === 'build' && flow.industry) add(coalBlockedSlots(state, ctx, me, flow.industry))
+    } else if (flow.kind === 'network') {
+      add(linkCoalBlocked(state, ctx, me, flow.picked, actionCard ?? undefined))
+    }
+    return notes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow, state, me, myTurn, chosen.join(), actionCard, b])
 
   /** Straight to the confirm popup for this slot (and the industries it takes with the picked cards). */
   const confirmCardBuild = (here: readonly CardBuildTarget[]) => {
@@ -499,7 +545,6 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
   const panel = (
     <div className="flex flex-col gap-2">
-      <Opponents state={state} ctx={ctx} colorOf={colorOf} viewing={viewing} current={current} onView={(p) => setViewing(p === me || viewing === p ? null : p)} />
       {readOnly && (
         <div className="flex items-center justify-between gap-2 text-sm text-parchment-300">
           <span>{b.viewing(state.players[shownPlayer].name)}</span>
@@ -584,58 +629,105 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         />
       )}
       <StatsBar player={player} ctx={ctx} />
+      <GameLog state={state} ctx={ctx} />
     </div>
   )
 
   const zoomCard = zoom ? (hand.find((c) => c.id === zoom) ?? null) : null
 
+  // The strip above the hand: what to do next, the "Play as" bar, or the joker prompt.
+  const handBar: ReactNode = !myTurn ? (
+    <p className="text-sm font-semibold text-parchment-200">{status}</p>
+  ) : jokerCards ? (
+    <JokerPrompt
+      first={nameOf(jokerCards[0])}
+      second={nameOf(jokerCards[1])}
+      blocked={jokerBlocked ? b.errors[jokerBlocked] : null}
+      onJoker={() => {
+        setSelected(jokerCards)
+        setJokerOffer(null)
+        setFlow({ kind: 'build', industry: null })
+      }}
+      onSwitch={() => {
+        setSelected([jokerCards[1]])
+        setJokerOffer(null)
+        if (flow.kind === 'build') setFlow({ kind: 'build', industry: null })
+      }}
+      onCancel={() => setJokerOffer(null)}
+    />
+  ) : chosenCard && flow.kind === 'idle' && cardBar ? (
+    <CardActionBar card={chosenCard} name={cardName(chosenCard)} era={state.era} blocked={cardBar} noLoans={noLoans} onChoose={startCardAction} onCancel={cancelAll} />
+  ) : hint ? (
+    <div className="flex flex-wrap items-center justify-center gap-2 rounded-md border px-3 py-1 text-sm font-semibold text-parchment-50" style={{ borderColor: colorOf(me), background: `${colorOf(me)}22` }}>
+      <span>{hint}</span>
+      {flow.kind === 'network' && state.era === 'rail' && flow.picked.length === 0 && (
+        <span className="inline-flex overflow-hidden rounded-md border border-bronze-400/60" role="group" aria-label={b.networkTitle.rail}>
+          {([1, 2] as const).map((n) => (
+            <button
+              key={n}
+              type="button"
+              aria-pressed={flow.count === n}
+              onClick={actionState[n === 1 ? 'rail' : 'rails'] ? undefined : () => setFlow({ kind: 'network', count: n, picked: [] })}
+              aria-disabled={actionState[n === 1 ? 'rail' : 'rails'] ? true : undefined}
+              title={actionState[n === 1 ? 'rail' : 'rails'] ?? undefined}
+              className={`px-2 py-1 text-xs font-bold uppercase ${flow.count === n ? 'bg-brass-300/25 text-brass-100' : 'text-parchment-300 hover:text-parchment-50'} aria-disabled:opacity-40`}
+            >
+              {n === 1 ? b.actions.rail : b.actions.rails}
+            </button>
+          ))}
+        </span>
+      )}
+      {flow.kind === 'sell-mill' && flow.more ? (
+        <button type="button" className="btn btn-ghost min-h-8 px-3 text-xs" onClick={() => afterHuman(dispatch(me, { type: 'sell-stop' }))}>
+          {b.stopSelling}
+        </button>
+      ) : (
+        <button type="button" className="btn btn-ghost min-h-8 px-3 text-xs" onClick={cancel}>
+          {b.cancel}
+        </button>
+      )}
+    </div>
+  ) : (
+    <p className="text-sm text-parchment-300">
+      <span className="font-semibold text-parchment-100">{status}</span> · {b.pickCard}
+    </p>
+  )
+
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="brass-screen flex min-h-dvh flex-col">
       {RULES.placeholder && (
-        <p role="alert" className="bg-ember-500/90 px-3 py-1.5 text-center text-sm font-semibold text-soot-950">
+        <p role="alert" className="bg-ember-500/90 px-3 py-1 text-center text-xs font-semibold text-soot-950 sm:text-sm">
           {b.placeholder}
         </p>
       )}
-      <TopBar state={state} ctx={ctx} status={status}>
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-bronze-500/30 bg-soot-950/90 px-3 py-1">
         <GameMenuButton onRules={onOpenRules} onSettings={onOpenSettings} onLeave={onLeave} />
-      </TopBar>
+        <span className={`rounded-full border px-2.5 py-0.5 font-display text-xs font-bold tracking-[0.12em] uppercase ${state.era === 'canal' ? 'border-verdigris-400/50 text-verdigris-200' : 'border-brass-300/50 text-brass-200'}`}>{b.era[state.era]}</span>
+        <span className="text-sm text-parchment-300">{b.round(state.round, roundsInEra(state))}</span>
+        <div className="mx-auto">
+          <TurnOrder
+            state={state}
+            ctx={ctx}
+            colorOf={colorOf}
+            avatarOf={avatarOf}
+            current={current}
+            viewing={viewing}
+            speed={ANIMATION_SCALE[settings.animationSpeed]}
+            onView={(p) => setViewing(p === me || viewing === p ? null : p)}
+          />
+        </div>
+        <span className="font-display text-sm font-bold tracking-[0.04em] text-parchment-50" aria-live="polite">
+          {status}
+        </span>
+      </header>
 
-      <main id="main-content" tabIndex={-1} className="grid flex-1 grid-cols-1 gap-3 p-2 pb-14 outline-none lg:grid-cols-[minmax(0,1fr)_25rem] lg:p-3">
-        <div className="flex min-w-0 flex-col gap-2">
-          {hint && myTurn && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-sm font-semibold text-parchment-50" style={{ borderColor: colorOf(me), background: `${colorOf(me)}22` }}>
-              <span>{hint}</span>
-              <span className="flex flex-wrap items-center gap-1.5">
-                {flow.kind === 'network' && state.era === 'rail' && flow.picked.length === 0 && (
-                  <span className="inline-flex overflow-hidden rounded-md border border-bronze-400/60" role="group" aria-label={b.networkTitle.rail}>
-                    {([1, 2] as const).map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        aria-pressed={flow.count === n}
-                        onClick={actionState[n === 1 ? 'rail' : 'rails'] ? undefined : () => setFlow({ kind: 'network', count: n, picked: [] })}
-                        aria-disabled={actionState[n === 1 ? 'rail' : 'rails'] ? true : undefined}
-                        title={actionState[n === 1 ? 'rail' : 'rails'] ?? undefined}
-                        className={`px-2 py-1 text-xs font-bold uppercase ${flow.count === n ? 'bg-brass-300/25 text-brass-100' : 'text-parchment-300 hover:text-parchment-50'} aria-disabled:opacity-40`}
-                      >
-                        {n === 1 ? b.actions.rail : b.actions.rails}
-                      </button>
-                    ))}
-                  </span>
-                )}
-                {flow.kind === 'sell-mill' && flow.more ? (
-                  <button type="button" className="btn btn-ghost min-h-8 px-3 text-xs" onClick={() => afterHuman(dispatch(me, { type: 'sell-stop' }))}>
-                    {b.stopSelling}
-                  </button>
-                ) : (
-                  <button type="button" className="btn btn-ghost min-h-8 px-3 text-xs" onClick={cancel}>
-                    {b.cancel}
-                  </button>
-                )}
-              </span>
-            </div>
-          )}
-          <section data-board className="plate relative overflow-hidden p-1" aria-label={b.opponents}>
+      <main id="main-content" tabIndex={-1} className="brass-layout flex flex-col gap-2 p-2 pb-14 outline-none lg:pb-2">
+        <div className="brass-market">
+          <MarketStrip state={state} ctx={ctx} />
+        </div>
+
+        <div className="brass-board-fit">
+          <section data-board className="plate relative aspect-square overflow-hidden p-1" aria-label={t.nav.board}>
             <ZoomPan>
               <BrassBoard
                 state={state}
@@ -643,6 +735,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
                 targetColor={colorOf(me)}
                 showLinkSpaces={flow.kind === 'network'}
                 network={myTurn ? { locations: networkOf(state, ctx, me), color: colorOf(me) } : null}
+                notes={boardNotes}
                 recent={recent}
                 motion={ANIMATION_SCALE[settings.animationSpeed]}
                 onSelectSlot={onSlot}
@@ -651,46 +744,24 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
                 colorOf={colorOf}
               />
             </ZoomPan>
-            <div className="absolute top-2 left-2 z-10">
-              <DeckIndicator state={state} />
-            </div>
           </section>
-          {recent && state.players[recent.entry.kind === 'build' || recent.entry.kind === 'network' || recent.entry.kind === 'develop' || recent.entry.kind === 'sell' || recent.entry.kind === 'loan' || recent.entry.kind === 'pass' ? recent.entry.player : 0]?.isAI && (
-            <p className="text-sm text-parchment-300" aria-live="polite">
-              {describeMove(recent.entry, (p) => state.players[p].name, townName, slotTown, industryNames, b.moves)}
-            </p>
-          )}
-          {/* The hand stays at the bottom of the screen, centred under the board. */}
-          <div className="pointer-events-none sticky bottom-12 z-20 -mx-2 flex flex-col items-center gap-1 bg-linear-to-t from-soot-950/95 via-soot-950/45 to-transparent px-2 pt-6 lg:bottom-0 [&>*]:pointer-events-auto">
-            {myTurn && !chosen.length && flow.kind === 'idle' && <p className="rounded-full bg-soot-950/80 px-2.5 text-xs text-parchment-300">{b.pickCard}</p>}
-            {jokerCards ? (
-              <JokerPrompt
-                first={nameOf(jokerCards[0])}
-                second={nameOf(jokerCards[1])}
-                blocked={jokerBlocked ? b.errors[jokerBlocked] : null}
-                onJoker={() => {
-                  setSelected(jokerCards)
-                  setJokerOffer(null)
-                  setFlow({ kind: 'build', industry: null })
-                }}
-                onSwitch={() => {
-                  setSelected([jokerCards[1]])
-                  setJokerOffer(null)
-                  if (flow.kind === 'build') setFlow({ kind: 'build', industry: null })
-                }}
-                onCancel={() => setJokerOffer(null)}
-              />
-            ) : (
-              chosenCard &&
-              flow.kind === 'idle' &&
-              cardBar && <CardActionBar card={chosenCard} name={cardName(chosenCard)} era={state.era} blocked={cardBar} noLoans={noLoans} onChoose={startCardAction} onCancel={cancelAll} />
-            )}
-            <HandFan cards={hand} selected={fanSelected} interactive={myTurn && !state.selling} name={cardName} kind={cardKind} label={b.handTitle} onSelect={onCard} onZoom={setZoom} />
-          </div>
         </div>
 
-        <aside className="hidden lg:block" aria-label={b.showPanel}>
-          <div className="plate rivets iron sticky top-2 p-2.5">{panel}</div>
+        <div className="brass-hand flex flex-col items-center">
+          <div className="flex min-h-9 w-full items-center justify-center">{handBar}</div>
+          <HandRow cards={hand} selected={fanSelected} interactive={myTurn && !state.selling} cardWidth={cardWidth} name={cardName} kind={cardKind} label={b.handTitle} onSelect={onCard} onZoom={setZoom} />
+        </div>
+
+        <div className="brass-left flex flex-wrap items-start gap-2 lg:flex-col lg:flex-nowrap">
+          <div className="flex items-end gap-3 rounded-lg border border-bronze-500/40 bg-soot-950/80 p-2">
+            <DeckIndicator state={state} />
+            <DiscardPile state={state} cardName={cardName} />
+          </div>
+          <DistantMarketPanel state={state} ctx={ctx} speed={ANIMATION_SCALE[settings.animationSpeed]} />
+        </div>
+
+        <aside className="brass-panel hidden lg:block" aria-label={b.showPanel}>
+          <div className="plate rivets iron p-2.5">{panel}</div>
         </aside>
       </main>
 
@@ -743,40 +814,12 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         </div>
       </Dialog>
 
-      {/* Flying cards (dealt, drawn, played) are drawn here, over everything. */}
+      {/* Flying cards (dealt, drawn, played), cubes and distant-market tiles are drawn here, over everything. */}
       <div ref={flights} className="pointer-events-none fixed inset-0 z-[60] overflow-hidden" aria-hidden="true" />
 
       <Results open={resultsOpen && state.finished} state={state} colorOf={colorOf} unlocked={unlocked} onClose={() => setResultsOpen(false)} onRematch={onRematch} onLeave={onLeave} />
     </div>
   )
-}
-
-function describeMove(
-  entry: LogEntry,
-  name: (p: number) => string,
-  townName: (id: string) => string,
-  slotTown: (slot: string) => string,
-  industries: Record<IndustryId, string>,
-  words: ReturnType<typeof useT>['brass']['moves'],
-): string {
-  switch (entry.kind) {
-    case 'build':
-      return words.build(name(entry.player), `${industries[entry.industry]} ${roman(entry.level)}`, slotTown(entry.slot))
-    case 'network':
-      return words.network(name(entry.player), entry.links.length)
-    case 'develop':
-      return words.develop(name(entry.player))
-    case 'sell':
-    case 'sell-failed':
-      return words.sell(name(entry.player))
-    case 'loan':
-      return words.loan(name(entry.player), entry.amount)
-    case 'pass':
-      return words.pass(name(entry.player))
-    default:
-      void townName
-      return ''
-  }
 }
 
 /* ---- The board ------------------------------------------------------------------ */
@@ -787,6 +830,7 @@ function BrassBoard({
   targetColor,
   showLinkSpaces,
   network,
+  notes,
   recent,
   motion,
   onSelectSlot,
@@ -799,6 +843,7 @@ function BrassBoard({
   targetColor: string
   showLinkSpaces: boolean
   network: { locations: Set<string>; color: string } | null
+  notes: ReadonlyMap<string, string>
   recent: { entry: LogEntry; key: number } | null
   motion: number
   onSelectSlot: (town: string, index: number) => void
@@ -855,6 +900,7 @@ function BrassBoard({
       closed={closed}
       fading={fading.slots.size || fading.links.size ? fading : null}
       network={network}
+      notes={notes}
       recent={boardRecent}
       motion={motion}
       onSelectSlot={onSelectSlot}

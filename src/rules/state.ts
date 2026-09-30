@@ -161,4 +161,5 @@ export type RuleErrorCode =
   | 'sale'
   | 'loan'
   | 'no-more-loans'
+  | 'distant-closed'
   | 'input'

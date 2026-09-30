@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyAction, createGame, currentPlayerId, eraScores, incomeOf, linkValueAt, planBuild, rankPlayers, roundsInEra, type RulesContext } from './engine'
+import { applyAction, createGame, currentPlayerId, eraScores, incomeOf, linkValueAt, planBuild, rankPlayers, roundsInEra, saleOptions, type RulesContext } from './engine'
 import { resolveRulesData, type RulesData } from './data'
 import { BRASS_MAP } from './map'
 import { buildBlocker, buildOptions, legalActions, linkOptions, loanOptions } from './options'
@@ -486,6 +486,21 @@ describe('develop (§3)', () => {
   })
 })
 
+/** Player 0 has a cotton mill in Oxford connected to London (a trade hub); with `second`, one in Gloucester too, and 2 cards. */
+function distantGame({ second = false } = {}): GameState {
+  const s = game(2, { hands: [second ? [L('oxford'), L('oxford')] : [L('oxford')], []], actions: second ? 2 : 1 })
+  s.tiles['oxford:0'] = tile(0, 'cotton')
+  s.links['reading-oxford'] = { owner: 1 }
+  s.links['london-reading'] = { owner: 1 }
+  if (second) {
+    s.tiles['gloucester:1'] = tile(0, 'cotton')
+    s.links['birmingham-oxford'] = { owner: 1 }
+    s.links['wolverhampton-birmingham'] = { owner: 1 }
+    s.links['wolverhampton-gloucester'] = { owner: 1 }
+  }
+  return s
+}
+
 describe('sell cotton (§3)', () => {
   it('via a port: flips your mill and the port; both owners gain their income', () => {
     const s = game(2, { hands: [[L('oxford')], []] })
@@ -517,36 +532,75 @@ describe('sell cotton (§3)', () => {
     expect(after.tiles['oxford:0'].flipped).toBe(true)
   })
 
-  it('a sale that reaches X fails and closes the distant market for the era', () => {
-    const s = game(2, { hands: [[L('oxford')], []] })
-    s.tiles['oxford:0'] = tile(0, 'cotton')
-    s.links['reading-oxford'] = { owner: 1 }
-    s.links['london-reading'] = { owner: 1 }
-    s.distant.marker = 4
-    s.distant.deck = [7] // move 4 → row 8: X
-    const after = act(s, { type: 'sell', cards: [s.players[0].hand[0].id], sale: { mill: 'oxford:0', distant: true } })
-    expect(after.distant.closed).toBe(true)
-    expect(after.tiles['oxford:0'].flipped).toBe(false)
-    expect(after.selling).toBeNull()
+  it('the track is the path in config: 3a, 3b, 2b, 2a, 1a, 1b, 0b, 0a, X, with incomes 3/3/2/2/1/1/0/0', () => {
+    expect(ctx.data.distantMarket.spaces).toEqual(['3a', '3b', '2b', '2a', '1a', '1b', '0b', '0a', 'X'])
+    expect(ctx.data.distantMarket.track).toEqual([3, 3, 2, 2, 1, 1, 0, 0, 'X'])
   })
 
-  it('landing exactly on X fails too: the card is spent, no income, and the market stays closed for the era', () => {
-    const s = game(2, { hands: [[L('oxford'), L('oxford')], []], actions: 2 })
-    s.tiles['oxford:0'] = tile(0, 'cotton')
-    s.tiles['gloucester:1'] = tile(0, 'cotton')
-    s.links['reading-oxford'] = { owner: 1 }
-    s.links['london-reading'] = { owner: 1 }
-    s.links['birmingham-oxford'] = { owner: 1 }
-    s.links['wolverhampton-birmingham'] = { owner: 1 }
-    s.links['wolverhampton-gloucester'] = { owner: 1 }
-    s.distant.marker = 6
-    s.distant.deck = [0, 1] // move 1 → row 7: X
+  it('a successful sale pays the income of the row the marker ends in (3 / 2 / 1 / 0)', () => {
+    for (const [marker, income] of [
+      [0, 3],
+      [2, 2],
+      [3, 2],
+      [4, 1],
+      [6, 0],
+      [7, 0],
+    ] as const) {
+      const s = distantGame()
+      s.distant.marker = marker
+      s.distant.deck = [8] // move 0 (placeholder): the marker stays on its space
+      const after = act(s, { type: 'sell', cards: [s.players[0].hand[0].id], sale: { mill: 'oxford:0', distant: true } })
+      expect(after.distant.marker).toBe(marker)
+      expect(after.players[0].incomeSpace).toBe(10 + income + 5) // + cotton I: 5
+      expect(after.log.find((e) => e.kind === 'sell')).toMatchObject({ distant: { move: 0, income } })
+    }
+  })
+
+  it('landing exactly on X fails: nothing sold, no income, the card is spent, the market closes for the era', () => {
+    const s = distantGame({ second: true })
+    s.distant.marker = 7 // 0a
+    s.distant.deck = [0, 1] // move 1 → X
     const after = act(s, { type: 'sell', cards: [s.players[0].hand[0].id], sale: { mill: 'oxford:0', distant: true } })
-    expect(after.distant).toMatchObject({ marker: 7, closed: true })
+    expect(after.distant).toMatchObject({ marker: 8, closed: true })
+    expect(after.tiles['oxford:0'].flipped).toBe(false)
     expect(after.players[0].incomeSpace).toBe(10)
     expect(after.players[0].hand).toHaveLength(1)
+    expect(after.actionsLeft).toBe(1)
+    expect(after.selling).toBeNull()
     expect(after.log.at(-1)).toMatchObject({ kind: 'sell-failed', mill: 'oxford:0', move: 1 })
-    expect(code(() => act(after, { type: 'sell', cards: [after.players[0].hand[0].id], sale: { mill: 'gloucester:1', distant: true } }))).toBe('sale')
+    // With the marker on X, distant sales aren't offered at all.
+    expect(saleOptions(after, ctx, 0)).toEqual([])
+    expect(code(() => act(after, { type: 'sell', cards: [after.players[0].hand[0].id], sale: { mill: 'gloucester:1', distant: true } }))).toBe('distant-closed')
+  })
+
+  it('a tile that would take the marker past X fails too; the marker stops on X', () => {
+    const s = distantGame()
+    s.distant.marker = 5 // 1b
+    s.distant.deck = [7] // move 4 → past X
+    const after = act(s, { type: 'sell', cards: [s.players[0].hand[0].id], sale: { mill: 'oxford:0', distant: true } })
+    expect(after.distant).toMatchObject({ marker: 8, closed: true })
+    expect(after.tiles['oxford:0'].flipped).toBe(false)
+    expect(after.players[0].incomeSpace).toBe(10)
+  })
+
+  it('continuing sales flip a new tile each; they stop at the first failure', () => {
+    let s = distantGame({ second: true })
+    s.distant.marker = 6 // 0b
+    s.distant.deck = [8, 0, 1] // move 0 (sells, £0), then move 1 (0a, sells), then move 1 (X)
+    s.tiles['bristol:0'] = tile(0, 'cotton')
+    s.links['gloucester-bristol'] = { owner: 1 }
+    s = act(s, { type: 'sell', cards: [s.players[0].hand[0].id], sale: { mill: 'oxford:0', distant: true } })
+    expect(s.selling).toEqual({ player: 0 })
+    expect(s.distant.used).toEqual([8])
+    s = act(s, { type: 'sell-more', sale: { mill: 'gloucester:1', distant: true } })
+    expect(s.distant.marker).toBe(7)
+    expect(s.tiles['gloucester:1'].flipped).toBe(true)
+    expect(s.selling).toEqual({ player: 0 })
+    s = act(s, { type: 'sell-more', sale: { mill: 'bristol:0', distant: true } })
+    expect(s.distant).toMatchObject({ marker: 8, closed: true, used: [8, 0, 1] })
+    expect(s.tiles['bristol:0'].flipped).toBe(false)
+    expect(s.selling).toBeNull()
+    expect(code(() => act(s, { type: 'sell-more', sale: { mill: 'bristol:0', distant: true } }))).toBe('not-selling')
   })
 
   it('after a sale you may sell more mills without another card, then stop', () => {

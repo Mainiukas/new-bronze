@@ -553,7 +553,7 @@ export function saleProblem(state: GameState, ctx: RulesContext, playerId: numbe
     if (!reach.has(ctx.map.slots[sale.port].town)) return new RuleError('sale', "The mill isn't connected to that port")
     return null
   }
-  if (state.distant.closed) return new RuleError('sale', 'The distant market is closed for this era')
+  if (state.distant.closed) return new RuleError('distant-closed', 'The distant market has closed for this era')
   if (!ctx.map.hubs.some((h) => reach.has(h.id))) return new RuleError('sale', "The mill isn't connected to a trade hub")
   return null
 }

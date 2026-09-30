@@ -14,6 +14,7 @@ import { deckMode } from '../components/brass/cardArt'
 import { CardActionBar, CardZoom, HandRow, JokerPrompt } from '../components/brass/Cards'
 import { DeckIndicator, DiscardPile } from '../components/brass/Deck'
 import { DistantMarketPanel } from '../components/brass/DistantMarket'
+import { motionOff } from '../components/brass/flights'
 import { GameLog } from '../components/brass/GameLog'
 import { MarketStrip } from '../components/brass/Markets'
 import { TurnOrder } from '../components/brass/TurnOrder'
@@ -123,6 +124,8 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const [resultsOpen, setResultsOpen] = useState(state.finished)
   const [unlocked, setUnlocked] = useState<Achievement[]>([])
   const [recent, setRecent] = useState<{ entry: LogEntry; key: number } | null>(null)
+  /** A distant sale just failed: the banner over the board (its key restarts it). */
+  const [closedBanner, setClosedBanner] = useState<number | null>(null)
 
   const current = currentPlayerId(state)
   const humans = state.players.flatMap((p, i) => (p.isAI ? [] : [i]))
@@ -175,7 +178,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       const nextMatch = { ...match, state: next }
       const entry = [...next.log.slice(state.log.length)].reverse().find((e) => ['build', 'network', 'develop', 'sell', 'sell-failed', 'loan', 'pass'].includes(e.kind))
       if (entry) setRecent({ entry, key: next.log.length })
-      if (next.log.slice(state.log.length).some((e) => e.kind === 'sell-failed')) notify(b.distantClosed)
+      if (next.log.slice(state.log.length).some((e) => e.kind === 'sell-failed')) setClosedBanner(next.log.length)
       if (!state.finished && next.finished) {
         setUnlocked(onMatchFinished(nextMatch))
         setResultsOpen(true)
@@ -217,6 +220,15 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   }, [flow, selected, jokerOffer])
 
   // Computer players act on their own after a pause.
+  // The banner shows after the tile has flipped and the marker has reached X, then goes.
+  const speed = ANIMATION_SCALE[settings.animationSpeed]
+  const bannerDelay = speed > 0 && !motionOff() ? 2700 * speed : 0
+  useEffect(() => {
+    if (closedBanner === null) return
+    const timer = window.setTimeout(() => setClosedBanner(null), bannerDelay + 4500)
+    return () => window.clearTimeout(timer)
+  }, [closedBanner, bannerDelay])
+
   const playComputer = useEffectEvent(() => {
     const id = currentPlayerId(state)
     if (state.finished || !state.players[id].isAI) return
@@ -272,6 +284,8 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       else if (flow.kind === 'build' && flow.industry) add(coalBlockedSlots(state, ctx, me, flow.industry))
     } else if (flow.kind === 'network') {
       add(linkCoalBlocked(state, ctx, me, flow.picked, actionCard ?? undefined))
+    } else if (flow.kind === 'sell-buyer' && state.distant.closed) {
+      for (const hub of ctx.map.hubs) notes.set(hub.id, b.distantNoSale)
     }
     return notes
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -540,7 +554,9 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
               ? b.sellMore
               : b.sellPickMill
             : flow.kind === 'sell-buyer'
-              ? b.sellPickBuyer
+              ? state.distant.closed
+                ? `${b.sellPickBuyer} — ${b.distantNoSale}`
+                : b.sellPickBuyer
               : null
 
   const panel = (
@@ -744,6 +760,20 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
                 colorOf={colorOf}
               />
             </ZoomPan>
+            {closedBanner !== null && (
+              <div key={closedBanner} className="pointer-events-none absolute inset-x-0 top-[38%] z-20 flex justify-center px-4">
+                <button
+                  type="button"
+                  role="alert"
+                  onClick={() => setClosedBanner(null)}
+                  className="pointer-events-auto flex items-center gap-2.5 rounded-lg border-2 border-ember-400/80 bg-soot-950/95 px-5 py-3 font-display text-base font-bold text-parchment-50 shadow-[0_10px_30px_rgb(0_0_0/0.7)] sm:text-lg"
+                  style={{ animation: `toast-in 320ms ease-out ${bannerDelay}ms both` }}
+                >
+                  <span aria-hidden="true" className="text-ember-300">✕</span>
+                  {b.distantNoSale}
+                </button>
+              </div>
+            )}
           </section>
         </div>
 
@@ -757,7 +787,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
             <DeckIndicator state={state} />
             <DiscardPile state={state} cardName={cardName} />
           </div>
-          <DistantMarketPanel state={state} ctx={ctx} speed={ANIMATION_SCALE[settings.animationSpeed]} />
+          <DistantMarketPanel state={state} ctx={ctx} me={me} speed={ANIMATION_SCALE[settings.animationSpeed]} />
         </div>
 
         <aside className="brass-panel hidden lg:block" aria-label={b.showPanel}>

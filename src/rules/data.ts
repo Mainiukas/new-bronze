@@ -4,7 +4,7 @@
  * values (it lists them), so the engine never runs on a guessed number.
  */
 
-import type { DistantMarketConfig } from './config/distantMarket'
+import type { DistantMarketConfig, DistantSpaceId } from './config/distantMarket'
 import type { MarketConfig } from './config/markets'
 import { INDUSTRY_LABEL, INDUSTRY_ORDER, isTodo, missingValues, perIndustry, roman, type IndustryId, type Maybe, type TileTable } from './tileTable'
 
@@ -46,7 +46,9 @@ export interface RulesData {
   readonly incomeBySpace: readonly number[]
   readonly distantMarket: {
     readonly tiles: readonly { readonly move: number; readonly players: number | null; readonly flagged: boolean }[]
-    /** Income per row, top first. 'X' closes the market. */
+    /** The track's spaces in path order (config/distantMarket.ts). */
+    readonly spaces: readonly DistantSpaceId[]
+    /** The income of each of those spaces (its row); 'X' closes the market. */
     readonly track: readonly (number | 'X')[]
   }
   readonly hubs: Readonly<Record<string, { readonly linkValue: number; readonly marketAccess: boolean }>>
@@ -109,7 +111,8 @@ export function resolveRulesData({ tiles: table, markets, distant }: RulesTables
     incomeBySpace,
     distantMarket: {
       tiles: distant.tiles.map((t) => ({ move: value(t.move), players: value(t.players), flagged: value(t.flagged) })),
-      track: [...value(distant.track)],
+      spaces: [...distant.track],
+      track: distant.track.map(spaceIncome),
     },
     hubs: Object.fromEntries(table.hubs.map((h) => [h.id, { linkValue: value(h.linkValue), marketAccess: value(h.marketAccess) }])),
     portTownsGiveMarketAccess: value(table.portTownsGiveMarketAccess),
@@ -118,6 +121,14 @@ export function resolveRulesData({ tiles: table, markets, distant }: RulesTables
   if (problems.length) throw new Error(`docs/TILES.md has inconsistent values:\n- ${problems.join('\n- ')}`)
   return data
 }
+
+/** A distant-market space's income: its row (the digit of '2a'), or X. */
+export function spaceIncome(space: DistantSpaceId): number | 'X' {
+  return space === 'X' ? 'X' : Number(space[0])
+}
+
+/** Every space on the distant-market track: four income rows of two, then X. */
+export const DISTANT_SPACES: readonly DistantSpaceId[] = ['3a', '3b', '2a', '2b', '1a', '1b', '0a', '0b', 'X']
 
 /** A market's spaces (each step's price repeated for its spaces), empty price and starting cubes. */
 function market(config: MarketConfig): RulesData['markets']['coal'] {
@@ -151,7 +162,10 @@ export function checkRulesData(data: RulesData): string[] {
     if (m.spaces.length && m.empty < m.spaces[m.spaces.length - 1]) problems.push(`${name} market: the empty price must be at least the dearest space`)
   }
   const track = data.distantMarket.track
-  if (track.at(-1) !== 'X' || track.indexOf('X') !== track.length - 1) problems.push('Distant market track: the last row, and only the last, must be X')
+  const spaces = data.distantMarket.spaces
+  if (spaces.length !== DISTANT_SPACES.length || DISTANT_SPACES.some((id) => !spaces.includes(id))) problems.push(`Distant market track: every space (${DISTANT_SPACES.join(', ')}) must be on it once`)
+  if (track.at(-1) !== 'X') problems.push('Distant market track: the last space must be X')
+  if (track.some((income, i) => i > 0 && income !== 'X' && track[i - 1] !== 'X' && income > (track[i - 1] as number))) problems.push('Distant market track: the path must go down the rows, never back up')
   if (data.distantMarket.tiles.length !== DISTANT_TILES) problems.push(`Distant market: the rulebook has ${DISTANT_TILES} tiles, not ${data.distantMarket.tiles.length}`)
   for (const [i, t] of data.distantMarket.tiles.entries()) if (!(t.move >= 0 && t.move <= 4)) problems.push(`Distant market tile ${i + 1}: its value must be 0–4 rows down`)
   return problems

@@ -16,7 +16,7 @@ Every rules number lives in `src/rules/config`:
 A value not known yet is `?` in TILES.md, or `todo(...)` in the other files. The
 engine never uses one: the game plays on labelled placeholder numbers, and
 `npm run build` stops, listing them all. `node scripts/tiles.mjs --check`
-prints the full labelled list. Today: **326 values**.
+prints the full labelled list. Today: **325 values**.
 
 | Where | Section | Values |
 | --- | --- | --- |
@@ -30,7 +30,6 @@ prints the full labelled list. Today: **326 values**.
 | config/markets.ts | Coal market: price and spaces of each of 4 steps | 8 |
 | config/markets.ts | Iron market: price and spaces of each of 4 steps | 8 |
 | config/distantMarket.ts | 12 tiles × (value 0–4, player count printed, "!") | 36 |
-| config/distantMarket.ts | The track: income on each row, top first, ending with X | 1 |
 
 - **Proposals:** 9 of these are proposals, which count as not filled in until you accept them.
   - The market prices £1–£4, taken from the example in your gameplay spec. Write the number in place of `todo(...)` to accept one.
@@ -100,7 +99,7 @@ removals (or fewer industry cards).
 | 4 | — | stops (Brecon, Reading, Taunton) | Links pass through them. Nothing is built there, they have no cards, and they have link value 0 |
 | 5 | — | rail-only places (Plymouth, Taunton, The North) | No canals to them, and no building there in the canal era |
 | 6 | — | the drawn practice maps have no ports or hubs | Brass matches always use the painted board |
-| 7 | Distant market tiles and track | — | 12 tiles and the track in `config/distantMarket.ts`; the values are `todo(...)` |
+| 7 | Distant market tiles and track | — | 12 tiles in `config/distantMarket.ts` (values still `todo(...)`). The track is set from your layout: rows £3, £2, £1, £0 of two spaces each, then X, walked in the order 3a, 3b, 2b, 2a, 1a, 1b, 0b, 0a, X (`distantMarket.track`) |
 
 ## 4. How I read the rules where they leave a choice (please confirm)
 
@@ -170,8 +169,10 @@ removals (or fewer industry cards).
     - hovering a circle shows money, income, VP and cards; clicking it shows that player's mat.
   - **Coal and iron market strip:** price steps with their spaces (cubes, or empty outlined squares), ×N left at each price, £5 ∞, and the next cube to be bought outlined.
   - **Distant cotton market:**
-    - the zig-zag track with the income at each row, the marker, the face-down stack and the last tile flipped;
-    - greyed out with "The distant market has closed" (and a toast) when a sale reaches X.
+    - a tall riveted iron plaque hanging from a bracket, filling the height of the left strip: four income rows (a coin-stack badge, two round spaces), the engraved X row with one space, the zig-zag path in the order stored in `distantMarket.track`, and a cotton-mill plate;
+    - beside it, the face-down stack and the face-up pile of tiles flipped this era;
+    - on a sale, the tile turns over large in the middle of the screen and goes to the pile, then the marker hops along the path (150 ms a space);
+    - a sale that lands on X or would pass it fails: "The distant market has closed — no sale." over the board; the marker stays on X, the plaque greys out with a padlock for the rest of the era, and Sell (and the hubs, when picking a buyer) say why.
   - **Deck and discard pile** outside the board frame:
     - the deck with its count, the train, or the no-loan coin;
     - the discard pile is smaller, face up and turned, with a label and "Last card: … by …"; clicking it lists this round's cards.

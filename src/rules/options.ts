@@ -296,7 +296,7 @@ export function cardActions(state: GameState, ctx: RulesContext, playerId: numbe
     build: cardBuildBlocker(state, ctx, playerId, [card]),
     network: oneLink === null || twoLinks === null ? null : oneLink,
     develop: developCodes.includes(null) ? null : mostTelling(developCodes.filter((c): c is RuleErrorCode => c !== null), ['iron', 'money', 'develop', 'locked', 'no-tiles'], 'develop'),
-    sell: saleOptions(state, ctx, playerId).length ? null : 'sale',
+    sell: saleOptions(state, ctx, playerId).length ? null : state.distant.closed && saleOptions({ ...state, distant: { ...state.distant, closed: false } }, ctx, playerId).length ? 'distant-closed' : 'sale',
     loan: loans.some((l) => !l.problem) ? null : loans[0].problem!.code,
     pass: null,
   }

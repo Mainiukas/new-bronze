@@ -9,6 +9,7 @@
  */
 
 import type { MarketConfig } from './config/markets'
+import { DISTANT_MARKET } from './config/distantMarket'
 import { resolveRulesData, type RulesData, type RulesTables } from './data'
 import { TILE_TABLE } from './config/tiles'
 import { isTodo, type IndustryId, type TileLevelRow, type TileTable } from './tileTable'
@@ -151,7 +152,7 @@ export function placeholderTables(): RulesTables {
         { move: 2, players: 3, flagged: false },
         { move: 3, players: 4, flagged: false },
       ],
-      track: [3, 3, 2, 2, 1, 1, 0, 'X'],
+      track: DISTANT_MARKET.track,
     },
   }
 }

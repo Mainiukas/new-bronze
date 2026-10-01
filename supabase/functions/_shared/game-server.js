@@ -30,7 +30,7 @@ var board_default = {
 			"id": "the_north",
 			"name": "The North",
 			"type": "hub",
-			"x": 64.5,
+			"x": 61,
 			"y": 11.9,
 			"ring": 1,
 			"era": "rail",
@@ -42,7 +42,7 @@ var board_default = {
 			"name": "London",
 			"type": "hub",
 			"x": 85.5,
-			"y": 64,
+			"y": 66.5,
 			"ring": 1,
 			"price": 7,
 			"buys": [
@@ -65,8 +65,8 @@ var board_default = {
 			"id": "brecon",
 			"name": "Brecon",
 			"type": "stop",
-			"x": 35.4,
-			"y": 37.4,
+			"x": 26.9,
+			"y": 41.1,
 			"ring": 2
 		},
 		{
@@ -74,7 +74,7 @@ var board_default = {
 			"name": "Reading",
 			"type": "stop",
 			"x": 86,
-			"y": 51.2,
+			"y": 53.7,
 			"ring": 1
 		},
 		{
@@ -82,7 +82,7 @@ var board_default = {
 			"name": "Taunton",
 			"type": "stop",
 			"x": 54.6,
-			"y": 75.1,
+			"y": 76.6,
 			"ring": 3,
 			"era": "rail"
 		},
@@ -90,7 +90,7 @@ var board_default = {
 			"id": "caernarfon",
 			"name": "Caernarfon",
 			"type": "city",
-			"x": 25.4,
+			"x": 24.2,
 			"y": 10.9,
 			"region": "wales",
 			"ring": 3,
@@ -100,8 +100,8 @@ var board_default = {
 			"id": "wrexham",
 			"name": "Wrexham",
 			"type": "city",
-			"x": 35.1,
-			"y": 25.2,
+			"x": 35,
+			"y": 25.1,
 			"region": "wales",
 			"ring": 2,
 			"slots": [["coal"], ["iron"]]
@@ -111,22 +111,22 @@ var board_default = {
 			"name": "Carmarthen",
 			"type": "city",
 			"x": 15.5,
-			"y": 34.7,
+			"y": 30.3,
 			"region": "wales",
 			"ring": 2,
-			"slots": [["cotton"], ["port"]]
+			"slots": [["shipyard"], ["iron"]]
 		},
 		{
 			"id": "merthyr",
 			"name": "Merthyr Tydfil",
 			"type": "city",
-			"x": 32.6,
-			"y": 51,
+			"x": 42.1,
+			"y": 51.7,
 			"region": "wales",
 			"ring": 2,
 			"slots": [
 				["iron"],
-				["iron"],
+				["cotton"],
 				["coal"]
 			]
 		},
@@ -134,8 +134,8 @@ var board_default = {
 			"id": "stoke",
 			"name": "Stoke-on-Trent",
 			"type": "city",
-			"x": 42.7,
-			"y": 12.7,
+			"x": 39.3,
+			"y": 12.9,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [
@@ -149,7 +149,7 @@ var board_default = {
 			"name": "Derby",
 			"type": "city",
 			"x": 76.5,
-			"y": 27.1,
+			"y": 25.5,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [["cotton"], ["cotton", "iron"]]
@@ -158,7 +158,7 @@ var board_default = {
 			"id": "nottingham",
 			"name": "Nottingham",
 			"type": "city",
-			"x": 82.5,
+			"x": 74.9,
 			"y": 10.9,
 			"region": "midlands",
 			"ring": 2,
@@ -168,7 +168,7 @@ var board_default = {
 			"id": "lichfield",
 			"name": "Lichfield",
 			"type": "city",
-			"x": 60.7,
+			"x": 60.6,
 			"y": 24.1,
 			"region": "midlands",
 			"ring": 1,
@@ -178,8 +178,8 @@ var board_default = {
 			"id": "wolverhampton",
 			"name": "Wolverhampton",
 			"type": "city",
-			"x": 55.1,
-			"y": 33.3,
+			"x": 55,
+			"y": 33.1,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [
@@ -192,8 +192,8 @@ var board_default = {
 			"id": "birmingham",
 			"name": "Birmingham",
 			"type": "city",
-			"x": 76.7,
-			"y": 37.6,
+			"x": 78.2,
+			"y": 36.8,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [
@@ -208,7 +208,7 @@ var board_default = {
 			"name": "Leicester",
 			"type": "city",
 			"x": 85.9,
-			"y": 23.5,
+			"y": 22.7,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [["cotton", "coal"], ["cotton", "coal"]]
@@ -217,8 +217,8 @@ var board_default = {
 			"id": "gloucester",
 			"name": "Gloucester",
 			"type": "city",
-			"x": 53.7,
-			"y": 48.1,
+			"x": 63.2,
+			"y": 48.8,
 			"region": "thames",
 			"ring": 1,
 			"slots": [["port"], ["cotton", "port"]]
@@ -227,8 +227,8 @@ var board_default = {
 			"id": "oxford",
 			"name": "Oxford",
 			"type": "city",
-			"x": 69.9,
-			"y": 56.5,
+			"x": 71.4,
+			"y": 60.4,
 			"region": "thames",
 			"ring": 1,
 			"slots": [["cotton"], ["cotton"]]
@@ -237,8 +237,8 @@ var board_default = {
 			"id": "bristol",
 			"name": "Bristol",
 			"type": "city",
-			"x": 46.4,
-			"y": 62.1,
+			"x": 45.4,
+			"y": 61.9,
 			"region": "west",
 			"ring": 1,
 			"slots": [
@@ -252,8 +252,8 @@ var board_default = {
 			"id": "swindon",
 			"name": "Swindon",
 			"type": "city",
-			"x": 62.4,
-			"y": 68.8,
+			"x": 60.4,
+			"y": 71.2,
 			"region": "west",
 			"ring": 1,
 			"slots": [["iron"], ["coal"]]
@@ -262,13 +262,13 @@ var board_default = {
 			"id": "southampton",
 			"name": "Southampton",
 			"type": "city",
-			"x": 82.3,
-			"y": 79.7,
+			"x": 81.8,
+			"y": 82.1,
 			"region": "west",
 			"ring": 2,
 			"slots": [
 				["cotton", "port"],
-				["cotton", "port"],
+				["shipyard"],
 				["coal"]
 			]
 		},
@@ -276,8 +276,8 @@ var board_default = {
 			"id": "barnstaple",
 			"name": "Barnstaple",
 			"type": "city",
-			"x": 28.4,
-			"y": 65.4,
+			"x": 28.1,
+			"y": 65.5,
 			"region": "southwest",
 			"ring": 3,
 			"slots": [["port"]]
@@ -321,7 +321,7 @@ var board_default = {
 			"id": "west_wales-carmarthen",
 			"from": "west_wales",
 			"to": "carmarthen",
-			"type": "both"
+			"type": "rail"
 		},
 		{
 			"id": "brecon-wrexham",
@@ -346,7 +346,7 @@ var board_default = {
 			"id": "carmarthen-merthyr",
 			"from": "carmarthen",
 			"to": "merthyr",
-			"type": "both"
+			"type": "rail"
 		},
 		{
 			"id": "derby-nottingham",
@@ -419,6 +419,12 @@ var board_default = {
 			"id": "merthyr-barnstaple",
 			"from": "merthyr",
 			"to": "barnstaple",
+			"type": "canal"
+		},
+		{
+			"id": "merthyr-west_wales",
+			"from": "merthyr",
+			"to": "west_wales",
 			"type": "canal"
 		},
 		{

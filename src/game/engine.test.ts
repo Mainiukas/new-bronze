@@ -180,7 +180,10 @@ describe('building industries', () => {
   it('keeps rail-only towns closed in the canal era', () => {
     const g = edit(newGame(), (s) => (s.players[0].money = 40))
     expectIllegal(() => applyAction(g, { type: 'build', kind: 'iron', townId: 'plymouth', slot: 0 }), /Plymouth opens in the rail era/)
-    expect(say(buildBlocker(g, 'shipyard'))).toBe('Opens in the rail era')
+    // Southampton's and Carmarthen's shipyards are open; Plymouth's opens in the rail era.
+    expect(buildTargets(g, 'shipyard').map((p) => p.townId).sort()).toEqual(['carmarthen', 'southampton'])
+    const onlyPlymouth = edit(g, (s) => (s.board.towns = s.board.towns.map((t) => (t.id === 'plymouth' ? t : { ...t, slots: t.slots.map((a) => a.filter((k) => k !== 'shipyard')) }))))
+    expect(say(buildBlocker(onlyPlymouth, 'shipyard'))).toBe('Opens in the rail era')
     expect(buildTargets(g, 'iron').some((p) => p.townId === 'plymouth')).toBe(false)
   })
 })
@@ -190,7 +193,7 @@ describe('building links', () => {
     let g = newGame()
     const kinds = new Set(linkTargets(g).map((r) => r.kinds.join('+')))
     expect(kinds).toEqual(new Set(['canal', 'canal+rail']))
-    expect(linkTargets(g)).toHaveLength(22)
+    expect(linkTargets(g)).toHaveLength(21)
     g = applyAction(g, { type: 'build', kind: 'coal', townId: 'lichfield', slot: 0 })
     expect(linkTargets(g).map((r) => r.id).sort()).toEqual(['lichfield-birmingham', 'stoke-lichfield'])
     expectIllegal(() => applyAction(g, { type: 'link', routeId: 'derby-lichfield' }), /doesn’t exist in the canal era/)
@@ -461,7 +464,7 @@ describe('eras', () => {
   it('opens rail-only towns and their rail links in the rail era', () => {
     const g = edit(skipTo(newGame(), 6), (s) => (s.players[s.turnOrder[0]].money = 40))
     const p = currentPlayerId(g)
-    expect(buildTargets(g, 'shipyard', p)).toEqual([{ townId: 'plymouth', slot: 1 }])
+    expect(buildTargets(g, 'shipyard', p)).toContainEqual({ townId: 'plymouth', slot: 1 })
     expect(linkTargets(g, p).some((r) => r.id === 'the_north-stoke')).toBe(true)
     expect(linkTargets(g, p).every((r) => r.kinds.includes('rail'))).toBe(true)
     // Wrexham – Wolverhampton is a canal and a railway: buildable in the rail era too.

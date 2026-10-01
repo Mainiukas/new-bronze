@@ -72,7 +72,7 @@ describe('the deck (cards.ts)', () => {
         return (error as { code?: string }).code
       }
     }
-    expect(build('carmarthen:0')).toBe('closed') // ring 2
+    expect(build('southampton:0')).toBe('closed') // ring 2
     expect(build('oxford:0')).toBe('ok') // ring 1 (cotton needs no coal)
     const offMap = Object.values(BRASS_MAP.links).filter((l) => [l.from, l.to].some((p) => BRASS_MAP.places[p].ring > 1))
     expect(offMap.length).toBeGreaterThan(0)

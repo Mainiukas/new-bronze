@@ -284,14 +284,22 @@ export interface BoardDesign {
   links: Record<LinkType, number>
   /** Number of cities with each tile count. */
   tiles: Record<number, number>
+  /** Towns of the canal era that no canal reaches on purpose (they join the network in the rail era). */
+  noCanal?: readonly string[]
 }
 
-export const BOARD_DESIGN: BoardDesign = { start: 'birmingham', links: { both: 17, canal: 5, rail: 17 }, tiles: { 4: 2, 3: 4, 2: 10, 1: 3 } }
+export const BOARD_DESIGN: BoardDesign = {
+  start: 'birmingham',
+  links: { both: 15, canal: 6, rail: 19 },
+  tiles: { 4: 2, 3: 4, 2: 10, 1: 3 },
+  // Carmarthen's links are all railways: no canal reaches it.
+  noCanal: ['carmarthen'],
+}
 
 /**
  * Everything about the network that breaks its design, as readable messages:
  * 1. from `start`, canal and "both" links reach every location except the
- *    rail-era ones; 2. rail and "both" links reach every location; 3. degrees
+ *    rail-era ones (and the towns the design keeps off the canals); 2. rail and "both" links reach every location; 3. degrees
  *    add up to twice the link count, with the right number of each type;
  *    4. the right number of cities of each tile count.
  */
@@ -300,7 +308,7 @@ export function designProblems(board: BoardData, design: BoardDesign): string[] 
   const list = (ids: string[]) => ids.join(', ') || 'nothing'
   const canal = reachable(board, design.start, 'canal')
   const unreached = board.locations.filter((l) => !canal.has(l.id)).map((l) => l.id)
-  const railOnly = board.locations.filter((l) => l.era === 'rail').map((l) => l.id)
+  const railOnly = board.locations.filter((l) => l.era === 'rail' || design.noCanal?.includes(l.id)).map((l) => l.id)
   if (unreached.join() !== railOnly.join()) {
     problems.push(`Canal era: from ${design.start} everything but ${list(railOnly)} should be reachable; unreachable: ${list(unreached)}`)
   }

@@ -21,7 +21,7 @@ describe('card names', () => {
     expect(nameLines('Merthyr Tydfil')).toEqual(['Merthyr', 'Tydfil'])
     expect(nameLines('Stoke-on-Trent')).toEqual(['Stoke-on-', 'Trent'])
     expect(nameLines('Cotton Mill')).toEqual(['Cotton', 'Mill'])
-    expect(nameLines('Iron Works')).toEqual(['Iron', 'Works'])
+    expect(nameLines('Iron Works').join(' / ')).toBe('Iron / Works')
     expect(nameLines('Coal Mine')).toEqual(['Coal', 'Mine'])
     for (const word of ['Wolverhampton', 'Southampton', 'Birmingham', 'Gloucester', 'Nottingham', 'Carmarthen', 'Caernarfon', 'Barnstaple', 'Port']) expect(nameLines(word)).toEqual([word])
   })

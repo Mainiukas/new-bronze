@@ -3,14 +3,9 @@
  *
  * Storage can be missing or throw (private browsing, blocked cookies, quota
  * exceeded, sandboxed iframes). Every access is wrapped in try/catch so the
- * app keeps working with in-memory state only.
- *
- * Writes follow the visitor's cookie choices: a key in a category they
- * haven't allowed (see legal/inventory.ts) is kept in memory only.
+ * app keeps working with in-memory state only. Every key is listed in
+ * legal/inventory.ts (the Cookie Policy), and all of them are essential.
  */
-
-import { consentStore } from '../legal/consent'
-import { categoryOf } from '../legal/inventory'
 
 export { STORAGE_KEYS } from './storageKeys'
 
@@ -33,9 +28,8 @@ export function removeStorage(key: string): void {
   }
 }
 
-/** JSON-serialize and write a value, if the visitor's cookie choices allow it. Failures are ignored. */
+/** JSON-serialize and write a value. Failures are ignored. */
 export function writeStorage(key: string, value: unknown): void {
-  if (!consentStore.allows(categoryOf(key))) return
   try {
     window.localStorage.setItem(key, JSON.stringify(value))
   } catch {

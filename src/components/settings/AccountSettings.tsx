@@ -1,9 +1,10 @@
 import { useEffect, useId, useState } from 'react'
+import { Link } from 'react-router'
+import { PATHS } from '../../data/navigation'
 import type { EmailPreferences } from '../../auth/backend'
 import { authErrorMessage } from '../../auth/messages'
 import { useAuth } from '../../hooks/useAuth'
 import { useT } from '../../i18n'
-import { consentStore } from '../../legal/consent'
 import { AUTH_STORAGE_KEY, CONSENT_STORAGE_KEY } from '../../legal/inventory'
 import { readStorage, STORAGE_KEYS } from '../../lib/storage'
 import { FormAlert, Spinner } from '../auth/fields'
@@ -333,7 +334,7 @@ export function NotificationsSection() {
   )
 }
 
-/** Settings → Privacy: reopen the cookie choices (the settings dialog closes first so the banner can be used). */
+/** Settings → Privacy: what Bronze stores in this browser (only what it needs), and the Cookie Policy. */
 export function PrivacySection({ onClose }: { onClose: () => void }) {
   const p = useT().account.privacy
   return (
@@ -342,17 +343,10 @@ export function PrivacySection({ onClose }: { onClose: () => void }) {
         <span className="block font-medium text-parchment-100">{p.cookies}</span>
         <span className={note}>{p.cookiesNote}</span>
       </div>
-      <button
-        type="button"
-        className="btn btn-ghost"
-        onClick={() => {
-          onClose()
-          window.setTimeout(() => consentStore.reopen())
-        }}
-      >
+      <Link to={PATHS.cookies} className="btn btn-ghost" onClick={onClose}>
         <IconShield className="size-4" />
         {p.open}
-      </button>
+      </Link>
     </div>
   )
 }

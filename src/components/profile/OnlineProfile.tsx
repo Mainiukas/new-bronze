@@ -12,7 +12,7 @@ import { getMap, isMapId } from '../../data/maps'
 import { replayPath } from '../../data/navigation'
 import { useAccountAccess } from '../../hooks/useAccountAccess'
 import { useT } from '../../i18n'
-import { gameRequest, onlineAvailable, OnlineError } from '../../online/client'
+import { displayName, gameRequest, onlineAvailable, OnlineError } from '../../online/client'
 import { useOnlineErrors } from '../../online/useOnlineErrors'
 import type { FriendStatus, OnlineProfile as Profile } from '../../server/types'
 import { RatingBadge } from '../RatingBadge'
@@ -134,7 +134,7 @@ export function OnlineProfile({ username }: { username: string }) {
                           <span className="block truncate text-sm text-parchment-100">
                             {[...g.players]
                               .sort((a, b) => (a.place ?? 9) - (b.place ?? 9))
-                              .map((p) => p.username)
+                              .map((p) => displayName(p.username, o.deletedPlayer))
                               .join(', ')}
                           </span>
                           <span className="block text-xs text-parchment-400">

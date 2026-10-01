@@ -9,6 +9,8 @@ const onlineWords: OnlineWords = {
   signInButton: 'Prisijungti',
   notSetUp: 'Žaidimas internetu šioje svetainėje dar neįjungtas.',
   back: 'Atgal į žaidimą internetu',
+  /** A seat whose player deleted their account. */
+  deletedPlayer: 'Ištrintas žaidėjas',
   create: {
     title: 'Sukurti žaidimą',
     players: 'Žaidėjai',

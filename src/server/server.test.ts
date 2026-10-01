@@ -322,6 +322,40 @@ describe('online games: results and ratings', () => {
     t = setup()
   })
 
+  it('plays on when a player deletes their account mid-game (as 006_privacy.sql leaves the record): a bot finishes "Deleted player"', async () => {
+    const { id } = await started(t, 3)
+    let v = await t.must(ada, { op: 'view', gameId: id })
+    for (let guard = 0; guard < 20 && v.state!.round === 1; guard++) {
+      const turn = await whoseTurn(t, id)
+      v = await t.must(turn.caller, { op: 'act', gameId: id, version: turn.view.version, action: turn.pass })
+    }
+    // What delete_my_account does to Cy's seat in the stored record.
+    const record = (await t.store.loadGame(id))!
+    const cySeat = record.seats.find((s) => s.username === 'Cy')!
+    const seat = cySeat.seat
+    Object.assign(cySeat, { userId: null, username: 'Deleted player', forfeited: true, botPlaying: true })
+    const players = record.state!.players.map((p, i) => (i === seat ? { ...p, name: 'Deleted player' } : p))
+    record.state = { ...record.state!, players }
+    expect(await t.store.saveGame({ ...record, version: record.version + 1 }, record.version, [])).toBe(true)
+    // Ada and Bob pass to the end; the bot plays the deleted seat (on the clients' regular ping).
+    v = await t.must(ada, { op: 'view', gameId: id })
+    for (let guard = 0; guard < 400 && v.status === 'playing'; guard++) {
+      await t.must(ada, { op: 'ping', gameId: id })
+      v = await t.must(ada, { op: 'view', gameId: id })
+      if (v.status !== 'playing') break
+      const turn = await whoseTurn(t, id)
+      v = await t.must(turn.caller, { op: 'act', gameId: id, version: turn.view.version, action: turn.pass })
+    }
+    expect(v.status).toBe('finished')
+    expect(v.seats[seat].username).toBe('Deleted player')
+    expect(v.state!.players[seat].name).toBe('Deleted player')
+    // Only the two people with accounts are rated.
+    expect(v.result!.ratings.map((r) => r.seat).sort()).toEqual(v.seats.filter((s) => s.seat !== seat).map((s) => s.seat).sort())
+    // Replays still work.
+    const replay = (await t.call(ada, { op: 'replay', gameId: id })).body as ReplayData
+    expect(replay.seats[seat].name).toBe('Deleted player')
+  })
+
   it('rates a finished public game once, and a forfeit finishes last', async () => {
     const { id } = await started(t, 3)
     // Cy leaves after the first round: forfeits.

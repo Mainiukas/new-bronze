@@ -51,6 +51,8 @@ explains the features they unlock until they're done.
 - [ ] **15.** Run `supabase/migrations/005_social.sql` and deploy `game`
       again: friends, online status, invites, profiles' online section,
       the leaderboard and replays.
+- [ ] **16.** Run `supabase/migrations/006_privacy.sql`: Download my data and
+      Delete my account for online play ("Deleted player").
 
 ---
 
@@ -571,3 +573,26 @@ Good to know:
   the name and picture, and **Friends only** now really means friends.
 - The leaderboard leaves out provisional ratings (fewer than 10 rated games,
   or uncertain after a long break), as `docs/RATINGS.md` explains.
+
+## 16. Download my data and Delete my account for online play (run `006`)
+
+1. **SQL Editor → + New query**. Open `supabase/migrations/006_privacy.sql`,
+   copy **all** of it, paste, **Run**. It should say **Success. No rows
+   returned**. (Needs 001–005. Safe to run again.) No function to redeploy.
+
+What changes:
+
+- **Download my data** (Settings → Account) now also has your online games
+  (with your own moves), ratings and rating history, friends, invites and when
+  you were last online.
+- **Delete my account** (Settings → Account, type your username to confirm)
+  now first takes the player out of online games: a game that hasn't started
+  loses their seat (and is called off if nobody is left); in a game being
+  played a bot finishes their seat; and in every game their seat shows
+  **Deleted player** with no link to the account. The games stay, so the other
+  players keep them (and their replays). Then everything else is deleted, as
+  before.
+
+Check it: with a test account that has played an online game, delete the
+account; open the game from the other player's profile (Last 20 games): the
+seat reads "Deleted player".

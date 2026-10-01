@@ -7,6 +7,8 @@
  * Escape or Cancel backs out with nothing changed.
  */
 
+import { Link } from 'react-router'
+import { PATHS } from '../data/navigation'
 import { useEffect, useEffectEvent, useId, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { IllustratedBoard, type BoardRecent, type BoardTargets } from '../components/board/IllustratedBoard'
 import { IndustryRow } from '../components/brass/IndustryRow'
@@ -1340,25 +1342,38 @@ function GameMenuButton({ onRules, onSettings, onLeave }: { onRules: () => void;
         <span aria-hidden="true">☰</span>
       </button>
       {open && (
-        <div role="menu" className="plate rivets absolute top-full left-0 z-40 mt-2 w-60 bg-soot-900/[0.97] p-2" onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
-          {[
-            [b.rules, onRules],
-            [b.settings, onSettings],
-            [b.leaveMatch, onLeave],
-          ].map(([label, action]) => (
-            <button
-              key={label as string}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                ;(action as () => void)()
-              }}
-              className="flex min-h-11 w-full items-center rounded-lg px-3 text-left font-display text-base font-semibold tracking-[0.06em] text-parchment-200 hover:bg-bronze-500/15 hover:text-parchment-50"
-            >
-              {label as string}
-            </button>
-          ))}
+        <div className="plate rivets absolute top-full left-0 z-40 mt-2 w-64 bg-soot-900/[0.97] p-2" onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
+          <div role="menu" aria-label={b.menu}>
+            {[
+              [b.rules, onRules],
+              [b.settings, onSettings],
+              [b.leaveMatch, onLeave],
+            ].map(([label, action]) => (
+              <button
+                key={label as string}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false)
+                  ;(action as () => void)()
+                }}
+                className="flex min-h-11 w-full items-center rounded-lg px-3 text-left font-display text-base font-semibold tracking-[0.06em] text-parchment-200 hover:bg-bronze-500/15 hover:text-parchment-50"
+              >
+                {label as string}
+              </button>
+            ))}
+          </div>
+          {/* The pages every screen links to, and the fan-made notice. */}
+          <p className="mt-2 border-t border-bronze-500/20 px-3 pt-2 text-xs leading-relaxed text-parchment-300" data-testid="fan-made">
+            {t.legal.fanMade}{' '}
+            <Link to={PATHS.privacy} className="underline underline-offset-2 hover:text-parchment-50">
+              {t.nav.privacy}
+            </Link>
+            {' · '}
+            <Link to={PATHS.terms} className="underline underline-offset-2 hover:text-parchment-50">
+              {t.nav.terms}
+            </Link>
+          </p>
         </div>
       )}
     </div>

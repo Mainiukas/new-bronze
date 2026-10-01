@@ -8,13 +8,14 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { IconArrowLeft, IconCheck, IconComputer, IconEye, IconLock, IconPlay } from '../components/icons'
 import { SceneBackground } from '../components/SceneBackground'
+import { SiteFooter } from '../components/legal/SiteFooter'
 import { joinPath, onlineGamePath, PATHS } from '../data/navigation'
 import type { GameSettings } from '../data/settings'
 import { useAccountAccess } from '../hooks/useAccountAccess'
 import { useAuth } from '../hooks/useAuth'
 import { useOpenAuth } from '../hooks/useOpenAuth'
 import { useT } from '../i18n'
-import { gameRequest, OnlineError, type GameView } from '../online/client'
+import { displayName, gameRequest, OnlineError, withNames, type GameView } from '../online/client'
 import type { FriendsView } from '../server/types'
 import { useOnlineGame, type OnlineGame as Online } from '../online/useOnlineGame'
 import type { BrassMatch } from '../rules/match'
@@ -69,6 +70,9 @@ function Frame({ children }: { children: ReactNode }) {
       <SceneBackground />
       <main id="main-content" tabIndex={-1} className="relative flex min-h-dvh flex-col px-4 py-6 outline-none sm:px-6 lg:py-10">
         {children}
+        <div className="mt-auto">
+          <SiteFooter compact />
+        </div>
       </main>
     </>
   )
@@ -306,7 +310,8 @@ function OnlineMatch({ game, view, settings, onOpenRules, onOpenSettings, overla
   const navigate = useNavigate()
   const auth = useAuth()
   const showError = useOnlineErrors()
-  const state = view.state!
+  const name = (n: string) => displayName(n, o.deletedPlayer)
+  const state = withNames(view.state!, name)
   const match: BrassMatch = { kind: 'brass', modeId: view.mode, mapId: view.mapId, state }
   const spectating = view.mySeat === null
   const now = useNow() + game.clockOffset
@@ -321,8 +326,8 @@ function OnlineMatch({ game, view, settings, onOpenRules, onOpenSettings, overla
 
   const notes: string[] = []
   for (const s of view.seats) {
-    if (s.forfeited) notes.push(o.game.forfeited(s.username))
-    else if (s.botPlaying) notes.push(o.game.botPlaying(s.username))
+    if (s.forfeited) notes.push(o.game.forfeited(name(s.username)))
+    else if (s.botPlaying) notes.push(o.game.botPlaying(name(s.username)))
     else if (s.graceEndsAt) notes.push(o.game.disconnected(s.username, clock(Math.max(0, s.graceEndsAt - now))))
   }
   if (view.result?.aborted) notes.push(o.game.aborted)

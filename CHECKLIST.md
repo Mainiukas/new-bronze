@@ -33,7 +33,7 @@ test confirms that a first visit makes no requests to any other server.
 ### Cookies and browser storage
 
 Bronze sets one cookie and several storage entries, all first-party. The full
-table, with purpose, category and duration for each, is generated from
+table, with purpose and duration for each, is generated from
 `src/legal/inventory.ts` and shown on the Cookie Policy (`#/cookies`).
 
 | Key | Where | Category |
@@ -46,7 +46,7 @@ table, with purpose, category and duration for each, is generated from
 | `bronze.match` (match in progress) | Local storage | Essential |
 | `bronze.stats.pending.<id>` | Local storage | Essential |
 | `bronze.boardDraft` (map editor only) | Local storage | Essential |
-| `bronze.settings`, `bronze.lobby.gameMode`, `bronze.lobby.map`, `bronze.setup`, `bronze.stats` (guest record) | Local storage | Preferences (consent) |
+| `bronze.settings`, `bronze.lobby.gameMode`, `bronze.lobby.map`, `bronze.setup`, `bronze.stats` (guest record) | Local storage | Essential (what you set or picked) |
 
 ### Personal data
 
@@ -140,32 +140,26 @@ Nothing is sold and there's no in-game currency, so `#/refunds` says exactly tha
 **Verify**: open `#/refunds`.
 
 ### 4. Cookie Policy ✅
-`#/cookies`: the category descriptions and a full table (name/key, type,
-provider, purpose, category, duration) generated from `inventory.ts`, plus how
-to change your choices.
+`#/cookies`: why everything stored is essential, a full table (name/key, type,
+provider, purpose, duration) generated from `inventory.ts`, and how to clear
+it.
 
 **Files**: `src/pages/legal/CookiePolicy.tsx`, `src/legal/inventory.ts`.
 
 **Verify**: open `#/cookies`. `npm test` fails if the code uses a `bronze…` key the inventory doesn't list, or if the table misses one.
 
-### 5. Cookie consent banner ✅
-- Shown on the first visit, again after 12 months, and whenever the version changes (`CONSENT_VERSION`).
-- **Accept all**, **Reject all** and **Customise** have identical styling.
-- Customise shows switches for Preferences, Analytics and Marketing; Essential is always on.
-- Nothing optional is stored before a choice. Preferences only save once allowed, and withdrawing deletes them.
-- There are no analytics or marketing tools, so nothing else is gated today.
-- The choice is stored with its time, version and method.
-- "Cookie settings" in the footer (and in Settings → Privacy) reopens it and moves focus to it.
-- Copy is in English and in Lithuanian (automatic for Lithuanian browsers, plus a switch).
+### 5. Cookie notice (essential storage only) ✅
+- Bronze stores only what it needs to work (log-in, match in progress, settings and picks); there are no analytics, ads or trackers, so there's nothing to accept or reject.
+- The notice says so, links the Cookie and Privacy Policies, and has one **OK** button. It shows on the first visit, again after 12 months, and whenever the version changes (`CONSENT_VERSION`, now 2).
+- Dismissing it is stored with its time and version (`bronze.consent`).
 - It's a non-blocking panel, not a modal: Rules and the legal pages stay usable, and pages leave room for it.
-- Keyboard: it's the first stop after "Skip to content"; Customise moves focus to the first switch.
+- Copy in all five languages, with a language switch on the notice.
 
-**Files**: `src/legal/consent.ts`, `src/components/legal/CookieBanner.tsx`, `src/lib/storage.ts`, `src/hooks/usePersistentState.ts`, `src/components/legal/SiteFooter.tsx`, `src/index.css`.
+**Files**: `src/legal/consent.ts`, `src/components/legal/CookieBanner.tsx`, `src/legal/inventory.ts`, `src/pages/legal/CookiePolicy.tsx`, `src/index.css`.
 
 **Verify**:
-1. In a private window, open the site: the banner shows, and DevTools → Application → Local Storage has only essential keys.
-2. Choose Customise, turn on Preferences and save: `bronze.consent` holds `{version, timestamp, method, choices}`.
-3. Footer → Cookie settings → Reject all: `bronze.settings` is deleted.
+1. In a private window, open the site: the notice shows. DevTools → Application → Local Storage holds only keys listed in the Cookie Policy.
+2. Press OK: `bronze.consent` holds `{version: 2, timestamp, method: "notice"}`, and the notice doesn't come back on reload.
 
 ### 6. Form consents ✅
 Register has:
@@ -218,7 +212,7 @@ Listed in the audit above.
 ### 9. Dark patterns ✅
 Changes made:
 - **"Remember me" now starts unticked**: staying logged in after the browser closes is the player's choice.
-- The cookie banner's Accept all, Reject all and Customise are equally prominent. Rejecting is one click, and withdrawing deletes the stored data.
+- No consent wall: Bronze stores only essential things, so the cookie notice has nothing to accept or reject, just OK.
 - The Terms and marketing boxes start unticked and are separate. Marketing is never offered to under-18s.
 - **Deleting an account is as easy as creating one**: Settings → Account → Delete, then type your username.
 - The Google first-sign-in exit was "Not now: log out", which left the account behind. It now deletes it and says so ("Not now: cancel and delete what Google shared").

@@ -25,6 +25,12 @@ and its API roles. `pg_cron` isn't needed: leave out 001's last two lines.
   are service-role only, a friendship is one row per pair, user search
   treats `_` and `%` literally, the leaderboard leaves out players under the
   game count, and profile privacy's **Friends only** honours friendships.
+- `006_privacy.test.sql` checks `006_privacy.sql`: Download my data has the
+  online games (only your own moves, no other player's account id), ratings,
+  friends, invites and last online; Delete my account leaves "Deleted player"
+  in finished and running games (a bot takes over the running one), removes
+  the seat from lobbies (passing the host on, or calling the game off), keeps
+  the games and their moves for the others, and deletes everything else.
 
 ```bash
 # 001 only
@@ -72,6 +78,16 @@ for m in 002_profiles_security 003_onboarding_ratings 004_multiplayer 005_social
 done
 psql -v ON_ERROR_STOP=1 -d bronze_005 -f supabase/tests/005_social.test.sql   # ends with: ALL 005 CHECKS PASSED
 dropdb bronze_005
+
+# 001–006 (006 twice)
+createdb bronze_006
+psql -v ON_ERROR_STOP=1 -d bronze_006 -f supabase/tests/stub_supabase.sql
+head -n -2 supabase/migrations/001_accounts.sql | psql -v ON_ERROR_STOP=1 -d bronze_006
+for m in 002_profiles_security 003_onboarding_ratings 004_multiplayer 005_social 006_privacy 006_privacy; do
+  psql -v ON_ERROR_STOP=1 -d bronze_006 -f supabase/migrations/$m.sql
+done
+psql -v ON_ERROR_STOP=1 -d bronze_006 -f supabase/tests/006_privacy.test.sql   # ends with: ALL 006 CHECKS PASSED
+dropdb bronze_006
 ```
 
 Don't run these against your real Supabase project: they create and delete

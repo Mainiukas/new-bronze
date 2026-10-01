@@ -172,11 +172,10 @@ item-by-item record, with how to check each one, is in [CHECKLIST.md](CHECKLIST.
   key, and the personal data kept for accounts. The Cookie Policy table and
   the Privacy Policy are generated from it, and a test fails if the code uses
   a `bronze…` key it doesn't list.
-- **Cookie consent** (`src/legal/consent.ts`, `CookieBanner`): Accept all,
-  Reject all and Customise, equally prominent; essential storage only until a
-  choice is made; the choice is kept with its time and version, asked again
-  after 12 months or a new version; "Cookie settings" in the footer reopens it.
-  English and Lithuanian.
+- **Cookie notice** (`src/legal/consent.ts`, `CookieBanner`): Bronze stores
+  only essential things (no analytics, ads or trackers), so the notice just
+  says so, with an OK; it's remembered with its time and version, and shown
+  again after 12 months or a new version. In all five languages.
 - **Accounts**: an age question (under 14 can't register), an unticked
   required Terms box, a separate optional marketing box (18 and over only),
   consents stored server-side; Settings → Account downloads or deletes your

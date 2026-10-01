@@ -268,6 +268,9 @@ export function Welcome({ mode, startStep = 1, canPickLevel = true, rulesAccepte
           </footer>
         </section>
       </div>
+      <p className="relative px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center text-xs text-parchment-300" data-testid="fan-made">
+        {t.legal.fanMade}
+      </p>
 
       <ModalFrame open={doc === 'rules'} onClose={() => setDoc(null)} id="welcome-rules" title={w.how.rulesTitle} wide>
         <Markdown source={rulesMarkdown} />

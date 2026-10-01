@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react'
 import type { EmailList } from '../../../auth/backend'
-import type { ConsentCategoryInfo, DataItem, Recipient, StorageItem } from '../../../legal/inventory'
+import type { DataItem, Recipient, StorageItem } from '../../../legal/inventory'
 
 /*
  * The legal pages in one language other than English (English is the pages
@@ -12,7 +12,6 @@ import type { ConsentCategoryInfo, DataItem, Recipient, StorageItem } from '../.
 export interface InventoryText {
   /** Storage key → its type, provider, purpose and duration. */
   storage: Record<string, Pick<StorageItem, 'purpose' | 'duration'> & { where: string; provider: string }>
-  categories: ConsentCategoryInfo[]
   account: DataItem[]
   visitor: DataItem[]
   recipients: Recipient[]

@@ -703,7 +703,7 @@ const de: Messages = {
     marketingNote: '(optional; jederzeit abbestellbar)',
   },
   account: {
-    exportNote: 'Alles, was Bronze über dich speichert. Partien werden in deinem Browser gespielt, daher gibt es keinen Partieverlauf auf dem Server.',
+    exportNote: 'Alles, was Bronze über dich speichert: Konto, Profil, Bilanz, Online-Partien (mit deinen eigenen Zügen), Wertungen, Freunde und Einladungen.',
     downloading: 'Deine Daten werden heruntergeladen.',
     loggedInAs: (name: ReactNode, email: string | null): ReactNode => (
       <>
@@ -713,7 +713,7 @@ const de: Messages = {
     ),
     guest: 'Du spielst als Gast: Auf unseren Servern wird nichts über dich gespeichert. Einstellungen, Bilanz und Partie bleiben in diesem Browser.',
     download: 'Meine Daten herunterladen',
-    downloadAccount: 'Dein Profil, deine Bilanz, Einwilligungen und E-Mail-Einstellungen sowie die Daten dieses Geräts als Datei.',
+    downloadAccount: 'Dein Konto, Profil, deine Bilanz, Online-Partien, Wertungen, Freunde und Einladungen sowie die Daten dieses Geräts als eine JSON-Datei.',
     downloadGuest: 'Was Bronze in diesem Browser speichert, als Datei.',
     downloadButton: 'Herunterladen',
     delete: 'Mein Konto löschen',
@@ -730,10 +730,11 @@ const de: Messages = {
       intro: 'Das löscht sofort und endgültig:',
       items: [
         'deine Anmeldung (E-Mail-Adresse und Passwort oder deine Google-Anmeldung),',
-        'deinen Benutzernamen, Avatar, deine Bilanz und Erfolge,',
+        'deinen Benutzernamen, Avatar, deine Bilanz, Erfolge und Wertungen,',
+        'deine Freunde, Freundschaftsanfragen und Spieleinladungen,',
         'deine Altersangabe, Einwilligungen und E-Mail-Einstellungen.',
       ],
-      note: 'Partien werden in deinem Browser gespielt, daher wird auf unseren Servern kein Partieverlauf gespeichert. Deine Gastdaten in diesem Browser bleiben, bis du sie löschst.',
+      note: 'Deine gespielten Online-Partien bleiben für die anderen Spieler erhalten, mit „Gelöschter Spieler“ auf deinem Platz. Aus einer noch nicht begonnenen Partie wird dein Platz entfernt; in einer laufenden Partie spielt ein Bot deinen Platz zu Ende. Deine Gastdaten in diesem Browser bleiben, bis du sie löschst.',
       typeToConfirm: (name: ReactNode): ReactNode => <>Gib zur Bestätigung deinen Benutzernamen {name} ein</>,
     },
     notifications: {
@@ -749,9 +750,9 @@ const de: Messages = {
       nowAdult: 'Ich bin jetzt 18 oder älter',
     },
     privacy: {
-      cookies: 'Cookie-Einstellungen',
-      cookiesNote: 'Ändere, was Bronze in diesem Browser speichern darf.',
-      open: 'Öffnen',
+      cookies: 'Cookies',
+      cookiesNote: 'Bronze speichert nur, was es zum Funktionieren braucht. Keine Werbung, Analyse oder Tracking.',
+      open: 'Lesen',
     },
   },
   settings: {
@@ -777,22 +778,11 @@ const de: Messages = {
   },
   cookieBanner: {
     title: 'Cookies und Speicher',
-    body: 'Bronze speichert einige Dinge in deinem Browser. Notwendige halten dich angemeldet und bewahren deine laufende Partie. Mit deiner Einwilligung merkt sich Bronze auf diesem Gerät auch deine Einstellungen und deine Gastbilanz. Es gibt keine Werbung, keine Analyse und keine Tracker.',
-    accept: 'Alle akzeptieren',
-    reject: 'Alle ablehnen',
-    customise: 'Anpassen',
-    save: 'Auswahl speichern',
-    close: 'Schließen',
-    always: 'Immer aktiv',
+    body: 'Bronze speichert in diesem Browser nur, was es zum Funktionieren braucht: deine Anmeldung, deine laufende Partie und deine Einstellungen. Keine Werbung, keine Analyse, kein Tracking – daher gibt es nichts zu akzeptieren oder abzulehnen.',
+    ok: 'OK',
     cookiePolicy: 'Cookie-Richtlinie',
     privacyPolicy: 'Datenschutzerklärung',
     language: 'Sprache',
-    categories: {
-      essential: { title: 'Notwendig', description: 'Halten dich angemeldet, bewahren deine laufende Partie und merken sich diese Auswahl.' },
-      preferences: { title: 'Präferenzen', description: 'Merken sich deine Einstellungen (auch die Sprache), deinen letzten Spielmodus, Karte und Plätze sowie deine Gastbilanz.' },
-      analytics: { title: 'Analyse', description: 'Derzeit nicht genutzt. Falls Bronze je Analyse einführt, läuft sie nur, wenn dies aktiviert ist.' },
-      marketing: { title: 'Marketing', description: 'Derzeit nicht genutzt. Falls Bronze je Marketing-Werkzeuge einführt, laufen sie nur, wenn dies aktiviert ist.' },
-    },
   },
   legal: {
     lastUpdated: 'Zuletzt aktualisiert:',
@@ -800,6 +790,7 @@ const de: Messages = {
     draft: (example: ReactNode): ReactNode => <>Entwurf: Einige Angaben dazu, wer Bronze betreibt, fehlen noch (so markiert: {example}).</>,
     table: (caption: string) => `${caption} (Tabelle)`,
     freeToPlay: 'Bronze ist kostenlos; es wird nichts verkauft.',
+    fanMade: 'Bronze ist ein von Fans gemachtes Spiel, inspiriert von Brass. Nicht mit Roxley Games verbunden.',
   },
   ...accountWords,
   brass: brassWords,

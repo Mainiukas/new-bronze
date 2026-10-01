@@ -16,7 +16,7 @@ import { accountPath, onlineGamePath } from '../data/navigation'
 import { useAccountAccess } from '../hooks/useAccountAccess'
 import { useOpenAuth } from '../hooks/useOpenAuth'
 import { useT } from '../i18n'
-import { gameRequest, onlineAvailable, OnlineError, watchTopic, type GameLists, type GameSummary, type GameView, type QuickPlayReply } from '../online/client'
+import { displayName, gameRequest, onlineAvailable, OnlineError, watchTopic, type GameLists, type GameSummary, type GameView, type QuickPlayReply } from '../online/client'
 import type { MyRating } from '../server/types'
 import { RatingBadge } from '../components/RatingBadge'
 import { POLL_MS } from '../online/useOnlineGame'
@@ -366,7 +366,7 @@ function GameList({ kind, games }: { kind: 'open' | 'live' | 'mine'; games: Game
             <li key={game.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-2.5">
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-x-2 font-display font-bold tracking-[0.04em] text-parchment-50">
-                  <span className="truncate">{game.players.map((p) => p.username).join(', ')}</span>
+                  <span className="truncate">{game.players.map((p) => displayName(p.username, o.deletedPlayer)).join(', ')}</span>
                   <span className={`rounded-full border px-2 py-px text-[0.65rem] tracking-[0.12em] uppercase ${game.rated ? 'border-brass-300/60 text-brass-200' : 'border-parchment-500/40 text-parchment-400'}`}>
                     {game.rated ? o.lists.rated : o.lists.unrated}
                   </span>

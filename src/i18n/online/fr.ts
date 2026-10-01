@@ -9,6 +9,8 @@ const onlineWords: OnlineWords = {
   signInButton: 'Se connecter',
   notSetUp: 'Le jeu en ligne n’est pas encore activé sur ce site.',
   back: 'Retour au jeu en ligne',
+  /** A seat whose player deleted their account. */
+  deletedPlayer: 'Joueur supprimé',
   create: {
     title: 'Créer une partie',
     players: 'Joueurs',

@@ -198,7 +198,9 @@ export function createGameServer(deps: ServerDeps) {
   /** A finished rated game: everyone's new rating on this map (Glicko-2, pairs by place, the mode's weight). */
   async function rate(record: GameRecord) {
     if (record.status !== 'finished' || !record.rated || !record.result || record.result.ratings.length) return
+    // People still with an account (a deleted account's seat isn't rated).
     const humans = record.seats.filter(isHuman)
+    if (humans.length < 2) return
     const now = record.finishedAt ?? deps.now()
     const rows = await store.getRatings(
       humans.map((s) => s.userId!),

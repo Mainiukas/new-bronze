@@ -3454,6 +3454,7 @@ function createGameServer(deps) {
 	async function rate(record) {
 		if (record.status !== "finished" || !record.rated || !record.result || record.result.ratings.length) return;
 		const humans = record.seats.filter(isHuman);
+		if (humans.length < 2) return;
 		const now = record.finishedAt ?? deps.now();
 		const rows = await store.getRatings(humans.map((s) => s.userId), record.mapId);
 		const current = (userId) => rows[userId] ?? {

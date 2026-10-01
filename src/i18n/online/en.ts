@@ -7,6 +7,8 @@ const onlineWords = {
   signInButton: 'Log in',
   notSetUp: 'Online play isn’t switched on for this site yet.',
   back: 'Back to online play',
+  /** A seat whose player deleted their account. */
+  deletedPlayer: 'Deleted player',
   create: {
     title: 'Create a game',
     players: 'Players',

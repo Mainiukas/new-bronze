@@ -6,6 +6,7 @@
  */
 
 import { SUPABASE_ANON_KEY, SUPABASE_URL, sharedSupabaseClient, supabaseConfigured } from '../lib/supabase'
+import type { GameState } from '../rules/state'
 import type { GameSummary, GameView, Request } from '../server/types'
 
 export type { GameSummary, GameView, Request }
@@ -30,6 +31,15 @@ export interface GameLists {
 export type QuickPlayReply = { status: 'matched'; gameId: string } | { status: 'waiting'; range: number; waitedMs: number }
 
 export const onlineAvailable = supabaseConfigured
+
+/** The name the server gives a seat whose player deleted their account (006_privacy.sql); shown translated. */
+export const DELETED_PLAYER = 'Deleted player'
+export const displayName = (name: string, deleted: string) => (name === DELETED_PLAYER ? deleted : name)
+
+/** A game state with its players' names shown as `name` gives them. */
+export function withNames(state: GameState, name: (n: string) => string): GameState {
+  return state.players.some((p) => name(p.name) !== p.name) ? { ...state, players: state.players.map((p) => ({ ...p, name: name(p.name) })) } : state
+}
 
 /** Sends one request to the game server as the signed-in player (or a visitor). */
 export async function gameRequest<T>(body: Request): Promise<T> {

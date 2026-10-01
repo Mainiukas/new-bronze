@@ -12,7 +12,7 @@ import { SceneBackground } from '../components/SceneBackground'
 import { PATHS } from '../data/navigation'
 import type { GameSettings } from '../data/settings'
 import { useT } from '../i18n'
-import { gameRequest } from '../online/client'
+import { displayName, gameRequest, withNames } from '../online/client'
 import { replayStates, type ReplayData } from '../online/replay'
 import type { BrassMatch } from '../rules/match'
 
@@ -74,7 +74,7 @@ export function Replay({ settings, onOpenRules, onOpenSettings, overlayOpen }: R
     )
   if (!data || !states.length) return <SceneBackground />
 
-  const match: BrassMatch = { kind: 'brass', modeId: data.mode, mapId: data.mapId, state: states[step] }
+  const match: BrassMatch = { kind: 'brass', modeId: data.mode, mapId: data.mapId, state: withNames(states[step], (n) => displayName(n, t.online.deletedPlayer)) }
   const go = (s: number) => {
     setPlaying(false)
     setStep(Math.max(0, Math.min(last, s)))

@@ -122,6 +122,12 @@ export function rateGame(players: readonly Finisher[], mode: keyof typeof MODE_W
   })
 }
 
+/** A player's rating as it stands now: the RD grown for the days without a game, and whether it's provisional. */
+export function ratingNow(row: { rating: number; rd: number; volatility: number; gamesPlayed: number; updatedAt: number }, now: number) {
+  const rd = rdAfterIdle(row, now)
+  return { rating: row.rating, rd, gamesPlayed: row.gamesPlayed, provisional: isProvisional({ gamesPlayed: row.gamesPlayed, rd }) }
+}
+
 /** "1000?": still provisional (few games, or a wide RD). */
 export function isProvisional(rating: { gamesPlayed: number; rd: number }): boolean {
   return rating.gamesPlayed < PROVISIONAL_GAMES || rating.rd > PROVISIONAL_RD

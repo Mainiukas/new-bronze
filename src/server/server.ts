@@ -16,13 +16,13 @@
 
 import { DEFAULT_MAP_ID } from '../data/maps'
 import { MATCHMAKING, START_RATING, START_RD, START_VOLATILITY } from '../rating/config'
-import { isProvisional, rateGame } from '../rating/glicko2'
+import { rateGame, ratingNow } from '../rating/glicko2'
 import { CONNECTION_LOST_MS, DISCONNECT_GRACE_MS, MAX_PLAYERS, MAX_TIMEOUTS, MIN_PLAYERS, TIME_CONTROL } from '../rules/config/game'
 import { applyAction, createGame, currentPlayerId, type RulesContext } from '../rules/engine'
 import { RuleError, type Action, type GameState } from '../rules/state'
 import { botAction, timeoutAction } from '../rules/bots'
 import { redactState } from './redact'
-import type { ActionRow, BotLevel, GameRecord, GameStore, GameSummary, GameView, ModeId, QueueEntry, RatingRow, Request, Seat, SeatView } from './types'
+import type { ActionRow, BotLevel, GameRecord, GameStore, GameSummary, GameView, ModeId, MyRating, QueueEntry, RatingRow, Request, Seat, SeatView } from './types'
 
 export class ServerError extends Error {
   readonly status: number
@@ -228,6 +228,7 @@ export function createGameServer(deps: ServerDeps) {
     const ratings = humans.length ? await store.getRatings(humans, record.mapId) : {}
     const seats: SeatView[] = record.seats.map((s) => {
       const r = s.userId ? ratings[s.userId] : undefined
+      const nowRating = r ? ratingNow(r, now) : null
       return {
         seat: s.seat,
         username: s.username,
@@ -242,7 +243,9 @@ export function createGameServer(deps: ServerDeps) {
         forfeited: s.forfeited,
         host: s.userId === record.hostId,
         rating: r ? Math.round(r.rating) : null,
-        provisional: r ? isProvisional(r) : true,
+        ratingRd: nowRating ? Math.round(nowRating.rd) : null,
+        gamesPlayed: r?.gamesPlayed ?? 0,
+        provisional: nowRating?.provisional ?? true,
       }
     })
     return {
@@ -251,6 +254,7 @@ export function createGameServer(deps: ServerDeps) {
       status: record.status,
       visibility: record.visibility,
       rated: record.rated,
+      willBeRated: record.status === 'lobby' ? willBeRated(record) : record.rated,
       ratedRequested: record.ratedRequested,
       allowSpectators: record.allowSpectators,
       mode: record.mode,
@@ -295,6 +299,7 @@ export function createGameServer(deps: ServerDeps) {
       createdAt: record.createdAt,
       progress: record.state && record.status === 'playing' ? { era: record.state.era, round: record.state.round } : null,
       mine,
+      myRatingChange: (caller && record.result?.ratings.find((r) => r.userId === caller.userId)?.delta) ?? null,
     }
   }
 
@@ -663,6 +668,16 @@ export function createGameServer(deps: ServerDeps) {
           return ok({ status: 'matched', gameId: mine.matchedGameId }, made, made.length > 0)
         }
         return ok({ status: 'waiting', range: rangeFor(entry, now), waitedMs: now - entry.since }, made, made.length > 0)
+      }
+
+      case 'my-rating': {
+        // Your rating as it stands now (players may read it; only the server ever changes it).
+        const mapId = req.mapId ?? DEFAULT_MAP_ID
+        const row = (await store.getRatings([me.userId], mapId))[me.userId]
+        const r = row ?? { rating: START_RATING.beginner, rd: START_RD, volatility: START_VOLATILITY, gamesPlayed: 0, peakRating: START_RATING.beginner, updatedAt: now }
+        const current = ratingNow(r, now)
+        const reply: MyRating = { mapId, rating: Math.round(current.rating), rd: Math.round(current.rd), gamesPlayed: current.gamesPlayed, provisional: current.provisional, peakRating: Math.round(r.peakRating), unplaced: !row }
+        return ok(reply)
       }
 
       case 'quick-cancel': {

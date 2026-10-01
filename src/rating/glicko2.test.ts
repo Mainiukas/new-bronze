@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MODE_WEIGHT, START_RATING, START_RD, START_VOLATILITY } from './config'
-import { glicko2, isProvisional, rateGame, rdAfterIdle, type Finisher, type Rating } from './glicko2'
+import { glicko2, isProvisional, rateGame, ratingNow, rdAfterIdle, type Finisher, type Rating } from './glicko2'
 
 const NOW = Date.UTC(2026, 8, 30)
 const DAY = 86_400_000
@@ -100,5 +100,15 @@ describe('Glicko-2', () => {
     expect(isProvisional({ gamesPlayed: 3, rd: 90 })).toBe(true)
     expect(isProvisional({ gamesPlayed: 30, rd: 150 })).toBe(true)
     expect(isProvisional({ gamesPlayed: 30, rd: 80 })).toBe(false)
+  })
+
+  it('reads a rating as it stands now: the RD grown for idle days decides “provisional”', () => {
+    const settled = { rating: 1500, rd: 70, volatility: 0.06, gamesPlayed: 40, updatedAt: 0 }
+    expect(ratingNow(settled, 0)).toMatchObject({ rd: 70, provisional: false })
+    // Months away: the uncertainty is back above 110, so it shows as provisional again.
+    const later = ratingNow(settled, 400 * 86_400_000)
+    expect(later.rd).toBeGreaterThan(110)
+    expect(later.provisional).toBe(true)
+    expect(later.rating).toBe(1500)
   })
 })

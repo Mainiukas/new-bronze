@@ -19,6 +19,7 @@ import { useOnlineGame, type OnlineGame as Online } from '../online/useOnlineGam
 import type { BrassMatch } from '../rules/match'
 import type { SeatClock } from '../components/brass/clock'
 import { useOnlineErrors } from '../online/useOnlineErrors'
+import { RatingBadge } from '../components/RatingBadge'
 
 const BrassGame = lazy(() => import('./BrassGame').then((module) => ({ default: module.BrassGame })))
 
@@ -116,7 +117,7 @@ function GameRoom({ game, view }: { game: Online; view: GameView }) {
           <h1 className="page-title text-4xl sm:text-5xl">{r.title(view.code ?? '')}</h1>
           <p className="flex flex-wrap gap-2 text-xs">
             <Badge>{view.visibility === 'public' ? o.create.public : o.create.private}</Badge>
-            <Badge strong={view.rated || view.ratedRequested}>{view.visibility === 'public' || view.ratedRequested ? r.rated : r.unrated}</Badge>
+            <Badge strong={view.willBeRated}>{view.willBeRated ? r.rated : r.unrated}</Badge>
             <Badge>{view.allowSpectators ? r.spectators : r.noSpectators}</Badge>
           </p>
         </header>
@@ -164,9 +165,9 @@ function GameRoom({ game, view }: { game: Online; view: GameView }) {
                       {isMe && <span className="text-parchment-400"> ({r.you})</span>}
                       {seat.host && <span className="ml-2 rounded-full border border-brass-300/60 px-2 py-px text-[0.65rem] tracking-[0.12em] text-brass-200 uppercase">{r.host}</span>}
                     </p>
-                    <p className="text-xs text-parchment-400">
-                      {seat.rating !== null ? `${Math.round(seat.rating)}${seat.provisional ? '?' : ''}` : ''}
-                      {seat.human && !seat.connected ? ` · ${r.offline}` : ''}
+                    <p className="flex items-center gap-1 text-xs text-parchment-400">
+                      {seat.human && <RatingBadge rating={seat.rating} provisional={seat.provisional} rd={seat.ratingRd} games={seat.gamesPlayed} className="text-parchment-200" />}
+                      {seat.human && !seat.connected ? <span>· {r.offline}</span> : null}
                     </p>
                   </div>
                   {!seat.host && (
@@ -200,8 +201,16 @@ function GameRoom({ game, view }: { game: Online; view: GameView }) {
         )}
 
         <div className="flex flex-col gap-1 text-sm text-parchment-300">
+          {view.isHost && view.visibility === 'private' && (
+            // The host can make a private game rated (it still isn't if a bot plays).
+            <label className="flex items-center gap-2 font-semibold text-parchment-100">
+              <input type="checkbox" className="accent-brass-300" checked={view.ratedRequested} disabled={game.busy} onChange={(e) => void run({ op: 'settings', gameId: view.id, rated: e.target.checked })} />
+              {o.create.rated}
+            </label>
+          )}
           <p>{r.colorsNote}</p>
           <p>{r.botsNote}</p>
+          <p>{o.rating.whenRated}</p>
           {view.isHost && <p>{r.startHint}</p>}
         </div>
 

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { START_RATING, START_RD } from '../rating/config'
 import { CONNECTION_LOST_MS, DISCONNECT_GRACE_MS, MAX_TIMEOUTS, TIME_CONTROL } from '../rules/config/game'
 import { currentPlayerId, type RulesContext } from '../rules/engine'
 import { BRASS_MAP } from '../rules/map'
@@ -340,6 +341,47 @@ describe('online games: results and ratings', () => {
     // Pinging again doesn't rate twice.
     await t.must(ada, { op: 'ping', gameId: id })
     expect(t.store.history).toHaveLength(3)
+  })
+
+  it('lists each player’s own rating change on their finished games', async () => {
+    const { id } = await started(t, 2)
+    let v = await t.must(ada, { op: 'view', gameId: id })
+    for (let guard = 0; guard < 400 && v.status === 'playing'; guard++) {
+      const turn = await whoseTurn(t, id)
+      v = await t.must(turn.caller, { op: 'act', gameId: id, version: turn.view.version, action: turn.pass })
+    }
+    const lists = (await t.call(ada, { op: 'list' })).body as { mine: { id: string; myRatingChange: number | null }[] }
+    const mine = lists.mine.find((g) => g.id === id)!
+    expect(mine.myRatingChange).toBeCloseTo(v.result!.ratings.find((r) => r.userId === 'u-ada')!.delta)
+  })
+
+  it('decides rated or not: public all-human Normal games yes; private only when ticked; bots never', async () => {
+    const pub = await t.must(ada, { op: 'create', players: 2, visibility: 'public' })
+    expect(pub.willBeRated).toBe(true)
+    const priv = await t.must(bob, { op: 'create', players: 3, visibility: 'private' })
+    expect(priv.willBeRated).toBe(false)
+    const ticked = await t.must(bob, { op: 'settings', gameId: priv.id, rated: true })
+    expect(ticked.willBeRated).toBe(true)
+    // A bot makes it unrated, ticked or not.
+    const withBot = await t.must(bob, { op: 'add-bot', gameId: priv.id, level: 'normal' })
+    expect(withBot.willBeRated).toBe(false)
+    await t.must(cy, { op: 'join', code: priv.code! })
+    await t.must(cy, { op: 'ready', gameId: priv.id, ready: true })
+    const startedView = await t.must(bob, { op: 'start', gameId: priv.id })
+    expect(startedView.rated).toBe(false)
+  })
+
+  it('shows your own rating: the starting one until you play, with the RD grown for idle days', async () => {
+    const fresh = (await t.call(ada, { op: 'my-rating' })).body
+    expect(fresh).toMatchObject({ rating: START_RATING.beginner, rd: START_RD, gamesPlayed: 0, provisional: true, unplaced: true })
+    // Settled 30 days ago: 20 games, RD 60. Now its RD has grown, and with it back past 110 it's provisional again.
+    t.store.ratings.set('u-ada|wales-and-the-west', { userId: 'u-ada', mapId: 'wales-and-the-west', rating: 1320, rd: 60, volatility: 0.06, gamesPlayed: 20, peakRating: 1350, updatedAt: t.now() - 30 * 86_400_000 })
+    const later = (await t.call(ada, { op: 'my-rating' })).body as { rating: number; rd: number; provisional: boolean; unplaced: boolean }
+    expect(later).toMatchObject({ rating: 1320, unplaced: false, peakRating: 1350 })
+    expect(later.rd).toBeGreaterThan(60)
+    // A week later it's still settled.
+    t.store.ratings.set('u-ada|wales-and-the-west', { userId: 'u-ada', mapId: 'wales-and-the-west', rating: 1320, rd: 60, volatility: 0.06, gamesPlayed: 20, peakRating: 1350, updatedAt: t.now() - 7 * 86_400_000 })
+    expect((await t.call(ada, { op: 'my-rating' })).body).toMatchObject({ provisional: false })
   })
 
   it('calls a game off, unrated, when someone leaves in the first round', async () => {

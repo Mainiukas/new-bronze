@@ -17,6 +17,8 @@ import { useAccountAccess } from '../hooks/useAccountAccess'
 import { useOpenAuth } from '../hooks/useOpenAuth'
 import { useT } from '../i18n'
 import { gameRequest, onlineAvailable, OnlineError, watchTopic, type GameLists, type GameSummary, type GameView, type QuickPlayReply } from '../online/client'
+import type { MyRating } from '../server/types'
+import { RatingBadge } from '../components/RatingBadge'
 import { POLL_MS } from '../online/useOnlineGame'
 import { useOnlineErrors } from '../online/useOnlineErrors'
 
@@ -105,6 +107,7 @@ function OnlineHome() {
         <QuickPlay />
       </div>
       <div className="flex min-w-0 flex-col gap-4">
+        <MyRatingPanel />
         <GameList kind="mine" games={lists?.mine ?? null} />
         <GameList kind="open" games={lists?.open ?? null} />
         <GameList kind="live" games={lists?.live ?? null} />
@@ -367,6 +370,9 @@ function GameList({ kind, games }: { kind: 'open' | 'live' | 'mine'; games: Game
                   {o.lists.players(game.players.length, game.maxPlayers)} · {game.averageRating !== null ? o.lists.average(game.averageRating) : o.lists.noRating}
                   {game.progress ? ` · ${o.lists.progress(game.progress.era, game.progress.round)}` : ''}
                   {kind === 'mine' ? ` · ${o.lists.status[game.status]}` : ` · ${o.lists.host(game.host)}`}
+                  {game.myRatingChange !== null && (
+                    <span className={`ml-1 font-display font-bold ${game.myRatingChange >= 0 ? 'text-verdigris-200' : 'text-rust-300'}`}>{o.rating.change(game.myRatingChange)}</span>
+                  )}
                 </p>
               </div>
               {kind === 'open' && !game.mine ? (
@@ -383,5 +389,44 @@ function GameList({ kind, games }: { kind: 'open' | 'live' | 'mine'; games: Game
         </ul>
       )}
     </Panel>
+  )
+}
+
+/** Your rating on the map, as it stands now (with the provisional "?"), and how ratings work. */
+function MyRatingPanel() {
+  const t = useT()
+  const r = t.online.rating
+  const [rating, setRating] = useState<MyRating | null>(null)
+  useEffect(() => {
+    let stopped = false
+    gameRequest<MyRating>({ op: 'my-rating' })
+      .then((value) => !stopped && setRating(value))
+      .catch(() => {})
+    return () => {
+      stopped = true
+    }
+  }, [])
+  return (
+    <section aria-labelledby="my-rating-title" className="plate iron flex flex-col gap-2 rounded-xl px-4 py-3" data-testid="my-rating">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 id="my-rating-title" className="font-display text-lg font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
+          {r.your}
+        </h2>
+        <span className="text-sm text-parchment-400">{r.onMap(getMap(DEFAULT_MAP_ID).name)}</span>
+      </div>
+      {rating && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <RatingBadge rating={rating.rating} provisional={rating.provisional} rd={rating.rd} games={rating.gamesPlayed} className="text-3xl text-brass-100" />
+          <span className="text-sm text-parchment-300">
+            {rating.unplaced ? r.unplaced : `${r.games(rating.gamesPlayed)} · ${r.peak(rating.peakRating)}`}
+          </span>
+        </div>
+      )}
+      <details className="text-sm text-parchment-300">
+        <summary className="cursor-pointer font-semibold text-brass-200">{r.howTitle}</summary>
+        <p className="mt-1.5 leading-relaxed">{r.how}</p>
+        <p className="mt-1.5 leading-relaxed">{r.whenRated}</p>
+      </details>
+    </section>
   )
 }

@@ -110,6 +110,9 @@ export interface SeatView {
   forfeited: boolean
   host: boolean
   rating: number | null
+  /** The rating's uncertainty now (grown for idle days), and rated games played: for the "?" tooltip. */
+  ratingRd: number | null
+  gamesPlayed: number
   provisional: boolean
 }
 
@@ -121,6 +124,8 @@ export interface GameView {
   status: GameStatus
   visibility: Visibility
   rated: boolean
+  /** In the lobby: would it be rated if it started now (public or marked rated, Normal, no bots)? */
+  willBeRated: boolean
   ratedRequested: boolean
   allowSpectators: boolean
   mode: ModeId
@@ -156,6 +161,8 @@ export interface GameSummary {
   /** Round and era, while playing. */
   progress: { era: string; round: number } | null
   mine: boolean
+  /** A finished rated game: the caller's rating change. */
+  myRatingChange: number | null
 }
 
 export interface RatingRow {
@@ -167,6 +174,19 @@ export interface RatingRow {
   gamesPlayed: number
   peakRating: number
   updatedAt: number
+}
+
+/** A player's own rating on a map, as it stands now. */
+export interface MyRating {
+  mapId: string
+  rating: number
+  /** Uncertainty now (grown for the days without a rated game). */
+  rd: number
+  gamesPlayed: number
+  provisional: boolean
+  peakRating: number
+  /** No rated game yet, and no starting level saved: the default start is shown. */
+  unplaced: boolean
 }
 
 export interface QueueEntry {
@@ -217,5 +237,6 @@ export type Request =
   | { op: 'replay'; gameId: string }
   | { op: 'quick-play'; players: number; mode?: ModeId; mapId?: string }
   | { op: 'quick-cancel' }
+  | { op: 'my-rating'; mapId?: string }
 
 export type { Action, Card, GameState }

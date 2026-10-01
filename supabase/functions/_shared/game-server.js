@@ -1741,6 +1741,19 @@ function rateGame(players, mode, now) {
 		};
 	});
 }
+/** A player's rating as it stands now: the RD grown for the days without a game, and whether it's provisional. */
+function ratingNow(row, now) {
+	const rd = rdAfterIdle(row, now);
+	return {
+		rating: row.rating,
+		rd,
+		gamesPlayed: row.gamesPlayed,
+		provisional: isProvisional({
+			gamesPlayed: row.gamesPlayed,
+			rd
+		})
+	};
+}
 /** "1000?": still provisional (few games, or a wide RD). */
 function isProvisional(rating) {
 	return rating.gamesPlayed < 10 || rating.rd > 110;
@@ -3499,6 +3512,7 @@ function createGameServer(deps) {
 		const ratings = humans.length ? await store.getRatings(humans, record.mapId) : {};
 		const seats = record.seats.map((s) => {
 			const r = s.userId ? ratings[s.userId] : void 0;
+			const nowRating = r ? ratingNow(r, now) : null;
 			return {
 				seat: s.seat,
 				username: s.username,
@@ -3513,7 +3527,9 @@ function createGameServer(deps) {
 				forfeited: s.forfeited,
 				host: s.userId === record.hostId,
 				rating: r ? Math.round(r.rating) : null,
-				provisional: r ? isProvisional(r) : true
+				ratingRd: nowRating ? Math.round(nowRating.rd) : null,
+				gamesPlayed: r?.gamesPlayed ?? 0,
+				provisional: nowRating?.provisional ?? true
 			};
 		});
 		return {
@@ -3522,6 +3538,7 @@ function createGameServer(deps) {
 			status: record.status,
 			visibility: record.visibility,
 			rated: record.rated,
+			willBeRated: record.status === "lobby" ? willBeRated(record) : record.rated,
 			ratedRequested: record.ratedRequested,
 			allowSpectators: record.allowSpectators,
 			mode: record.mode,
@@ -3570,7 +3587,8 @@ function createGameServer(deps) {
 				era: record.state.era,
 				round: record.state.round
 			} : null,
-			mine
+			mine,
+			myRatingChange: (caller && record.result?.ratings.find((r) => r.userId === caller.userId)?.delta) ?? null
 		};
 	}
 	/** Rated: public Normal games of humans only; private ones only if the host asked (and still no bots). */
@@ -3977,6 +3995,29 @@ function createGameServer(deps) {
 					range: rangeFor(entry, now),
 					waitedMs: now - entry.since
 				}, made, made.length > 0);
+			}
+			case "my-rating": {
+				const mapId = req.mapId ?? "wales-and-the-west";
+				const row = (await store.getRatings([me.userId], mapId))[me.userId];
+				const r = row ?? {
+					rating: START_RATING.beginner,
+					rd: 350,
+					volatility: .06,
+					gamesPlayed: 0,
+					peakRating: START_RATING.beginner,
+					updatedAt: now
+				};
+				const current = ratingNow(r, now);
+				const reply = {
+					mapId,
+					rating: Math.round(current.rating),
+					rd: Math.round(current.rd),
+					gamesPlayed: current.gamesPlayed,
+					provisional: current.provisional,
+					peakRating: Math.round(r.peakRating),
+					unplaced: !row
+				};
+				return ok(reply);
 			}
 			case "quick-cancel":
 				await store.removeQueue([me.userId]);

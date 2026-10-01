@@ -2,7 +2,7 @@ import thumbUrl from '../../assets/map-thumb.jpg'
 import { BOARD } from '../data/board'
 import type { GameMap } from '../data/maps'
 import { useT } from '../i18n'
-import { IconCheck } from './icons'
+import { IconCheck, IconLock } from './icons'
 import { MapPreview } from './MapPreview'
 import { useFirstPaintDone } from './theme/firstPaint'
 
@@ -68,5 +68,25 @@ export function MapCard({ map, selected, onSelect }: MapCardProps) {
         <IconCheck className="size-3.5" strokeWidth={3} />
       </span>
     </label>
+  )
+}
+
+/** The place of the maps still being drawn: locked, not selectable. */
+export function LockedMapCard() {
+  const t = useT()
+  return (
+    <div
+      aria-disabled="true"
+      className="relative flex min-h-16 items-center gap-3 overflow-hidden rounded-xl border border-dashed border-bronze-500/30 bg-soot-950/45 p-2 pr-3 text-parchment-400 select-none"
+    >
+      <span aria-hidden="true" className="grid aspect-[16/10] w-20 shrink-0 place-items-center rounded-md border border-bronze-500/20 bg-soot-950/80">
+        <IconLock className="size-6 text-bronze-300/70" />
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="font-display text-base leading-tight font-extrabold tracking-[0.08em] text-parchment-300 uppercase">{t.setup.moreMaps}</span>
+        <span className="text-xs leading-snug">{t.setup.moreMapsText}</span>
+        <span className="soon-tag mt-0.5 self-start">{t.common.comingSoon}</span>
+      </span>
+    </div>
   )
 }

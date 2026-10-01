@@ -8,6 +8,10 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { IconGlobe, IconLock, IconPlay, IconUsers } from '../components/icons'
+import { LockedMapCard, MapCard } from '../components/MapCard'
+import { GAME_MODES } from '../data/gameModes'
+import { DEFAULT_MAP_ID, getMap } from '../data/maps'
+import { MAX_TIMEOUTS, TIME_CONTROL } from '../rules/config/game'
 import { accountPath, onlineGamePath } from '../data/navigation'
 import { useAccountAccess } from '../hooks/useAccountAccess'
 import { useOpenAuth } from '../hooks/useOpenAuth'
@@ -121,22 +125,30 @@ function Panel({ title, children, id }: { title: string; children: ReactNode; id
 }
 
 /** Choices shown as a row of pressed buttons (radio buttons underneath). */
-function Segmented<T extends string | number>({ name, value, options, onChange, label }: { name: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string }) {
+function Segmented<T extends string | number>({ name, value, options, onChange, label }: { name: string; value: T; options: { value: T; label: string; soon?: string }[]; onChange: (v: T) => void; label: string }) {
   return (
     <fieldset>
       <legend className="eyebrow mb-1.5">{label}</legend>
       <div className="grid gap-1 rounded-lg border border-bronze-500/25 bg-soot-950/60 p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
         {options.map((option) => {
           const checked = option.value === value
+          // An option that isn't open yet: greyed out, with a "Coming soon" tag.
+          const locked = option.soon !== undefined
           return (
             <label
               key={String(option.value)}
-              className={`flex min-h-10 cursor-pointer items-center justify-center rounded-md px-2 font-display text-sm font-bold tracking-[0.08em] uppercase transition has-focus-visible:outline-2 has-focus-visible:outline-ember-400 ${
-                checked ? 'bg-linear-to-b from-bronze-400/35 to-bronze-600/25 text-parchment-50 shadow-[inset_0_0_0_1px_rgb(240_215_138/0.55)]' : 'text-parchment-300 hover:bg-soot-700/60'
+              title={option.soon}
+              className={`flex min-h-10 flex-col items-center justify-center gap-0.5 rounded-md px-2 py-1 font-display text-sm font-bold tracking-[0.08em] uppercase transition has-focus-visible:outline-2 has-focus-visible:outline-ember-400 ${
+                locked
+                  ? 'cursor-not-allowed text-parchment-500'
+                  : checked
+                    ? 'cursor-pointer bg-linear-to-b from-bronze-400/35 to-bronze-600/25 text-parchment-50 shadow-[inset_0_0_0_1px_rgb(240_215_138/0.55)]'
+                    : 'cursor-pointer text-parchment-300 hover:bg-soot-700/60'
               }`}
             >
-              <input type="radio" name={name} className="sr-only" checked={checked} onChange={() => onChange(option.value)} />
+              <input type="radio" name={name} className="sr-only" checked={checked && !locked} disabled={locked} onChange={() => onChange(option.value)} />
               {option.label}
+              {locked && <span className="soon-tag !px-1.5 !text-[0.55rem]">{option.soon}</span>}
             </label>
           )
         })}
@@ -171,6 +183,21 @@ function CreateGame() {
   return (
     <Panel title={o.create.title} id="create-title">
       <form className="flex flex-col gap-3" onSubmit={create}>
+        <Segmented
+          name="mode"
+          label={o.create.mode}
+          value="normal"
+          onChange={() => {}}
+          options={GAME_MODES.map((mode) => ({ value: mode.id, label: t.modes[mode.id].name, soon: mode.playable ? undefined : t.common.comingSoon }))}
+        />
+        <p className="-mt-1 text-xs text-parchment-400">{t.modes.clock(TIME_CONTROL.normal.baseMs / 60_000, TIME_CONTROL.normal.incrementMs / 1000)} · {o.create.timeouts(MAX_TIMEOUTS)}</p>
+        <div className="flex flex-col gap-1.5">
+          <span className="eyebrow">{t.setup.map}</span>
+          <div className="grid gap-2">
+            <MapCard map={getMap(DEFAULT_MAP_ID)} selected onSelect={() => {}} />
+            <LockedMapCard />
+          </div>
+        </div>
         <Segmented name="players" label={o.create.players} value={players} onChange={setPlayers} options={[2, 3, 4].map((n) => ({ value: n, label: String(n) }))} />
         <Segmented
           name="visibility"

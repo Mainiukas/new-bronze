@@ -137,7 +137,7 @@ const de: Messages = {
     blitz: { name: 'Blitz', description: 'Kleinere Karte, kürzere Zeit. Jede Entscheidung zählt.' },
     bullet: { name: 'Bullet', description: 'Kleinste Karte, sehr wenig Zeit. Bau nach Gefühl.' },
     mapSize: { full: 'Ganze Karte', reduced: 'Verkleinerte Karte', compact: 'Kompakte Karte' },
-    perTurn: (time: string) => `${time} pro Zug`,
+    clock: (minutes: number, seconds: number) => `${minutes} Min. + ${seconds} s pro Zug`,
   },
   maps: {
     'wales-and-the-west': {
@@ -156,6 +156,8 @@ const de: Messages = {
     railFrom: (round: number) => `Eisenbahn-Ära ab Runde ${round}`,
     map: 'Karte',
     practiceMap: 'Übungskarte, ohne Ären.',
+    moreMaps: 'Weitere Karten folgen',
+    moreMapsText: 'Neue Spielbretter werden gezeichnet. Bis dahin wird jede Partie auf Wales & the West gespielt.',
     players: 'Spieler',
     playersRange: (min: number, max: number) => (min === max ? `${min} Spieler` : `${min}–${max} Spieler`),
     towns: (n: number) => p(n, { one: `${n} Stadt`, other: `${n} Städte` }),

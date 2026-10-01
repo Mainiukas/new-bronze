@@ -17,6 +17,7 @@ import { useT } from '../i18n'
 import { gameRequest, OnlineError, type GameView } from '../online/client'
 import { useOnlineGame, type OnlineGame as Online } from '../online/useOnlineGame'
 import type { BrassMatch } from '../rules/match'
+import type { SeatClock } from '../components/brass/clock'
 import { useOnlineErrors } from '../online/useOnlineErrors'
 
 const BrassGame = lazy(() => import('./BrassGame').then((module) => ({ default: module.BrassGame })))
@@ -243,6 +244,12 @@ function OnlineMatch({ game, view, settings, onOpenRules, onOpenSettings, overla
   const match: BrassMatch = { kind: 'brass', modeId: view.mode, mapId: view.mapId, state }
   const spectating = view.mySeat === null
   const now = useNow() + game.clockOffset
+  // Chess clocks: the player to move counts down from when their turn started.
+  const clocks: Record<number, SeatClock> = {}
+  for (const s of view.seats) {
+    const running = view.status === 'playing' && view.turn?.seat === s.seat
+    clocks[s.seat] = { ms: running ? s.clockMs - (now - view.turn!.startedAt) : s.clockMs, running, timeouts: s.timeouts }
+  }
 
   const notes: string[] = []
   for (const s of view.seats) {
@@ -304,7 +311,7 @@ function OnlineMatch({ game, view, settings, onOpenRules, onOpenSettings, overla
           onOpenSettings={onOpenSettings}
           overlayOpen={overlayOpen}
           localAvatarUrl={auth.profile?.avatarUrl ?? null}
-          online={{ seat: view.mySeat ?? 0, spectating, busy: game.busy, submit }}
+          online={{ seat: view.mySeat ?? 0, spectating, busy: game.busy, submit, clocks }}
           banner={banner}
         />
       </Suspense>

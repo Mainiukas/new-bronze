@@ -1,6 +1,6 @@
 import { useState, type Dispatch, type SetStateAction } from 'react'
 import type { GameModeId } from '../data/gameModes'
-import { getMap, MAPS, type MapId } from '../data/maps'
+import { getMap, isPlayableMapId, MAPS, type MapId } from '../data/maps'
 import { MAX_NAME, placeholderName, seatCount, toSeatSetups, withController, type SavedSetup, type SeatDraft } from '../data/matchSetup'
 import { MAX_PLAYERS, MIN_PLAYERS } from '../game/engine'
 import { AI_LEVELS, type AILevel, type SeatSetup } from '../game/types'
@@ -9,7 +9,7 @@ import { randomSeed } from '../lib/random'
 import { START_MONEY } from '../rules/constants'
 import { roundsPerEra } from '../rules/match'
 import { IconChevronDown, IconPlay } from './icons'
-import { MapCard } from './MapCard'
+import { LockedMapCard, MapCard } from './MapCard'
 import { Corners } from './theme/Ornaments'
 
 /** Everything a new match needs. */
@@ -68,9 +68,10 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
         <fieldset>
           <legend className="eyebrow mb-2">{t.setup.map}</legend>
           <div className="grid gap-2 @2xl:grid-cols-3">
-            {MAPS.map((m) => (
+            {MAPS.filter((m) => isPlayableMapId(m.id)).map((m) => (
               <MapCard key={m.id} map={m} selected={m.id === mapId} onSelect={() => onMapChange(m.id)} />
             ))}
+            <LockedMapCard />
           </div>
           <p className="mt-2 text-sm text-parchment-300">
             {t.maps[mapId].flavor}

@@ -12,6 +12,8 @@ const onlineWords: OnlineWords = {
   create: {
     title: 'Spiel erstellen',
     players: 'Spieler',
+    mode: 'Modus',
+    timeouts: (n) => `${n} Zeitüberschreitungen = Aufgabe`,
     visibility: 'Wer beitreten kann',
     public: 'Öffentlich',
     private: 'Privat',

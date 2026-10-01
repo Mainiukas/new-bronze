@@ -94,6 +94,7 @@ const brassWords: BrassWords = {
   distantClosed: 'Tolimoji rinka užsidarė',
   distantNoSale: 'Tolimoji rinka užsidarė — pardavimo nėra.',
   turnOrder: 'Ėjimų tvarka',
+  clockTitle: (time: string, timeouts: number, max: number): string => `Laikrodyje liko ${time} · laikas baigėsi ${timeouts} iš ${max} kartų`,
   spentThisRound: (n) => `Šiame rate išleista £${n}`,
   marketLabel: (market, cubes, price) => `${market}: kubelių ${cubes}, kitas kubelis £${price}`,
   marketEmptyPrice: (price) => `Visada galima pirkti už £${price}, net kai rinka tuščia`,

@@ -30,6 +30,8 @@ export interface GameModeConfig {
   readonly startingMoney: number
   /** Pause between computer players' actions, so you can follow them (ms). */
   readonly aiDelayMs: number
+  /** Can be picked now. The others show on the menu, greyed out, as "Coming soon". */
+  readonly playable: boolean
 }
 
 export const GAME_MODES = [
@@ -44,6 +46,7 @@ export const GAME_MODES = [
     rounds: 10,
     startingMoney: 14,
     aiDelayMs: 900,
+    playable: true,
   },
   {
     id: 'blitz',
@@ -56,6 +59,7 @@ export const GAME_MODES = [
     rounds: 7,
     startingMoney: 16,
     aiDelayMs: 650,
+    playable: false,
   },
   {
     id: 'bullet',
@@ -68,6 +72,7 @@ export const GAME_MODES = [
     rounds: 5,
     startingMoney: 18,
     aiDelayMs: 400,
+    playable: false,
   },
 ] as const satisfies readonly GameModeConfig[]
 
@@ -79,6 +84,11 @@ export const DEFAULT_GAME_MODE_ID: GameModeId = 'normal'
 /** Type guard: is `value` the id of a known mode? Used to validate saved data. */
 export function isGameModeId(value: unknown): value is GameModeId {
   return GAME_MODES.some((mode) => mode.id === value)
+}
+
+/** A mode that can be picked now (saved choices of the others fall back to the default). */
+export function isPlayableModeId(value: unknown): value is GameModeId {
+  return GAME_MODES.some((mode) => mode.id === value && mode.playable)
 }
 
 /** Look up a mode by id, falling back to the default mode. */

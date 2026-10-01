@@ -1,5 +1,6 @@
 import type { ComponentType, CSSProperties } from 'react'
-import { formatDuration, formatTurnTimer, type GameMode, type GameModeId, type ModeIconName } from '../data/gameModes'
+import { formatDuration, type GameMode, type GameModeId, type ModeIconName } from '../data/gameModes'
+import { TIME_CONTROL } from '../rules/config/game'
 import { useT } from '../i18n'
 import { IconBolt, IconCheck, IconClock, IconFactory, IconStopwatch, type IconProps } from './icons'
 import { backgroundUrl } from './theme/backgrounds'
@@ -46,18 +47,33 @@ export function ModeCard({ mode, selected, onSelect, index = 0, players }: ModeC
   const t = useT()
   const Icon = MODE_ICONS[mode.icon]
   const painted = useFirstPaintDone()
-  const facts = `${t.setup.roundsPerEra(roundsPerEra(mode.id, players))} · ${t.modes.mapSize[mode.mapSize]} · ${t.modes.perTurn(formatTurnTimer(mode.turnTimerSeconds))}`
+  const clock = TIME_CONTROL[mode.id]
+  const facts = `${t.setup.roundsPerEra(roundsPerEra(mode.id, players))} · ${t.modes.mapSize[mode.mapSize]} · ${t.modes.clock(clock.baseMs / 60_000, clock.incrementMs / 1000)}`
+  // Modes not open yet: shown greyed out with a "Coming soon" ribbon, and can't be picked.
+  const locked = !mode.playable
 
   return (
     <label
       style={{ animationDelay: `${index * 70}ms` } as CSSProperties}
-      className={`plate iron group relative grid animate-fade-up cursor-pointer grid-cols-[7.5rem_minmax(0,1fr)] overflow-hidden rounded-xl transition-[border-color,box-shadow] duration-200 ease-out select-none has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ember-400 @2xl:grid-cols-1 ${
-        selected
-          ? 'border-brass-300/90 shadow-[0_0_0_1px_rgb(240_215_138/0.55),0_16px_36px_-14px_rgb(255_157_77/0.55)]'
-          : 'hover:border-ember-400/70 hover:shadow-[0_0_0_1px_rgb(255_157_77/0.35),0_0_26px_-6px_rgb(255_122_26/0.55)]'
+      aria-disabled={locked || undefined}
+      className={`plate iron group relative grid animate-fade-up grid-cols-[7.5rem_minmax(0,1fr)] overflow-hidden rounded-xl transition-[border-color,box-shadow] duration-200 ease-out select-none has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ember-400 @2xl:grid-cols-1 ${
+        locked
+          ? 'cursor-not-allowed'
+          : selected
+            ? 'cursor-pointer border-brass-300/90 shadow-[0_0_0_1px_rgb(240_215_138/0.55),0_16px_36px_-14px_rgb(255_157_77/0.55)]'
+            : 'cursor-pointer hover:border-ember-400/70 hover:shadow-[0_0_0_1px_rgb(255_157_77/0.35),0_0_26px_-6px_rgb(255_122_26/0.55)]'
       }`}
     >
-      <input type="radio" name="game-mode" value={mode.id} checked={selected} onChange={onSelect} className="sr-only" />
+      <input type="radio" name="game-mode" value={mode.id} checked={selected && !locked} disabled={locked} onChange={onSelect} className="sr-only" />
+      {locked && (
+        <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 bg-soot-950/45 backdrop-grayscale" />
+      )}
+      {locked && (
+        // The ribbon across the top-right corner.
+        <span className="pointer-events-none absolute top-4 -right-10 z-20 w-40 rotate-45 border-y border-brass-200/70 bg-linear-to-b from-bronze-400 to-bronze-700 py-1 text-center font-display text-[0.7rem] font-extrabold tracking-[0.18em] text-soot-950 uppercase shadow-[0_4px_10px_rgb(0_0_0/0.6)]">
+          {t.common.comingSoon}
+        </span>
+      )}
 
       {/* Picture: a crop of the lobby painting, dark at the bottom where the badge and text meet it */}
       <span
@@ -77,7 +93,7 @@ export function ModeCard({ mode, selected, onSelect, index = 0, players }: ModeC
         >
           <Icon strokeWidth={2} />
         </span>
-        <span className="absolute top-2.5 right-2.5 hidden items-center gap-1 rounded-full border border-bronze-400/40 bg-soot-950/80 px-2 py-0.5 text-xs font-semibold tracking-wide whitespace-nowrap text-bronze-100 tabular-nums @2xl:inline-flex">
+        <span className={`absolute top-2.5 right-2.5 hidden items-center gap-1 rounded-full border border-bronze-400/40 bg-soot-950/80 px-2 py-0.5 text-xs font-semibold tracking-wide whitespace-nowrap text-bronze-100 tabular-nums ${locked ? '' : '@2xl:inline-flex'}`}>
           <IconClock className="size-3.5" />
           {formatDuration(mode.durationMinutes)}
         </span>
@@ -93,7 +109,8 @@ export function ModeCard({ mode, selected, onSelect, index = 0, players }: ModeC
           >
             {t.modes[mode.id].name}
           </span>
-          <span className="text-xs font-semibold whitespace-nowrap text-bronze-200 tabular-nums @2xl:hidden">{formatDuration(mode.durationMinutes)}</span>
+          {/* Beside the name on narrow cards, and on locked ones (the ribbon covers the corner chip). */}
+          <span className={`text-xs font-semibold whitespace-nowrap text-bronze-200 tabular-nums ${locked ? '' : '@2xl:hidden'}`}>{formatDuration(mode.durationMinutes)}</span>
         </span>
         <span className="text-sm leading-snug text-parchment-300">{t.modes[mode.id].description}</span>
         <span className="mt-1 text-xs font-semibold tracking-wide text-brass-300/90">{facts}</span>

@@ -16,6 +16,7 @@ import type { GameState } from '../../rules/state'
 import { motionOff } from './flights'
 import { Coin, IncomeArrow, VpHex } from './Symbols'
 import { CARD_BACK_URL } from './cardArt'
+import { formatClock, LOW_CLOCK_MS, type SeatClock } from './clock'
 
 /** A round avatar: an illustrated one ('preset:<id>'), a picture, or the initial on the player's colour. */
 function SeatAvatar({ url, name, color, className }: { url: string | null; name: string; color: string; className: string }) {
@@ -44,6 +45,8 @@ export function TurnOrder({
   viewing,
   speed,
   onView,
+  clocks,
+  maxTimeouts = 3,
 }: {
   state: GameState
   ctx: RulesContext
@@ -54,6 +57,9 @@ export function TurnOrder({
   /** The animation-speed setting (0 = off). */
   speed: number
   onView: (player: number) => void
+  /** Online games: each player's chess clock, by player. */
+  clocks?: Record<number, SeatClock>
+  maxTimeouts?: number
 }) {
   const t = useT()
   const b = t.brass
@@ -107,6 +113,7 @@ export function TurnOrder({
             <span className="inline-flex items-center gap-0.5 font-display text-[0.7rem] leading-none font-bold text-parchment-100 tabular-nums" title={b.spentThisRound(p.spent)}>
               <Coin className="size-3.5" />£{p.spent}
             </span>
+            {clocks?.[id] && <ClockPill clock={clocks[id]} max={maxTimeouts} />}
             <div
               role="tooltip"
               className="pointer-events-none invisible absolute top-full left-1/2 z-50 mt-1.5 w-max -translate-x-1/2 rounded-lg border border-bronze-400/60 bg-soot-950/[0.97] px-3 py-2 opacity-0 shadow-xl transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
@@ -130,5 +137,29 @@ export function TurnOrder({
         )
       })}
     </ol>
+  )
+}
+
+/** The time left on a player's clock, with a dot per timeout so far. */
+function ClockPill({ clock, max }: { clock: SeatClock; max: number }) {
+  const b = useT().brass
+  const low = clock.ms < LOW_CLOCK_MS
+  return (
+    <span
+      data-testid="seat-clock"
+      title={b.clockTitle(formatClock(clock.ms), clock.timeouts, max)}
+      className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-px font-display text-[0.7rem] leading-none font-bold tabular-nums ${
+        low ? 'border-rust-400/80 bg-rust-500/35 text-rust-300' : clock.running ? 'border-brass-300/80 bg-soot-950/90 text-brass-100' : 'border-bronze-500/40 bg-soot-950/80 text-parchment-300'
+      } ${clock.running ? 'shadow-[0_0_8px_rgb(240_215_138/0.45)]' : ''}`}
+    >
+      {formatClock(clock.ms)}
+      {clock.timeouts > 0 && (
+        <span aria-hidden="true" className="flex gap-px">
+          {Array.from({ length: clock.timeouts }, (_, i) => (
+            <span key={i} className="size-1.5 rounded-full bg-rust-400" />
+          ))}
+        </span>
+      )}
+    </span>
   )
 }

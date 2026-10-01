@@ -10,6 +10,8 @@ const onlineWords = {
   create: {
     title: 'Create a game',
     players: 'Players',
+    mode: 'Mode',
+    timeouts: (n: number) => `${n} timeouts forfeit the game`,
     visibility: 'Who can join',
     public: 'Public',
     private: 'Private',

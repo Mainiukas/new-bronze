@@ -139,7 +139,7 @@ const lt: Messages = {
     blitz: { name: 'Blicas', description: 'Mažesnis žemėlapis ir trumpesnis laikas. Svarbus kiekvienas sprendimas.' },
     bullet: { name: 'Kulka', description: 'Mažiausias žemėlapis, labai trumpas laikas. Statyk iš nuojautos.' },
     mapSize: { full: 'Visas žemėlapis', reduced: 'Sumažintas žemėlapis', compact: 'Kompaktiškas žemėlapis' },
-    perTurn: (time: string) => `${time} ėjimui`,
+    clock: (minutes: number, seconds: number) => `${minutes} min + ${seconds} s už ėjimą`,
   },
   maps: {
     'wales-and-the-west': {
@@ -158,6 +158,8 @@ const lt: Messages = {
     railFrom: (round: number) => `geležinkelių era nuo ${round} raundo`,
     map: 'Žemėlapis',
     practiceMap: 'Treniruočių žemėlapis, be erų.',
+    moreMaps: 'Kiti žemėlapiai jau netrukus',
+    moreMapsText: 'Nauji žemėlapiai dar piešiami. Kol kas visos partijos žaidžiamos žemėlapyje „Wales & the West“.',
     players: 'Žaidėjai',
     playersRange: (min: number, max: number) => (min === max ? `${min} žaidėjai` : `${min}–${max} žaidėjai`),
     towns: (n: number) => p(n, { one: `${n} miestas`, few: `${n} miestai`, other: `${n} miestų` }),

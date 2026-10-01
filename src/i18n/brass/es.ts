@@ -89,6 +89,7 @@ const brassWords: BrassWords = {
   distantClosed: 'El mercado lejano se ha cerrado',
   distantNoSale: 'El mercado lejano se ha cerrado: no hay venta.',
   turnOrder: 'Orden de turno',
+  clockTitle: (time: string, timeouts: number, max: number): string => `Quedan ${time} en el reloj · ${timeouts} de ${max} tiempos agotados`,
   spentThisRound: (n) => `£${n} gastadas esta ronda`,
   marketLabel: (market, cubes, price) => `${market}: ${cubes} cubo${cubes === 1 ? '' : 's'}, siguiente cubo £${price}`,
   marketEmptyPrice: (price) => `Siempre disponible a £${price}, aunque el mercado esté vacío`,

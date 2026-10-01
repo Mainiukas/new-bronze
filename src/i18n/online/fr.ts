@@ -12,6 +12,8 @@ const onlineWords: OnlineWords = {
   create: {
     title: 'Créer une partie',
     players: 'Joueurs',
+    mode: 'Mode',
+    timeouts: (n) => `${n} dépassements de temps = abandon`,
     visibility: 'Qui peut rejoindre',
     public: 'Publique',
     private: 'Privée',

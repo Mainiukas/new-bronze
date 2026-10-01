@@ -16,8 +16,8 @@ import { PageBackground } from './components/theme/PageBackground'
 import { markFirstPaint, whenFirstPaint } from './components/theme/firstPaint'
 import { hideSplash } from './components/theme/splash'
 import { ToastProvider } from './components/ToastProvider'
-import { DEFAULT_GAME_MODE_ID, isGameModeId } from './data/gameModes'
-import { DEFAULT_MAP_ID, getMap, isMapId } from './data/maps'
+import { DEFAULT_GAME_MODE_ID, isPlayableModeId } from './data/gameModes'
+import { DEFAULT_MAP_ID, getMap, isPlayableMapId } from './data/maps'
 import { DEFAULT_SETUP, parseSavedSetup } from './data/matchSetup'
 import { isAuthPath, PATHS, type MenuAction } from './data/navigation'
 import { ANIMATION_SCALE, defaultSettings, parseSettings } from './data/settings'
@@ -111,10 +111,10 @@ function AppShell() {
   // Saved choices. Stored values are validated, so a removed mode or map
   // falls back to the default instead of breaking the menu.
   const [modeId, setModeId] = usePersistentState(STORAGE_KEYS.gameMode, DEFAULT_GAME_MODE_ID, (raw) =>
-    isGameModeId(raw) ? raw : undefined,
+    isPlayableModeId(raw) ? raw : undefined,
   )
   const [mapId, setMapId] = usePersistentState(STORAGE_KEYS.map, DEFAULT_MAP_ID, (raw) =>
-    isMapId(raw) ? raw : undefined,
+    isPlayableMapId(raw) ? raw : undefined,
   )
   // Seats, names, colours and AI levels: edited on the Play page, and seat 1 is your profile.
   const [setup, setSetup] = usePersistentState(STORAGE_KEYS.setup, DEFAULT_SETUP, parseSavedSetup)

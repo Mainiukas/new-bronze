@@ -151,7 +151,7 @@ const en = {
     blitz: { name: 'Blitz', description: 'Smaller map and shorter timers. Every decision counts.' },
     bullet: { name: 'Bullet', description: 'Smallest map, very short timers. Build on instinct.' },
     mapSize: { full: 'Full map', reduced: 'Reduced map', compact: 'Compact map' },
-    perTurn: (time: string) => `${time} per turn`,
+    clock: (minutes: number, seconds: number) => `${minutes} min + ${seconds} s a turn`,
   },
   maps: {
     'wales-and-the-west': {
@@ -170,6 +170,8 @@ const en = {
     railFrom: (round: number) => `rail era from round ${round}`,
     map: 'Map',
     practiceMap: 'Practice map, no eras.',
+    moreMaps: 'Other maps are coming',
+    moreMapsText: 'New boards are being drawn. Until then, every match is played on Wales & the West.',
     players: 'Players',
     playersRange: (min: number, max: number) => (min === max ? `${min} players` : `${min}–${max} players`),
     towns: (n: number) => p(n, { one: `${n} town`, other: `${n} towns` }),

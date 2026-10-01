@@ -18,6 +18,7 @@ import { motionOff } from '../components/brass/flights'
 import { GameLog } from '../components/brass/GameLog'
 import { MarketStrip } from '../components/brass/Markets'
 import { TurnOrder } from '../components/brass/TurnOrder'
+import type { SeatClock } from '../components/brass/clock'
 import { useCardFlights } from '../components/brass/useCardFlights'
 import { ActionButtons, StatsBar, UpgradeBar, type ActionState } from '../components/brass/Panel'
 import { rowInfo } from '../components/brass/rowInfo'
@@ -89,6 +90,8 @@ export interface OnlineSeat {
   busy: boolean
   /** Sends the moves in order; resolves true when the server took them all (a refusal has been shown). */
   submit: (actions: Action[]) => Promise<boolean>
+  /** Each player's chess clock, shown under their circle. */
+  clocks?: Record<number, SeatClock>
 }
 
 type Flow =
@@ -775,6 +778,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
             viewing={viewing}
             speed={ANIMATION_SCALE[settings.animationSpeed]}
             onView={(p) => setViewing(p === me || viewing === p ? null : p)}
+            clocks={online?.clocks}
           />
         </div>
         <span className="font-display text-sm font-bold tracking-[0.04em] text-parchment-50" aria-live="polite">

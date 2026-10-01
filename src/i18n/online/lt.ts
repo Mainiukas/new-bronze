@@ -12,6 +12,8 @@ const onlineWords: OnlineWords = {
   create: {
     title: 'Sukurti žaidimą',
     players: 'Žaidėjai',
+    mode: 'Režimas',
+    timeouts: (n) => `Po ${n} laiko pabaigų žaidimas pralaimimas`,
     visibility: 'Kas gali prisijungti',
     public: 'Viešas',
     private: 'Privatus',

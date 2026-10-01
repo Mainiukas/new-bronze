@@ -89,6 +89,7 @@ const brassWords: BrassWords = {
   distantClosed: 'Le marché lointain est fermé',
   distantNoSale: 'Le marché lointain est fermé — pas de vente.',
   turnOrder: 'Ordre du tour',
+  clockTitle: (time: string, timeouts: number, max: number): string => `${time} restantes à la pendule · ${timeouts} dépassement(s) sur ${max}`,
   spentThisRound: (n) => `£${n} dépensés ce tour`,
   marketLabel: (market, cubes, price) => `${market} : ${cubes} cube${cubes === 1 ? '' : 's'}, prochain cube £${price}`,
   marketEmptyPrice: (price) => `Toujours disponible à £${price}, même quand le marché est vide`,

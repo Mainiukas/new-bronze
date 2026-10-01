@@ -13,7 +13,7 @@ const onlineWords = {
     title: 'Create a game',
     players: 'Players',
     mode: 'Mode',
-    timeouts: (n: number) => `${n} timeouts forfeit the game`,
+    flagged: 'Run out of time and a bot finishes your seat (last place)',
     visibility: 'Who can join',
     public: 'Public',
     private: 'Private',

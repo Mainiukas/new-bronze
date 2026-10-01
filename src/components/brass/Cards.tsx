@@ -1,10 +1,10 @@
 /**
- * The cards on the match screen: the hand as a fan centred under the board,
+ * The cards on the match screen: the hand as a row centred under the board,
  * the enlarged card (tap on touch screens), the "Play <card> as:" bar and the
  * two-card joker prompt.
  */
 
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import actCanalUrl from '../../../assets/ui/player/act_canal.svg'
 import actDevelopUrl from '../../../assets/ui/player/act_develop.svg'
 import actLoanUrl from '../../../assets/ui/player/act_loan.svg'
@@ -17,6 +17,7 @@ import type { Card, Era } from '../../rules/state'
 import { INDUSTRY_ICON_URLS } from '../board/assets'
 import { Dialog } from '../Dialog'
 import { CARD_BACK_URL, CARD_RATIO, NO_LOAN_URL, cardArt } from './cardArt'
+import { BANNER_X, bannerPath, CARD_BOX, CARD_TEXT, fitName, NAME_MIN_PX, NAME_MIN_SCALE_X, NAME_TRACKING, regionOf, RIBBON_COLORS, RIBBON_PATH, RIBBON_TEXT } from './cardRibbon'
 
 /** Width of an element, kept up to date. */
 function useWidth(ref: React.RefObject<HTMLElement | null>): number {
@@ -32,80 +33,199 @@ function useWidth(ref: React.RefObject<HTMLElement | null>): number {
   return width
 }
 
-/** One card: front and back, so it can flip. `label` lays a readable name over the front's name banner. */
-export function CardImage({ card, label, visible, className = '' }: { card: Card | string; label?: string; visible?: number; className?: string }) {
+/* ---- One card ---------------------------------------------------------------------- */
+
+/** Fonts finished loading (names are measured in Cinzel, so measure again once it's there). */
+let fontsReady = typeof document === 'undefined' || !document.fonts ? true : document.fonts.status === 'loaded'
+const fontListeners = new Set<() => void>()
+if (!fontsReady)
+  void document.fonts.ready.then(() => {
+    fontsReady = true
+    for (const listener of fontListeners) listener()
+  })
+function useFontsReady() {
+  return useSyncExternalStore(
+    (onChange) => {
+      fontListeners.add(onChange)
+      return () => fontListeners.delete(onChange)
+    },
+    () => fontsReady,
+    () => true,
+  )
+}
+
+let measureCtx: CanvasRenderingContext2D | null | undefined
+/** A name's width in Cinzel 700 at 1 px, letter spacing included. */
+function nameWidth(name: string): number {
+  if (measureCtx === undefined) {
+    try {
+      measureCtx = document.createElement('canvas').getContext('2d')
+    } catch {
+      measureCtx = null
+    }
+  }
+  if (!measureCtx) return name.length * 0.62
+  measureCtx.font = '700 100px Cinzel, serif'
+  return measureCtx.measureText(name).width / 100 + name.length * NAME_TRACKING
+}
+
+/**
+ * One card: front and back, so it can flip. The front's name is real text on
+ * a ribbon drawn in code (over the art's own, too-small lettering), sized to
+ * fit on one line. `compact` (hand size) also covers the side banners' tiny
+ * names, keeping just their colour; the large views show them.
+ */
+export function CardImage({ card, label, width, visible = 1, compact = false, className = '', style }: { card: Card | string; label?: string; width?: number; visible?: number; compact?: boolean; className?: string; style?: CSSProperties }) {
   return (
-    <span className={`card3d block ${className}`}>
+    <span className={`card3d block ${className}`} style={style}>
       <span className="card3d-inner block size-full">
-        <img src={cardArt(card)} alt="" draggable={false} className="card3d-face size-full rounded-[7%] object-cover select-none" />
-        {label && <CardName name={label} visible={visible} />}
+        <span className="card3d-face block overflow-hidden rounded-[7%]">
+          <img src={cardArt(card)} alt="" draggable={false} className="size-full object-cover select-none" />
+          {label && <CardRibbon card={card} compact={compact} />}
+          {label && width ? <CardName name={label} cardWidth={width} visible={visible} /> : null}
+        </span>
         <img src={CARD_BACK_URL} alt="" draggable={false} className="card3d-face card3d-back size-full rounded-[7%] object-cover select-none" />
       </span>
     </span>
   )
 }
 
+/** The ribbon (and, at hand size, plain side banners) in the region's colours, drawn over the art. */
+function CardRibbon({ card, compact }: { card: Card | string; compact: boolean }) {
+  const id = useId()
+  const region = regionOf(card)
+  const [top, bottom] = RIBBON_COLORS[region]
+  const banners = compact && region !== 'industry'
+  return (
+    <svg aria-hidden="true" viewBox={`0 0 ${CARD_BOX.w} ${CARD_BOX.h}`} preserveAspectRatio="none" className="pointer-events-none absolute inset-0 size-full">
+      <defs>
+        <linearGradient id={`${id}r`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={top} />
+          <stop offset="1" stopColor={bottom} />
+        </linearGradient>
+      </defs>
+      {banners &&
+        BANNER_X.map((x) => (
+          <g key={x}>
+            <path d={bannerPath(x)} fill={`url(#${id}r)`} stroke="#120c08" strokeWidth="2" />
+            <path d={bannerPath(x)} fill="none" stroke="#d9b877" strokeOpacity="0.5" strokeWidth="1" />
+          </g>
+        ))}
+      <path d={RIBBON_PATH} fill={`url(#${id}r)`} stroke="#120c08" strokeWidth="2" />
+      <path d={RIBBON_PATH} fill="none" stroke="#e6cc92" strokeOpacity="0.55" strokeWidth="1" transform="translate(150 378) scale(0.96 0.86) translate(-150 -378)" />
+    </svg>
+  )
+}
+
 /**
- * The card's name, crisp and readable at hand size, laid over the name
- * ribbon at the foot of the card (the art's own lettering is too small
- * there). The plate is centred on the ribbon's inner frame (tools/build-cards.js:
- * x 44–256, y 366–390 of 300 × 420) and the name is centred in it both ways;
- * trimming the line box to the capitals keeps it truly centred vertically.
+ * The name, centred both ways in the ribbon: Cinzel 700, cream with a thin
+ * dark outline and a soft shadow, ~14 px at hand size. Long names shrink to
+ * fit (never below 10 px, never wrapped or cut). On an overlapped card it
+ * fits into the part that shows.
  */
-function CardName({ name, visible = 1 }: { name: string; visible?: number }) {
-  // Overlapped cards show only their left part: the plate shrinks to that part, the name stays centred in it.
-  const overlapped = visible < 0.95
-  const right = overlapped ? `${Math.max(4, Math.round((1 - visible) * 100) + 2)}%` : '9%'
+function CardName({ name, cardWidth, visible }: { name: string; cardWidth: number; visible: number }) {
+  useFontsReady()
+  const scale = cardWidth / CARD_BOX.w
+  const shown = Math.min(1, visible)
+  const left = RIBBON_TEXT.x * scale
+  const space = Math.max(0, Math.min(RIBBON_TEXT.w * scale, cardWidth * shown - left - 4) - 4)
+  // ~14 px on a ~130 px card, in proportion (2.5× in the large view); never below 10 px.
+  const min = NAME_MIN_PX * Math.max(1, cardWidth / 130)
+  const max = Math.max(min, Math.min(cardWidth * 0.108, RIBBON_TEXT.h * scale * 0.9))
+  const fit = fitName(nameWidth(name), space, max, min)
+  // On a card mostly hidden under the next one, a name that would have to be squeezed is left off.
+  if (shown < 0.95 && fit.scaleX < NAME_MIN_SCALE_X) return null
   return (
     <span
       aria-hidden="true"
-      className="absolute top-[84.7%] grid h-[10.6%] [transform:translateZ(1px)] place-items-center overflow-hidden rounded-[4px] border border-brass-300/40 bg-soot-950/90 px-1 [backface-visibility:hidden] [container-type:size]"
-      style={{ left: overlapped ? '4%' : '9%', right }}
+      data-card-name
+      className="pointer-events-none absolute grid place-items-center [backface-visibility:hidden]"
+      style={{ left, width: space + 4, top: RIBBON_TEXT.y * scale, height: RIBBON_TEXT.h * scale }}
     >
-      <span className="text-center font-display leading-none font-bold whitespace-nowrap text-parchment-50 uppercase [font-size:min(60cqh,11cqw)] [text-box:trim-both_cap_alphabetic]">{name}</span>
+      <span
+        className="block leading-none whitespace-nowrap"
+        style={{
+          fontFamily: 'Cinzel, serif',
+          fontWeight: 700,
+          fontSize: `${fit.size.toFixed(2)}px`,
+          letterSpacing: `${NAME_TRACKING}em`,
+          color: CARD_TEXT,
+          textShadow: '1px 0 0 #120c08, -1px 0 0 #120c08, 0 1px 0 #120c08, 0 -1px 0 #120c08, 0 2px 4px rgb(0 0 0 / 0.6)',
+          transform: fit.scaleX < 1 ? `scaleX(${fit.scaleX.toFixed(3)})` : undefined,
+        }}
+      >
+        {name}
+      </span>
     </span>
   )
 }
 
+/* ---- The hand ------------------------------------------------------------------------ */
+
 interface HandRowProps {
   cards: readonly Card[]
-  /** Cards chosen for the action being prepared (gold outline, lifted). */
+  /** Cards chosen for the action being prepared (brass glow, lifted). */
   selected: readonly string[]
   /** Clicking plays (else it only enlarges). */
   interactive: boolean
-  /** Card width in px (the hand strip sets it from the screen height). */
+  /** Card width in px (the game screen sets it from the screen's size). */
   cardWidth: number
+  /** Space between cards when they fit side by side (12 px; 6 px on phones). */
+  gap?: number
   name: (card: Card) => string
   kind: (card: Card) => string
+  /** One line on what the card allows ("Build in Derby"), shown in the large preview. */
+  allows?: (card: Card) => string
   label: string
   onSelect: (cardId: string) => void
   onZoom: (cardId: string) => void
 }
 
-const GAP = 8
-/** A picked card rises 16 px (hovering: 6 px). */
-const LIFT_SELECTED = 16
+/** Hovering lifts a card 14 px; a picked card rises 24 px. */
+const LIFT_HOVER = 14
+const LIFT_SELECTED = 24
+/** The large preview: after hovering this long (or a long press), at this size. */
+const PREVIEW_DELAY_MS = 400
+const LONG_PRESS_MS = 450
+const PREVIEW_SCALE = 2.5
 
 /**
- * The hand: one straight row, centred, re-centring smoothly as the number of
- * cards changes. When the cards don't fit they overlap evenly, and each
- * card's name plate stays in its visible part.
+ * The hand: one straight row, centred in its box (the game screen lines the
+ * box up with the map), sliding back to centre when a card leaves or arrives.
+ * When the cards don't fit they overlap evenly, and each card's name stays in
+ * its visible part. A picked card rises with a brass glow and the rest dim;
+ * hovering 400 ms (or a long press) shows the card large above the hand.
  */
-export function HandRow({ cards, selected, interactive, cardWidth, name, kind, label, onSelect, onZoom }: HandRowProps) {
+export function HandRow({ cards, selected, interactive, cardWidth, gap = 12, name, kind, allows, label, onSelect, onZoom }: HandRowProps) {
   const t = useT()
   const ref = useRef<HTMLUListElement>(null)
   const width = useWidth(ref)
   const pointer = useRef('mouse')
+  const [preview, setPreview] = useState<string | null>(null)
+  const timer = useRef<number | undefined>(undefined)
+  const pressed = useRef(false)
   const cardW = cardWidth
   const cardH = Math.round(cardW / CARD_RATIO)
   const n = cards.length
-  const natural = n * cardW + Math.max(0, n - 1) * GAP
-  const step = n > 1 ? (natural <= width ? cardW + GAP : Math.max(16, (width - cardW) / (n - 1))) : 0
+  const natural = n * cardW + Math.max(0, n - 1) * gap
+  const step = n > 1 ? (natural <= width ? cardW + gap : Math.max(16, (width - cardW) / (n - 1))) : 0
   const total = n ? cardW + step * (n - 1) : 0
   const start = Math.max(0, (width - total) / 2)
   const visible = step >= cardW ? 1 : step / cardW
+  const anySelected = selected.length > 0
+  const clear = () => {
+    window.clearTimeout(timer.current)
+    setPreview(null)
+  }
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  const previewIndex = preview ? cards.findIndex((c) => c.id === preview) : -1
+  const previewCard = previewIndex >= 0 ? cards[previewIndex] : null
+  const bigW = Math.round(cardW * PREVIEW_SCALE)
+  const bigLeft = previewCard ? Math.max(0, Math.min(width - bigW, start + previewIndex * step + cardW / 2 - bigW / 2)) : 0
+
   return (
-    <ul ref={ref} data-fan aria-label={label} className="relative w-full" style={{ height: cardH + LIFT_SELECTED + 2 }}>
+    <ul ref={ref} data-fan aria-label={label} className="relative w-full" style={{ height: cardH + LIFT_SELECTED + 2 }} onPointerLeave={clear}>
       {n === 0 && <li className="absolute inset-x-0 bottom-3 text-center text-sm text-parchment-400">{t.brass.handEmpty}</li>}
       {cards.map((card, i) => {
         const isSelected = selected.includes(card.id)
@@ -115,7 +235,7 @@ export function HandRow({ cards, selected, interactive, cardWidth, name, kind, l
           <li
             key={card.id}
             data-card={card.id}
-            className="fan-card absolute bottom-0 left-0 z-[var(--z)] has-[:focus-visible]:z-50 has-[:hover]:z-50"
+            className={`fan-card absolute bottom-0 left-0 z-[var(--z)] has-[:focus-visible]:z-50 has-[:hover]:z-50 ${anySelected && !isSelected ? 'fan-card-dim' : ''}`}
             style={{ width: cardW, height: cardH, '--z': isSelected ? 40 : i + 1, transform: `translateX(${(start + i * step).toFixed(1)}px)` } as CSSProperties}
           >
             <button
@@ -123,25 +243,64 @@ export function HandRow({ cards, selected, interactive, cardWidth, name, kind, l
               aria-label={text}
               aria-pressed={interactive ? isSelected : undefined}
               title={text}
-              onPointerDown={(event) => (pointer.current = event.pointerType)}
+              onPointerEnter={(event) => {
+                if (event.pointerType !== 'mouse') return
+                window.clearTimeout(timer.current)
+                timer.current = window.setTimeout(() => setPreview(card.id), PREVIEW_DELAY_MS)
+              }}
+              onPointerLeave={clear}
+              onPointerDown={(event) => {
+                pointer.current = event.pointerType
+                pressed.current = false
+                if (event.pointerType === 'mouse') return clear()
+                window.clearTimeout(timer.current)
+                timer.current = window.setTimeout(() => {
+                  pressed.current = true
+                  setPreview(card.id)
+                }, LONG_PRESS_MS)
+              }}
+              onPointerUp={(event) => {
+                if (event.pointerType !== 'mouse') clear()
+              }}
+              onPointerCancel={clear}
+              onContextMenu={(event) => event.preventDefault()}
               onClick={() => {
                 const touch = pointer.current === 'touch'
                 pointer.current = 'mouse'
+                clear()
+                // A long press only previews.
+                if (pressed.current) {
+                  pressed.current = false
+                  return
+                }
                 if (touch || !interactive) onZoom(card.id)
                 else onSelect(card.id)
               }}
               className={`fan-card-button relative block size-full rounded-[7%] outline-none ${
                 isSelected
-                  ? 'shadow-[0_0_0_3px_#ffd66b,0_0_22px_6px_rgb(255_214_107/0.6)]'
-                  : 'shadow-[0_6px_14px_rgb(0_0_0/0.55)] hover:-translate-y-[6px] focus-visible:-translate-y-[6px] focus-visible:shadow-[0_0_0_3px_var(--color-brass-200)]'
+                  ? 'shadow-[0_0_0_2px_#ecc76e,0_0_20px_6px_rgb(236_199_110/0.55),0_16px_24px_rgb(0_0_0/0.5)]'
+                  : 'shadow-[0_6px_14px_rgb(0_0_0/0.55)] hover:shadow-[0_18px_26px_rgb(0_0_0/0.5)] focus-visible:shadow-[0_0_0_3px_var(--color-brass-200)]'
               }`}
-              style={isSelected ? { translate: `0 -${LIFT_SELECTED}px` } : undefined}
+              style={{ '--lift': `-${isSelected ? LIFT_SELECTED : LIFT_HOVER}px`, translate: isSelected ? `0 -${LIFT_SELECTED}px` : undefined } as CSSProperties}
             >
-              <CardImage card={card} label={name(card)} visible={last || isSelected ? 1 : visible} className="size-full" />
+              <CardImage card={card} label={name(card)} width={cardW} compact visible={last || isSelected ? 1 : visible} className="size-full" />
             </button>
           </li>
         )
       })}
+      {previewCard && (
+        <li
+          aria-hidden="true"
+          data-testid="card-preview"
+          className="card-preview pointer-events-none absolute z-[60] flex flex-col items-center gap-2"
+          style={{ left: bigLeft, bottom: cardH + LIFT_SELECTED + 10, width: bigW }}
+        >
+          <CardImage card={previewCard} label={name(previewCard)} width={bigW} className="aspect-[5/7] w-full drop-shadow-[0_18px_30px_rgb(0_0_0/0.75)]" />
+          {allows && (
+            <span className="rounded-md border border-brass-300/50 bg-soot-950/95 px-3 py-1 text-center text-sm font-semibold text-parchment-50 shadow-lg">{allows(previewCard)}</span>
+          )}
+        </li>
+      )}
     </ul>
   )
 }
@@ -177,6 +336,7 @@ export function CardZoom({
   const b = t.brass
   const id = useId()
   const swipe = useRef<{ x: number; y: number } | null>(null)
+  const zoomWidth = Math.round(Math.min(typeof window === 'undefined' ? 320 : window.innerWidth * 0.7, 320))
   return (
     <Dialog open={card !== null} onClose={onClose} labelledBy={id}>
       {card && (
@@ -203,7 +363,7 @@ export function CardZoom({
                 ‹
               </button>
             )}
-            <CardImage card={card} className="aspect-[5/7] w-[min(70vw,20rem)] drop-shadow-[0_10px_24px_rgb(0_0_0/0.7)]" />
+            <CardImage card={card} label={name} width={zoomWidth} className="aspect-[5/7] drop-shadow-[0_10px_24px_rgb(0_0_0/0.7)]" style={{ width: zoomWidth }} />
             {onStep && (
               <button type="button" className="icon-btn" aria-label={b.nextCard} onClick={() => onStep(1)}>
                 ›

@@ -15,16 +15,12 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import rulesMarkdown from '../../docs/RULES.md?raw'
-import levelNew from '../../assets/onboarding/level_1.svg'
-import levelBeginner from '../../assets/onboarding/level_2.svg'
-import levelIntermediate from '../../assets/onboarding/level_3.svg'
-import levelAdvanced from '../../assets/onboarding/level_4.svg'
-import canalArt from '../../assets/cards/art/canal.jpg'
-import millTownArt from '../../assets/cards/art/mill_town.jpg'
 import logoStacked from '../../assets/logo/bronze_logo_stacked.svg'
 import boatArt from '../../assets/tokens/art_boat.png'
 import locomotiveArt from '../../assets/tokens/art_locomotive.png'
 import { VpHex } from '../components/brass/Symbols'
+import { OnboardingPicture } from '../components/OnboardingPicture'
+import type { OnboardingPictureName } from '../lib/onboardingPictures'
 import { Markdown } from '../components/Markdown'
 import { ModalFrame } from '../components/ModalFrame'
 import { PageBackground } from '../components/theme/PageBackground'
@@ -36,7 +32,7 @@ import { START_LEVELS, START_RATING, type StartLevel } from '../rating/config'
 import { PrivacyPolicy } from './legal/PrivacyPolicy'
 import { TermsOfService } from './legal/TermsOfService'
 
-const LEVEL_ART: Record<StartLevel, string> = { new: levelNew, beginner: levelBeginner, intermediate: levelIntermediate, advanced: levelAdvanced }
+const LEVEL_ART: Record<StartLevel, OnboardingPictureName> = { new: 'level_1', beginner: 'level_2', intermediate: 'level_3', advanced: 'level_4' }
 const SLIDES = 5
 
 export interface WelcomeProps {
@@ -164,10 +160,9 @@ export function Welcome({ mode, startStep = 1, canPickLevel = true, rulesAccepte
                 <Title id={titleId} ref={headingRef}>
                   {w.what.title}
                 </Title>
-                <div role="img" aria-label={w.what.art} className="welcome-banner relative aspect-[12/5] w-full overflow-hidden rounded-xl border border-bronze-400/40 shadow-[0_10px_30px_rgb(0_0_0/0.6)]">
-                  <img src={canalArt} alt="" className="absolute inset-0 size-full object-cover" />
-                  <img src={millTownArt} alt="" className="welcome-crossfade absolute inset-0 size-full object-cover" />
-                  <div className="absolute inset-0 bg-linear-to-t from-soot-950/60 to-transparent" />
+                <div className="welcome-banner relative aspect-[2/1] w-full overflow-hidden rounded-xl border border-bronze-400/40 shadow-[0_10px_30px_rgb(0_0_0/0.6)]">
+                  <OnboardingPicture name="banner_empire" alt={w.what.art} sizes="(min-width: 768px) 656px, calc(100vw - 2rem)" className="absolute inset-0 size-full object-cover" />
+                  <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-soot-950/75 to-transparent" />
                 </div>
                 <p className="text-lg leading-relaxed text-parchment-100">{w.what.text}</p>
               </div>
@@ -342,7 +337,15 @@ function LevelCard({ id, selected, onSelect }: { id: StartLevel; selected: boole
       onClick={onSelect}
       className={`group relative flex flex-col overflow-hidden rounded-xl border-2 bg-soot-950/70 text-left transition ${selected ? 'border-brass-300 shadow-[0_0_0_1px_rgb(242_192_67/0.6),0_0_22px_rgb(242_192_67/0.45)]' : 'border-bronze-500/35 hover:border-bronze-300/70'}`}
     >
-      <img src={LEVEL_ART[id]} alt={level.art} className="aspect-[5/2] w-full object-cover" />
+      <span className="relative block aspect-video w-full overflow-hidden">
+        <OnboardingPicture
+          name={LEVEL_ART[id]}
+          alt={level.art}
+          sizes="(min-width: 768px) 320px, (min-width: 640px) 45vw, calc(100vw - 2rem)"
+          className="size-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04] motion-reduce:transition-none"
+        />
+        <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-2/5 bg-linear-to-t from-soot-950 to-transparent" />
+      </span>
       <span className="flex flex-col gap-1 px-4 py-3">
         <span className="font-display text-lg font-bold tracking-[0.06em] text-parchment-50">{level.name}</span>
         <span className="text-sm text-parchment-200">{level.text}</span>

@@ -1768,11 +1768,20 @@ const LOANS = {
 };
 /** §2 Selling tiles to cover negative income: this share of the tile's £ cost, rounded down. */
 const SHORTFALL_TILE_SHARE = .5;
+/**
+* The chess clock (Normal): each player has 20 minutes for the whole game, and
+* 20 seconds are added once their turn (all its actions) is confirmed. It runs
+* only during their own turn; the game server keeps it.
+*/
+const CLOCK = {
+	clockSeconds: 1200,
+	incrementSeconds: 20
+};
 /** Each player's clock for the whole game, and the time added after each of their turns. */
 const TIME_CONTROL = {
 	normal: {
-		baseMs: 12e5,
-		incrementMs: 3e4
+		baseMs: CLOCK.clockSeconds * 1e3,
+		incrementMs: CLOCK.incrementSeconds * 1e3
 	},
 	blitz: {
 		baseMs: 6e5,
@@ -1783,6 +1792,8 @@ const TIME_CONTROL = {
 		incrementMs: 1e4
 	}
 };
+/** The clock is frozen this long while the era's scoring is shown. */
+const SCORING_PAUSE_MS = 1e4;
 /** A player who hasn't been heard from for this long is disconnected… */
 const CONNECTION_LOST_MS = 3e4;
 /** …and after this grace time a bot plays their seat until they come back. */
@@ -2511,6 +2522,14 @@ function takeCubes(state, ctx, kind, takes) {
 function applyAction(state, ctx, playerId, action) {
 	if (state.finished) throw new RuleError("game-over", "The game is over");
 	if (playerId !== currentPlayerId(state)) throw new RuleError("not-your-turn", "It isn't your turn");
+	if (action.type === "out-of-time") {
+		const next = clone(state);
+		next.log.push({
+			kind: "out-of-time",
+			player: playerId
+		});
+		return next;
+	}
 	if (state.selling && action.type !== "sell-more" && action.type !== "sell-stop") throw new RuleError("selling", "Finish selling first: sell another mill or stop");
 	if (!state.selling && (action.type === "sell-more" || action.type === "sell-stop")) throw new RuleError("not-selling", "You aren't selling");
 	const next = clone(state);
@@ -3366,10 +3385,17 @@ function createGameServer(deps) {
 		}
 		return fail(503, "busy", "Couldn’t make an invite code: try again");
 	}
-	/** Apply one move for a seat; the clock charges the turn's time when the turn passes on. */
+	/** A turn ends when the turn order moves on (or a round or era ends), even if the same player is next. */
+	const turnKey = (state) => `${state.era}/${state.round}/${state.turn}`;
+	/**
+	* Apply one move for a seat. The chess clock: a turn (all its actions) is
+	* charged once, when it ends, and gets the increment once; it runs only
+	* during the player's own turn, and is frozen while an era's scoring shows.
+	*/
 	function apply(record, seat, action, by, now, log) {
 		const state = record.state;
 		const before = currentPlayerId(state);
+		const beforeKey = turnKey(state);
 		const next = applyAction(state, ctx, seat, action);
 		record.state = next;
 		record.moves += 1;
@@ -3380,25 +3406,28 @@ function createGameServer(deps) {
 			by,
 			at: now
 		});
-		const after = next.finished ? null : currentPlayerId(next);
-		if (after !== before || next.finished) {
+		if (next.finished || turnKey(next) !== beforeKey) {
 			const prev = record.seats[before];
 			const turn = record.turn;
 			if (turn && turn.seat === before && !botPlays(prev)) {
-				const increment = TIME_CONTROL[record.mode].incrementMs;
-				prev.clockMs = by === "clock" ? increment : Math.max(0, prev.clockMs - (now - turn.startedAt)) + increment;
+				const used = Math.max(0, now - turn.startedAt);
+				prev.clockMs = Math.max(0, prev.clockMs - used) + TIME_CONTROL[record.mode].incrementMs;
 			}
-			record.turn = after === null ? null : {
-				seat: after,
-				startedAt: now
+			const scoring = next.era !== state.era;
+			record.turn = next.finished ? null : {
+				seat: currentPlayerId(next),
+				startedAt: now + (scoring ? SCORING_PAUSE_MS : 0)
 			};
 		}
 		if (next.finished) finish(record, now);
 	}
+	/** The time a seat has left right now (its clock runs only on its own turn). */
+	const clockLeft = (record, seat, now) => record.turn?.seat === seat.seat ? seat.clockMs - Math.max(0, now - record.turn.startedAt) : seat.clockMs;
 	/**
 	* Bring a game up to now: disconnected players past their grace get a
-	* stand-in, a clock that ran out passes the turn (3 times forfeits), and bots
-	* play until it's a human's turn.
+	* stand-in, a player whose clock ran out has the rest of their turn passed
+	* with random cards and a bot plays their seat from then on (last place),
+	* and bots play until it's a human's turn.
 	*/
 	function advance(record, now, log) {
 		let changed = false;
@@ -3417,15 +3446,14 @@ function createGameServer(deps) {
 				changed = true;
 				continue;
 			}
-			const turn = record.turn;
-			if (turn && turn.seat === seatId && now - turn.startedAt > seat.clockMs) {
+			if (record.turn?.seat === seatId && clockLeft(record, seat, now) <= 0) {
 				seat.timeouts += 1;
+				apply(record, seatId, { type: "out-of-time" }, "clock", now, log);
+				const key = turnKey(record.state);
+				while (record.status === "playing" && record.state && turnKey(record.state) === key) apply(record, seatId, timeoutAction(record.state, seatId, record.moves), "clock", now, log);
 				seat.clockMs = 0;
-				if (seat.timeouts >= 3) {
-					seat.forfeited = true;
-					seat.botPlaying = true;
-				}
-				while (record.status === "playing" && record.state && currentPlayerId(record.state) === seatId && !seat.forfeited) apply(record, seatId, timeoutAction(record.state, seatId, record.moves), "clock", now, log);
+				seat.forfeited = true;
+				seat.botPlaying = true;
 				changed = true;
 				continue;
 			}
@@ -3982,7 +4010,7 @@ function createGameServer(deps) {
 				if (record.status !== "playing" || currentPlayerId(record.state) !== seat.seat) fail(403, "not-your-turn", "It’s not your turn");
 				if (seat.forfeited) fail(403, "forfeited", "You’ve forfeited this game");
 				const action = req.action;
-				if (!action || typeof action !== "object" || typeof action.type !== "string") fail(400, "bad-request", "That isn’t a move");
+				if (!action || typeof action !== "object" || typeof action.type !== "string" || action.type === "out-of-time") fail(400, "bad-request", "That isn’t a move");
 				try {
 					apply(record, seat.seat, structuredClone(action), "player", now, log);
 				} catch (error) {

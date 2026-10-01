@@ -5,14 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "build:single": "tsc -b && vite build --mode single",
+    "build": "node scripts/onboarding-images.mjs && tsc -b && vite build",
+    "build:single": "node scripts/onboarding-images.mjs && tsc -b && vite build --mode single",
     "test": "vitest run",
     "lint": "oxlint",
     "preview": "vite preview",
     "notices": "node scripts/third-party-notices.mjs",
     "tiles": "node scripts/tiles.mjs",
-    "build:server": "node scripts/build-server.mjs"
+    "build:server": "node scripts/build-server.mjs",
+    "images": "node scripts/onboarding-images.mjs",
+    "build:function": "rolldown supabase/functions/game/index.ts --format esm --platform neutral -o dist-function/game-index.ts"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",
@@ -32,6 +34,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "jsdom": "^26.1.0",
     "oxlint": "^1.81.0",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",

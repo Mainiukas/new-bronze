@@ -16,7 +16,7 @@ import type { GameState } from '../../rules/state'
 import { motionOff } from './flights'
 import { Coin, IncomeArrow, VpHex } from './Symbols'
 import { CARD_BACK_URL } from './cardArt'
-import { formatClock, LOW_CLOCK_MS, type SeatClock } from './clock'
+import { clockLevel, formatClock, ringShare, type SeatClock } from './clock'
 
 /** A round avatar: an illustrated one ('preset:<id>'), a picture, or the initial on the player's colour. */
 function SeatAvatar({ url, name, color, className }: { url: string | null; name: string; color: string; className: string }) {
@@ -46,7 +46,6 @@ export function TurnOrder({
   speed,
   onView,
   clocks,
-  maxTimeouts = 3,
 }: {
   state: GameState
   ctx: RulesContext
@@ -59,7 +58,6 @@ export function TurnOrder({
   onView: (player: number) => void
   /** Online games: each player's chess clock, by player. */
   clocks?: Record<number, SeatClock>
-  maxTimeouts?: number
 }) {
   const t = useT()
   const b = t.brass
@@ -106,14 +104,15 @@ export function TurnOrder({
               aria-label={`${index + 1}. ${b.opponentLabel(p.name, p.money, income, p.vp, p.hand.length)}${active ? `. ${b.turnMarker}` : ''}`}
               className={`rounded-full transition-[transform,opacity,filter] duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass-200 ${active ? 'scale-[1.14]' : ''} ${done ? 'opacity-55 saturate-50' : ''}`}
             >
-              <span className="block rounded-full p-[5px]" style={{ background: color, boxShadow: active ? `0 0 0 2px #1a120a, 0 0 16px 5px ${color}b0` : '0 0 0 2px #1a120a, 0 3px 8px rgb(0 0 0 / 0.6)' }}>
+              <span className="relative block rounded-full p-[5px]" style={{ background: color, boxShadow: active ? `0 0 0 2px #1a120a, 0 0 16px 5px ${color}b0` : '0 0 0 2px #1a120a, 0 3px 8px rgb(0 0 0 / 0.6)' }}>
                 <SeatAvatar url={avatarOf(id)} name={p.name} color={color} className="size-8 text-base sm:size-9" />
+                {active && clocks?.[id]?.running && <ClockRing clock={clocks[id]} color={color} />}
               </span>
             </button>
             <span className="inline-flex items-center gap-0.5 font-display text-[0.7rem] leading-none font-bold text-parchment-100 tabular-nums" title={b.spentThisRound(p.spent)}>
               <Coin className="size-3.5" />£{p.spent}
             </span>
-            {clocks?.[id] && <ClockPill clock={clocks[id]} max={maxTimeouts} />}
+            {clocks?.[id] && <ClockPill clock={clocks[id]} />}
             <div
               role="tooltip"
               className="pointer-events-none invisible absolute top-full left-1/2 z-50 mt-1.5 w-max -translate-x-1/2 rounded-lg border border-bronze-400/60 bg-soot-950/[0.97] px-3 py-2 opacity-0 shadow-xl transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
@@ -140,26 +139,50 @@ export function TurnOrder({
   )
 }
 
-/** The time left on a player's clock, with a dot per timeout so far. */
-function ClockPill({ clock, max }: { clock: SeatClock; max: number }) {
+/** The time left on a player's clock: amber under 2:00, red (pulsing gently) under 0:30. */
+function ClockPill({ clock }: { clock: SeatClock }) {
   const b = useT().brass
-  const low = clock.ms < LOW_CLOCK_MS
+  const level = clockLevel(clock.ms)
+  const tone =
+    level === 'critical'
+      ? 'clock-critical border-rust-400/90 bg-rust-500/40 text-parchment-50'
+      : level === 'low'
+        ? 'border-ember-400/90 bg-ember-500/25 text-ember-300'
+        : clock.running
+          ? 'border-brass-300/80 bg-soot-950/90 text-brass-100'
+          : 'border-bronze-500/40 bg-soot-950/80 text-parchment-300'
   return (
     <span
       data-testid="seat-clock"
-      title={b.clockTitle(formatClock(clock.ms), clock.timeouts, max)}
-      className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-px font-display text-[0.7rem] leading-none font-bold tabular-nums ${
-        low ? 'border-rust-400/80 bg-rust-500/35 text-rust-300' : clock.running ? 'border-brass-300/80 bg-soot-950/90 text-brass-100' : 'border-bronze-500/40 bg-soot-950/80 text-parchment-300'
-      } ${clock.running ? 'shadow-[0_0_8px_rgb(240_215_138/0.45)]' : ''}`}
+      data-level={level}
+      title={b.clockTitle(formatClock(clock.ms))}
+      className={`inline-flex items-center rounded-full border px-1.5 py-px font-display text-[0.7rem] leading-none font-bold tabular-nums ${tone} ${clock.running ? 'shadow-[0_0_8px_rgb(240_215_138/0.45)]' : ''}`}
     >
       {formatClock(clock.ms)}
-      {clock.timeouts > 0 && (
-        <span aria-hidden="true" className="flex gap-px">
-          {Array.from({ length: clock.timeouts }, (_, i) => (
-            <span key={i} className="size-1.5 rounded-full bg-rust-400" />
-          ))}
-        </span>
-      )}
     </span>
+  )
+}
+
+/** Around the player to move: a ring in their colour that drains as their clock runs down. */
+function ClockRing({ clock, color }: { clock: SeatClock; color: string }) {
+  const r = 23
+  const c = 2 * Math.PI * r
+  const level = clockLevel(clock.ms)
+  return (
+    <svg aria-hidden="true" data-testid="clock-ring" viewBox="0 0 52 52" className={`pointer-events-none absolute -inset-[7px] size-[calc(100%+14px)] -rotate-90 ${level === 'critical' ? 'clock-critical' : ''}`}>
+      <circle cx="26" cy="26" r={r} fill="none" stroke="rgb(0 0 0 / 0.55)" strokeWidth="3" />
+      <circle
+        cx="26"
+        cy="26"
+        r={r}
+        fill="none"
+        stroke={level === 'normal' ? color : level === 'low' ? 'var(--color-ember-300)' : 'var(--color-rust-300)'}
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - ringShare(clock))}
+        className="transition-[stroke-dashoffset] duration-1000 ease-linear"
+      />
+    </svg>
   )
 }

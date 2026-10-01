@@ -46,15 +46,27 @@ export const MONEY_PER_VP = 10
  * they are.
  */
 
+/**
+ * The chess clock (Normal): each player has 20 minutes for the whole game, and
+ * 20 seconds are added once their turn (all its actions) is confirmed. It runs
+ * only during their own turn; the game server keeps it.
+ */
+export const CLOCK = { clockSeconds: 1200, incrementSeconds: 20 } as const
+
 /** Each player's clock for the whole game, and the time added after each of their turns. */
 export const TIME_CONTROL: Readonly<Record<'normal' | 'blitz' | 'bullet', { readonly baseMs: number; readonly incrementMs: number }>> = {
-  normal: { baseMs: 20 * 60_000, incrementMs: 30_000 },
+  normal: { baseMs: CLOCK.clockSeconds * 1000, incrementMs: CLOCK.incrementSeconds * 1000 },
   blitz: { baseMs: 10 * 60_000, incrementMs: 15_000 },
   bullet: { baseMs: 5 * 60_000, incrementMs: 10_000 },
 }
 
-/** Running out of time this many times in one game forfeits it (a bot takes the seat; last place). */
-export const MAX_TIMEOUTS = 3
+/** The clock is frozen this long while the era's scoring is shown. */
+export const SCORING_PAUSE_MS = 10_000
+
+/** Under this, a clock shows amber… */
+export const CLOCK_LOW_MS = 2 * 60_000
+/** …and under this, red (pulsing). */
+export const CLOCK_CRITICAL_MS = 30_000
 
 /** A player who hasn't been heard from for this long is disconnected… */
 export const CONNECTION_LOST_MS = 30_000

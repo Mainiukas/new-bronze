@@ -1,3 +1,4 @@
+import { OnlineProfile } from '../components/profile/OnlineProfile'
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import type { MatchHistoryPage, PublicProfile as PublicProfileData, ReportReason } from '../auth/backend'
@@ -126,6 +127,8 @@ export function PublicProfile() {
           </div>
         </div>
       </header>
+
+      <OnlineProfile username={profile.username} />
 
       {!profile.private && profile.stats && <StatsGrid profile={profile} />}
 

@@ -25,32 +25,7 @@ import { useOnlineErrors } from '../online/useOnlineErrors'
 export function OnlineLobby() {
   const t = useT()
   const o = t.online
-  const access = useAccountAccess()
-  const openAuth = useOpenAuth()
-  const navigate = useNavigate()
-
-  let body: ReactNode
-  if (!onlineAvailable) body = <Notice>{o.notSetUp}</Notice>
-  else if (access === 'guest')
-    body = (
-      <Notice>
-        <span>{o.signIn}</span>
-        <button type="button" className="btn btn-primary px-6" onClick={() => openAuth('login')}>
-          {o.signInButton}
-        </button>
-      </Notice>
-    )
-  else if (access === 'unverified')
-    body = (
-      <Notice>
-        <span>{t.verifyEmail.needed}</span>
-        <button type="button" className="btn btn-primary px-6" onClick={() => navigate(accountPath('security'))}>
-          <IconLock className="size-4" />
-          {t.verifyEmail.needed}
-        </button>
-      </Notice>
-    )
-  else body = <OnlineHome />
+  const body = <OnlineGate>{() => <OnlineHome />}</OnlineGate>
 
   return (
     <section aria-labelledby="online-title" className="min-w-0 px-4 pt-5 pb-8 sm:px-6 lg:px-8 lg:pt-8">
@@ -66,6 +41,36 @@ export function OnlineLobby() {
       </div>
     </section>
   )
+}
+
+/** Online pages need the server and a verified account: otherwise, say what's missing. */
+export function OnlineGate({ children }: { children: () => ReactNode }) {
+  const t = useT()
+  const o = t.online
+  const access = useAccountAccess()
+  const openAuth = useOpenAuth()
+  const navigate = useNavigate()
+  if (!onlineAvailable) return <Notice>{o.notSetUp}</Notice>
+  if (access === 'guest')
+    return (
+      <Notice>
+        <span>{o.signIn}</span>
+        <button type="button" className="btn btn-primary px-6" onClick={() => openAuth('login')}>
+          {o.signInButton}
+        </button>
+      </Notice>
+    )
+  if (access === 'unverified')
+    return (
+      <Notice>
+        <span>{t.verifyEmail.needed}</span>
+        <button type="button" className="btn btn-primary px-6" onClick={() => navigate(accountPath('security'))}>
+          <IconLock className="size-4" />
+          {t.verifyEmail.needed}
+        </button>
+      </Notice>
+    )
+  return <>{children()}</>
 }
 
 function Notice({ children }: { children: ReactNode }) {
@@ -371,7 +376,7 @@ function GameList({ kind, games }: { kind: 'open' | 'live' | 'mine'; games: Game
                   {game.progress ? ` · ${o.lists.progress(game.progress.era, game.progress.round)}` : ''}
                   {kind === 'mine' ? ` · ${o.lists.status[game.status]}` : ` · ${o.lists.host(game.host)}`}
                   {game.myRatingChange !== null && (
-                    <span className={`ml-1 font-display font-bold ${game.myRatingChange >= 0 ? 'text-verdigris-200' : 'text-rust-300'}`}>{o.rating.change(game.myRatingChange)}</span>
+                    <span className={`ml-1 font-display font-bold ${game.myRatingChange >= 0 ? 'text-verdigris-300' : 'text-rust-300'}`}>{o.rating.change(game.myRatingChange)}</span>
                   )}
                 </p>
               </div>

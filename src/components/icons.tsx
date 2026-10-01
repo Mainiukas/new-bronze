@@ -286,6 +286,15 @@ export function IconTrophy(props: IconProps) {
   )
 }
 
+export function IconPodium(props: IconProps) {
+  return (
+    <Svg {...props}>
+      {/* Three steps: second, first (tallest), third */}
+      <path d="M3 20v-7h6v7M9 20V9h6v11M15 20v-5h6v5M2 20h20M12 3l.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z" />
+    </Svg>
+  )
+}
+
 export function IconBracket(props: IconProps) {
   return (
     <Svg {...props}>

@@ -218,6 +218,120 @@ export interface GameStore {
   getQueue(): Promise<QueueEntry[]>
   putQueue(entry: QueueEntry): Promise<void>
   removeQueue(userIds: string[]): Promise<void>
+
+  /* ---- People (profiles, friends, presence) ---- */
+  /** Note that a player was here (and, in memory, who they are). */
+  touch(userId: string, username: string, at: number): Promise<void>
+  lastSeen(userIds: string[]): Promise<Record<string, number>>
+  findUser(username: string): Promise<UserInfo | null>
+  getUsers(userIds: string[]): Promise<Record<string, UserInfo>>
+  /** Usernames starting with `prefix` (case-insensitive), at most `limit`. */
+  searchUsers(prefix: string, limit: number): Promise<UserInfo[]>
+  friendships(userId: string): Promise<Friendship[]>
+  putFriendship(f: Friendship): Promise<void>
+  removeFriendship(a: string, b: string): Promise<void>
+  putInvite(invite: Invite): Promise<void>
+  invitesFor(userId: string): Promise<Invite[]>
+  removeInvite(id: string): Promise<void>
+  /** Every map's rating of one player. */
+  ratingsFor(userId: string): Promise<RatingRow[]>
+  /** Their rating changes on a map, oldest first (the last `limit`). */
+  ratingHistory(userId: string, mapId: string, limit: number): Promise<RatingHistoryRow[]>
+  /** Their finished games, newest first. */
+  finishedGames(userId: string, limit: number): Promise<GameRecord[]>
+  /** Ratings on a map with at least `minGames` games, highest first, with usernames. */
+  leaderboardRows(mapId: string, minGames: number, limit: number): Promise<(RatingRow & { username: string })[]>
+}
+
+export type ProfileVisibility = 'public' | 'friends' | 'private'
+
+export interface UserInfo {
+  userId: string
+  username: string
+  avatar: string | null
+  profileVisibility: ProfileVisibility
+  historyVisibility: ProfileVisibility
+}
+
+/** Two players, one row: `requester` asked; `accepted` once the other said yes. */
+export interface Friendship {
+  a: string
+  b: string
+  requester: string
+  status: 'pending' | 'accepted'
+  since: number
+}
+
+export interface Invite {
+  id: string
+  from: string
+  fromName: string
+  to: string
+  gameId: string
+  code: string
+  at: number
+}
+
+export interface RatingHistoryRow {
+  gameId: string
+  before: number
+  after: number
+  delta: number
+  mode: ModeId
+  at: number
+}
+
+export type FriendStatus = 'self' | 'none' | 'requested' | 'incoming' | 'friends'
+
+/** A player's online profile: what the viewer may see of it. */
+export interface OnlineProfile {
+  username: string
+  avatar: string | null
+  /** Hidden by their privacy settings: only the name and picture. */
+  hidden: boolean
+  historyHidden: boolean
+  friend: FriendStatus
+  online: boolean
+  ratings: { mapId: string; rating: number; rd: number; provisional: boolean; gamesPlayed: number; peakRating: number }[]
+  /** The rating after each rated game on the main map, oldest first. */
+  graph: { at: number; rating: number; delta: number; gameId: string }[]
+  stats: { games: number; wins: number; averagePlace: number | null; rated: number }
+  games: ProfileGame[]
+}
+
+export interface ProfileGame {
+  id: string
+  finishedAt: number
+  mode: ModeId
+  mapId: string
+  rated: boolean
+  aborted: boolean
+  place: number | null
+  players: { username: string; place: number | null; bot: boolean }[]
+  ratingChange: number | null
+  /** The viewer may replay it (a public game, or one they played in). */
+  replayable: boolean
+}
+
+export interface LeaderboardRow {
+  rank: number
+  username: string
+  rating: number
+  gamesPlayed: number
+}
+
+export interface Leaderboard {
+  mapId: string
+  rows: LeaderboardRow[]
+  /** The caller: their rank (when not provisional and not in the top rows, still shown), or why they're not ranked. */
+  me: { rank: number | null; rating: number; provisional: boolean; gamesPlayed: number } | null
+}
+
+export interface FriendsView {
+  friends: { username: string; avatar: string | null; online: boolean; playing: { gameId: string; canWatch: boolean } | null }[]
+  incoming: { username: string; avatar: string | null }[]
+  outgoing: { username: string; avatar: string | null }[]
+  invites: { id: string; from: string; gameId: string; code: string; at: number }[]
 }
 
 export type Request =
@@ -238,5 +352,14 @@ export type Request =
   | { op: 'quick-play'; players: number; mode?: ModeId; mapId?: string }
   | { op: 'quick-cancel' }
   | { op: 'my-rating'; mapId?: string }
+  | { op: 'profile'; username: string }
+  | { op: 'leaderboard'; mapId?: string }
+  | { op: 'friends' }
+  | { op: 'friend-search'; query: string }
+  | { op: 'friend-request'; username: string }
+  | { op: 'friend-respond'; username: string; accept: boolean }
+  | { op: 'friend-remove'; username: string }
+  | { op: 'invite'; username: string; gameId: string }
+  | { op: 'invite-dismiss'; id: string }
 
 export type { Action, Card, GameState }

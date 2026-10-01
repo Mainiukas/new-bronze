@@ -15,6 +15,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useOpenAuth } from '../hooks/useOpenAuth'
 import { useT } from '../i18n'
 import { gameRequest, OnlineError, type GameView } from '../online/client'
+import type { FriendsView } from '../server/types'
 import { useOnlineGame, type OnlineGame as Online } from '../online/useOnlineGame'
 import type { BrassMatch } from '../rules/match'
 import type { SeatClock } from '../components/brass/clock'
@@ -140,6 +141,8 @@ function GameRoom({ game, view }: { game: Online; view: GameView }) {
           </section>
         )}
 
+        {me && view.seats.length < view.maxPlayers && <InviteFriends gameId={view.id} seated={view.seats.map((s) => s.username)} />}
+
         <section className="plate rivets iron flex flex-col gap-1 rounded-xl px-4 py-3" aria-label={r.waiting(view.seats.length, view.maxPlayers)}>
           <p className="eyebrow">{r.waiting(view.seats.length, view.maxPlayers)}</p>
           <ul className="flex flex-col divide-y divide-bronze-500/15">
@@ -239,6 +242,60 @@ function GameRoom({ game, view }: { game: Online; view: GameView }) {
 
 function Badge({ children, strong = false }: { children: ReactNode; strong?: boolean }) {
   return <span className={`rounded-full border px-2.5 py-0.5 font-display tracking-[0.12em] uppercase ${strong ? 'border-brass-300/60 text-brass-200' : 'border-parchment-500/40 text-parchment-300'}`}>{children}</span>
+}
+
+/** Friends who are online, each with Invite: they find it in their friends panel. */
+function InviteFriends({ gameId, seated }: { gameId: string; seated: string[] }) {
+  const s = useT().online.social
+  const showError = useOnlineErrors()
+  const [friends, setFriends] = useState<FriendsView['friends'] | null>(null)
+  const [invited, setInvited] = useState<string[]>([])
+  useEffect(() => {
+    let live = true
+    const look = () =>
+      gameRequest<FriendsView>({ op: 'friends' }).then(
+        (v) => live && setFriends(v.friends),
+        () => {},
+      )
+    void look()
+    const timer = window.setInterval(look, 30_000)
+    return () => {
+      live = false
+      window.clearInterval(timer)
+    }
+  }, [])
+  const invite = async (username: string) => {
+    try {
+      await gameRequest({ op: 'invite', username, gameId })
+      setInvited((list) => [...list, username])
+    } catch (error) {
+      showError(error)
+    }
+  }
+  const online = (friends ?? []).filter((f) => f.online && !seated.includes(f.username))
+  return (
+    <section className="plate iron flex flex-col gap-1 rounded-xl px-4 py-3" aria-labelledby="invite-friends" data-testid="invite-friends">
+      <h2 id="invite-friends" className="eyebrow">
+        {s.inviteTitle}
+      </h2>
+      {friends && online.length === 0 && <p className="text-sm text-parchment-400">{s.inviteNone}</p>}
+      <ul className="flex flex-col divide-y divide-bronze-500/15">
+        {online.map((f) => (
+          <li key={f.username} className="flex min-h-11 items-center gap-2 py-1">
+            <span aria-hidden="true" className="size-2.5 rounded-full bg-verdigris-300" />
+            <span className="min-w-0 flex-1 truncate text-parchment-50">{f.username}</span>
+            {invited.includes(f.username) ? (
+              <span className="text-xs text-parchment-300">{s.invited}</span>
+            ) : (
+              <button type="button" className="btn btn-ghost min-h-9 px-4 text-sm" onClick={() => void invite(f.username)}>
+                {s.invite}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
 }
 
 /* ---- The match ------------------------------------------------------------------- */

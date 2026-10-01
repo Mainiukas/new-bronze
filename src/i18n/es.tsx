@@ -71,6 +71,7 @@ const es: Messages = {
     shop: 'Tienda',
     achievements: 'Logros',
     online: 'Jugar en línea',
+    leaderboard: 'Clasificación',
     board: 'Tablero',
     howToPlay: 'Cómo jugar',
     settings: 'Ajustes',

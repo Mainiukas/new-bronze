@@ -15,14 +15,14 @@
  */
 
 import { DEFAULT_MAP_ID } from '../data/maps'
-import { MATCHMAKING, START_RATING, START_RD, START_VOLATILITY } from '../rating/config'
+import { MATCHMAKING, PROVISIONAL_GAMES, START_RATING, START_RD, START_VOLATILITY } from '../rating/config'
 import { rateGame, ratingNow } from '../rating/glicko2'
 import { CONNECTION_LOST_MS, DISCONNECT_GRACE_MS, MAX_PLAYERS, MAX_TIMEOUTS, MIN_PLAYERS, TIME_CONTROL } from '../rules/config/game'
 import { applyAction, createGame, currentPlayerId, type RulesContext } from '../rules/engine'
 import { RuleError, type Action, type GameState } from '../rules/state'
 import { botAction, timeoutAction } from '../rules/bots'
 import { redactState } from './redact'
-import type { ActionRow, BotLevel, GameRecord, GameStore, GameSummary, GameView, ModeId, MyRating, QueueEntry, RatingRow, Request, Seat, SeatView } from './types'
+import type { ActionRow, BotLevel, FriendsView, FriendStatus, Friendship, GameRecord, GameStore, GameSummary, GameView, Leaderboard, ModeId, MyRating, OnlineProfile, QueueEntry, RatingRow, Request, Seat, SeatView, UserInfo } from './types'
 
 export class ServerError extends Error {
   readonly status: number
@@ -63,6 +63,11 @@ const PLAYABLE_MAPS: readonly string[] = [DEFAULT_MAP_ID]
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
 /** Bots and stand-ins move at most this many times in one go (a whole game is far fewer). */
 const MAX_BOT_MOVES = 2000
+/** Online: asked the server anything in the last 2 minutes (the app asks every 30 s while open). */
+const ONLINE_MS = 2 * 60_000
+/** The leaderboard's length, and the games listed on a profile. */
+const LEADERBOARD_SIZE = 100
+const PROFILE_GAMES = 20
 
 const ok = (body: unknown, changed: string[] = [], lobbyChanged = false): Reply => ({ status: 200, body, changed, lobbyChanged })
 const fail = (status: number, code: string, message: string): never => {
@@ -391,6 +396,96 @@ export function createGameServer(deps: ServerDeps) {
     return games
   }
 
+  /* ---- People: profiles, friends ---- */
+
+  /** How two players stand: friends, a request either way, or nothing. */
+  function friendStatus(links: Friendship[], me: string, other: string): FriendStatus {
+    if (me === other) return 'self'
+    const f = links.find((x) => (x.a === me && x.b === other) || (x.a === other && x.b === me))
+    if (!f) return 'none'
+    if (f.status === 'accepted') return 'friends'
+    return f.requester === me ? 'requested' : 'incoming'
+  }
+
+  const isOnline = (seen: number | undefined, now: number) => seen !== undefined && now - seen < ONLINE_MS
+
+  /** What `viewer` may see of `user` (their privacy settings: public, friends only, or private). */
+  async function profileOf(user: UserInfo, viewer: Caller, now: number): Promise<OnlineProfile> {
+    const links = await store.friendships(viewer.userId)
+    const friend = friendStatus(links, viewer.userId, user.userId)
+    const allowed = (setting: UserInfo['profileVisibility']) => friend === 'self' || setting === 'public' || (setting === 'friends' && friend === 'friends')
+    const hidden = !allowed(user.profileVisibility)
+    const historyHidden = hidden || !allowed(user.historyVisibility)
+    const seen = (await store.lastSeen([user.userId]))[user.userId]
+    const base: OnlineProfile = {
+      username: user.username,
+      avatar: user.avatar,
+      hidden,
+      historyHidden,
+      friend,
+      online: !hidden && isOnline(seen, now),
+      ratings: [],
+      graph: [],
+      stats: { games: 0, wins: 0, averagePlace: null, rated: 0 },
+      games: [],
+    }
+    if (hidden) return base
+    base.ratings = (await store.ratingsFor(user.userId)).map((r) => {
+      const current = ratingNow(r, now)
+      return { mapId: r.mapId, rating: Math.round(r.rating), rd: Math.round(current.rd), provisional: current.provisional, gamesPlayed: r.gamesPlayed, peakRating: Math.round(r.peakRating) }
+    })
+    if (historyHidden) return base
+    base.graph = (await store.ratingHistory(user.userId, DEFAULT_MAP_ID, 200)).map((h) => ({ at: h.at, rating: Math.round(h.after), delta: Math.round(h.delta), gameId: h.gameId }))
+    const finished = await store.finishedGames(user.userId, 200)
+    const played = finished.filter((g) => g.status === 'finished' && g.result)
+    const places = played.map((g) => g.result!.places[g.seats.find((s) => s.userId === user.userId)!.seat])
+    base.stats = {
+      games: played.length,
+      wins: places.filter((p) => p === 1).length,
+      averagePlace: places.length ? Math.round((places.reduce((a, b) => a + b, 0) / places.length) * 10) / 10 : null,
+      rated: played.filter((g) => g.rated).length,
+    }
+    base.games = finished.slice(0, PROFILE_GAMES).map((g) => {
+      const seat = g.seats.find((s) => s.userId === user.userId)!
+      return {
+        id: g.id,
+        finishedAt: g.finishedAt ?? g.createdAt,
+        mode: g.mode,
+        mapId: g.mapId,
+        rated: g.rated,
+        aborted: g.status === 'aborted' || !!g.result?.aborted,
+        place: g.result?.places[seat.seat] ?? null,
+        players: g.seats.map((s) => ({ username: s.username, place: g.result?.places[s.seat] ?? null, bot: s.bot !== null })),
+        ratingChange: g.result?.ratings.find((r) => r.userId === user.userId)?.delta ?? null,
+        replayable: g.visibility === 'public' || g.seats.some((s) => s.userId === viewer.userId),
+      }
+    })
+    return base
+  }
+
+  /** The caller's friends (online now, and the game they're in), requests both ways, and game invites. */
+  async function friendsOf(me: Caller, now: number): Promise<FriendsView> {
+    const links = await store.friendships(me.userId)
+    const others = links.map((f) => (f.a === me.userId ? f.b : f.a))
+    const users = await store.getUsers(others)
+    const seen = await store.lastSeen(others)
+    const card = (id: string) => ({ username: users[id]?.username ?? '', avatar: users[id]?.avatar ?? null })
+    const friends: FriendsView['friends'] = []
+    for (const f of links.filter((x) => x.status === 'accepted')) {
+      const id = f.a === me.userId ? f.b : f.a
+      const live = (await store.listFor(id)).find((g) => g.status === 'playing')
+      friends.push({ ...card(id), online: isOnline(seen[id], now), playing: live ? { gameId: live.id, canWatch: live.visibility === 'public' || live.allowSpectators } : null })
+    }
+    friends.sort((x, y) => Number(y.online) - Number(x.online) || x.username.localeCompare(y.username))
+    const invites = (await store.invitesFor(me.userId)).sort((a, b) => b.at - a.at)
+    return {
+      friends,
+      incoming: links.filter((f) => f.status === 'pending' && f.requester !== me.userId).map((f) => card(f.requester)),
+      outgoing: links.filter((f) => f.status === 'pending' && f.requester === me.userId).map((f) => card(f.a === me.userId ? f.b : f.a)),
+      invites: invites.map((i) => ({ id: i.id, from: i.fromName, gameId: i.gameId, code: i.code, at: i.at })),
+    }
+  }
+
   /* ---- Requests ---- */
 
   async function handle(caller: Caller | null, raw: unknown): Promise<Reply> {
@@ -399,6 +494,8 @@ export function createGameServer(deps: ServerDeps) {
     if (!caller) fail(401, 'signed-out', 'Sign in to play online')
     const me = caller!
     const now = deps.now()
+    // Everyone signed in who asks anything is online now.
+    await store.touch(me.userId, me.username, now)
 
     switch (req.op) {
       case 'create': {
@@ -430,6 +527,8 @@ export function createGameServer(deps: ServerDeps) {
         record.seats.push(newSeat(record.seats.length, me, now, record.mode))
         record.version += 1
         await save(record, expected)
+        // An invite to this game has done its job.
+        for (const invite of await store.invitesFor(me.userId)) if (invite.gameId === record.id) await store.removeInvite(invite.id)
         return ok(await view(record, me, true), [record.id], record.visibility === 'public')
       }
 
@@ -678,6 +777,78 @@ export function createGameServer(deps: ServerDeps) {
         const current = ratingNow(r, now)
         const reply: MyRating = { mapId, rating: Math.round(current.rating), rd: Math.round(current.rd), gamesPlayed: current.gamesPlayed, provisional: current.provisional, peakRating: Math.round(r.peakRating), unplaced: !row }
         return ok(reply)
+      }
+
+      case 'profile': {
+        const user = typeof req.username === 'string' ? await store.findUser(req.username) : null
+        if (!user) fail(404, 'no-player', 'No player with that name')
+        return ok(await profileOf(user!, me, now))
+      }
+
+      case 'leaderboard': {
+        const mapId = req.mapId ?? DEFAULT_MAP_ID
+        // Only settled ratings are ranked: at least 10 games, and an RD (grown for idle days) at most 110.
+        const rows = (await store.leaderboardRows(mapId, PROVISIONAL_GAMES, 2000)).map((r) => ({ ...r, now: ratingNow(r, now) })).filter((r) => !r.now.provisional)
+        const ranked = rows.map((r, i) => ({ rank: i + 1, userId: r.userId, username: r.username, rating: Math.round(r.rating), gamesPlayed: r.gamesPlayed }))
+        const mine = (await store.getRatings([me.userId], mapId))[me.userId]
+        const myNow = mine ? ratingNow(mine, now) : null
+        const reply: Leaderboard = {
+          mapId,
+          rows: ranked.slice(0, LEADERBOARD_SIZE).map((r) => ({ rank: r.rank, username: r.username, rating: r.rating, gamesPlayed: r.gamesPlayed })),
+          me: mine && myNow ? { rank: ranked.find((r) => r.userId === me.userId)?.rank ?? null, rating: Math.round(mine.rating), provisional: myNow.provisional, gamesPlayed: mine.gamesPlayed } : null,
+        }
+        return ok(reply)
+      }
+
+      case 'friends':
+        return ok(await friendsOf(me, now))
+
+      case 'friend-search': {
+        const q = typeof req.query === 'string' ? req.query.trim() : ''
+        if (q.length < 2) return ok({ results: [] })
+        const found = (await store.searchUsers(q, 11)).filter((u) => u.userId !== me.userId).slice(0, 10)
+        const links = await store.friendships(me.userId)
+        return ok({ results: found.map((u) => ({ username: u.username, avatar: u.avatar, friend: friendStatus(links, me.userId, u.userId) })) })
+      }
+
+      case 'friend-request': {
+        const other = typeof req.username === 'string' ? await store.findUser(req.username) : null
+        if (!other || other.userId === me.userId) fail(404, 'no-player', 'No player with that name')
+        const existing = (await store.friendships(me.userId)).find((f) => f.a === other!.userId || f.b === other!.userId)
+        // They asked first: asking back accepts.
+        if (existing?.status === 'pending' && existing.requester === other!.userId) await store.putFriendship({ ...existing, status: 'accepted', since: now })
+        else if (!existing) await store.putFriendship({ a: me.userId, b: other!.userId, requester: me.userId, status: 'pending', since: now })
+        return ok(await friendsOf(me, now))
+      }
+
+      case 'friend-respond': {
+        const other = typeof req.username === 'string' ? await store.findUser(req.username) : null
+        const existing = other ? (await store.friendships(me.userId)).find((f) => f.requester === other.userId && f.status === 'pending') : undefined
+        if (!other || !existing) fail(404, 'no-request', 'No friend request from that player')
+        if (req.accept) await store.putFriendship({ ...existing!, status: 'accepted', since: now })
+        else await store.removeFriendship(existing!.a, existing!.b)
+        return ok(await friendsOf(me, now))
+      }
+
+      case 'friend-remove': {
+        const other = typeof req.username === 'string' ? await store.findUser(req.username) : null
+        if (other) await store.removeFriendship(me.userId, other.userId)
+        return ok(await friendsOf(me, now))
+      }
+
+      case 'invite': {
+        const other = typeof req.username === 'string' ? await store.findUser(req.username) : null
+        if (!other || friendStatus(await store.friendships(me.userId), me.userId, other.userId) !== 'friends') fail(403, 'not-friends', 'You can only invite friends')
+        const record = await load(req.gameId)
+        if (!seatOf(record, me) || record.status !== 'lobby') fail(409, 'not-in-lobby', 'Invite from a game that hasn’t started')
+        await store.putInvite({ id: deps.newId(), from: me.userId, fromName: me.username, to: other!.userId, gameId: record.id, code: record.code, at: now })
+        return ok({ invited: true })
+      }
+
+      case 'invite-dismiss': {
+        const mine = (await store.invitesFor(me.userId)).find((i) => i.id === req.id)
+        if (mine) await store.removeInvite(mine.id)
+        return ok(await friendsOf(me, now))
       }
 
       case 'quick-cancel': {

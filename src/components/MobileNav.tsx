@@ -17,6 +17,7 @@ import {
   IconTrophy,
   IconUserPlus,
   IconShield,
+  IconPodium,
   IconUsers,
   type IconProps,
 } from './icons'
@@ -147,6 +148,7 @@ export function MoreSheet({ open, onClose, onMenuAction, profile }: MoreSheetPro
   }
 
   const links: { path: string; label: string; Icon: ComponentType<IconProps> }[] = [
+    { path: PATHS.leaderboard, label: t.nav.leaderboard, Icon: IconPodium },
     { path: PATHS.locker, label: t.nav.locker, Icon: IconTopHat },
     { path: PATHS.achievements, label: t.nav.achievements, Icon: IconTrophy },
     { path: BOARD_ITEM.path, label: t.nav.board, Icon: BOARD_ITEM.Icon },

@@ -72,6 +72,7 @@ const lt: Messages = {
     shop: 'Parduotuvė',
     achievements: 'Pasiekimai',
     online: 'Žaisti internetu',
+    leaderboard: 'Lyderių lentelė',
     board: 'Žemėlapio lenta',
     howToPlay: 'Kaip žaisti',
     settings: 'Nustatymai',

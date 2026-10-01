@@ -61,6 +61,8 @@ const Unsubscribe = lazy(() => import('./pages/legal/Unsubscribe').then((module)
 const PublicProfile = lazy(() => import('./pages/PublicProfile').then((module) => ({ default: module.PublicProfile })))
 const Tutorial = lazy(() => import('./pages/Tutorial').then((module) => ({ default: module.Tutorial })))
 const OnlineLobby = lazy(() => import('./pages/OnlineLobby').then((module) => ({ default: module.OnlineLobby })))
+const Replay = lazy(() => import('./pages/Replay').then((module) => ({ default: module.Replay })))
+const Leaderboard = lazy(() => import('./pages/Leaderboard').then((module) => ({ default: module.Leaderboard })))
 const OnlineGame = lazy(() => import('./pages/OnlineGame').then((module) => ({ default: module.OnlineGame })))
 const JoinInvite = lazy(() => import('./pages/OnlineGame').then((module) => ({ default: module.JoinInvite })))
 const AccountPage = lazy(() => import('./pages/AccountPage').then((module) => ({ default: module.AccountPage })))
@@ -239,6 +241,14 @@ function AppShell() {
           }
         />
         <Route
+          path={PATHS.replay}
+          element={
+            <Suspense fallback={null}>
+              <Replay settings={settings} onOpenRules={() => setOverlay('how-to-play')} onOpenSettings={() => setOverlay('settings')} overlayOpen={overlay !== null} />
+            </Suspense>
+          }
+        />
+        <Route
           path={PATHS.tutorial}
           element={
             <Suspense fallback={null}>
@@ -282,6 +292,7 @@ function AppShell() {
             }
           />
           <Route path={PATHS.online} element={<OnlineLobby />} />
+          <Route path={PATHS.leaderboard} element={<Leaderboard />} />
           <Route path={PATHS.locker} element={<Locker />} />
           <Route path={PATHS.shop} element={<Shop />} />
           <Route path={PATHS.achievements} element={<Achievements stats={stats} />} />

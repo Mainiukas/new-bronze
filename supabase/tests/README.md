@@ -20,6 +20,11 @@ and its API roles. `pg_cron` isn't needed: leave out 001's last two lines.
   their own hand, secrets and the queue are unreadable, browsers can't write,
   the server functions are service-role only, and a deleted account keeps its
   seat as "Deleted player".
+- `005_social.test.sql` checks `005_social.sql`: friendships, presence and
+  invites are unreadable and unwritable from browsers, the server functions
+  are service-role only, a friendship is one row per pair, user search
+  treats `_` and `%` literally, the leaderboard leaves out players under the
+  game count, and profile privacy's **Friends only** honours friendships.
 
 ```bash
 # 001 only
@@ -57,6 +62,16 @@ for m in 002_profiles_security 003_onboarding_ratings 004_multiplayer 004_multip
 done
 psql -v ON_ERROR_STOP=1 -d bronze_004 -f supabase/tests/004_multiplayer.test.sql   # ends with: ALL 004 CHECKS PASSED
 dropdb bronze_004
+
+# 001–005 (005 twice)
+createdb bronze_005
+psql -v ON_ERROR_STOP=1 -d bronze_005 -f supabase/tests/stub_supabase.sql
+head -n -2 supabase/migrations/001_accounts.sql | psql -v ON_ERROR_STOP=1 -d bronze_005
+for m in 002_profiles_security 003_onboarding_ratings 004_multiplayer 005_social 005_social; do
+  psql -v ON_ERROR_STOP=1 -d bronze_005 -f supabase/migrations/$m.sql
+done
+psql -v ON_ERROR_STOP=1 -d bronze_005 -f supabase/tests/005_social.test.sql   # ends with: ALL 005 CHECKS PASSED
+dropdb bronze_005
 ```
 
 Don't run these against your real Supabase project: they create and delete

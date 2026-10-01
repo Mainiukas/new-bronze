@@ -437,7 +437,7 @@ function EraChip({ era, railRound }: { era: 'canal' | 'rail'; railRound: number 
   return (
     <span
       className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 font-display text-xs font-bold tracking-[0.12em] uppercase sm:flex ${
-        era === 'canal' ? 'border-verdigris-400/50 bg-board-water/25 text-verdigris-200' : 'border-brass-300/50 bg-bronze-500/20 text-brass-200'
+        era === 'canal' ? 'border-verdigris-400/50 bg-board-water/25 text-verdigris-300' : 'border-brass-300/50 bg-bronze-500/20 text-brass-200'
       }`}
       title={era === 'canal' ? t.match.canalEraTitle(railRound ?? 0) : t.match.railEraTitle}
     >

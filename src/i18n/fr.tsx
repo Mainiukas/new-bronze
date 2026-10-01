@@ -71,6 +71,7 @@ const fr: Messages = {
     shop: 'Boutique',
     achievements: 'Succès',
     online: 'Jouer en ligne',
+    leaderboard: 'Classement général',
     board: 'Plateau',
     howToPlay: 'Comment jouer',
     settings: 'Paramètres',

@@ -212,7 +212,7 @@ export function FinalScreen({
                     {ratings && (
                       <td className="py-1.5 text-right font-display font-bold tabular-nums">
                         {r ? (
-                          <span className={r.delta >= 0 ? 'text-verdigris-200' : 'text-rust-300'}>
+                          <span className={r.delta >= 0 ? 'text-verdigris-300' : 'text-rust-300'}>
                             {Math.round(r.after)} ({r.delta >= 0 ? '+' : ''}
                             {Math.round(r.delta)})
                           </span>

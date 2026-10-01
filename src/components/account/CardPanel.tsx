@@ -109,7 +109,7 @@ export function CardPanel({ details, onChanged }: { details: AccountDetails; onC
       id="card-title"
       aside={<StatusPill on={details.cardVerified}>{details.cardVerified ? t.profilePage.cardVerified : t.security.twoFactor.off}</StatusPill>}
     >
-      <p className="flex items-start gap-2 rounded-lg border border-verdigris-400/40 bg-verdigris-500/10 px-3 py-2.5 font-semibold text-verdigris-200">
+      <p className="flex items-start gap-2 rounded-lg border border-verdigris-400/40 bg-verdigris-500/10 px-3 py-2.5 font-semibold text-verdigris-300">
         <IconShield className="mt-0.5 size-4 shrink-0" />
         {w.noCharge}
       </p>

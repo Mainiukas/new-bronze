@@ -15,6 +15,7 @@ export interface NavTab {
 export type NavKey =
   | 'mainMenu'
   | 'online'
+  | 'leaderboard'
   | 'tournaments'
   | 'locker'
   | 'shop'
@@ -36,6 +37,10 @@ export const PATHS = {
   tournaments: '/tournaments',
   /** Online play: create or join games, open and live games, my games. */
   online: '/online',
+  /** The top 100 settled ratings, and your position. */
+  leaderboard: '/leaderboard',
+  /** A finished online game, move by move (/online/<id>/replay). */
+  replay: '/online/:gameId/replay',
   /** One online game: its room before it starts, then the match (/online/<id>). */
   onlineGame: '/online/:gameId',
   /** An invite link: /join/<code>. */
@@ -69,6 +74,9 @@ export const PATHS = {
 
 /** An online game's page. */
 export const onlineGamePath = (id: string) => `/online/${encodeURIComponent(id)}`
+
+/** A finished online game's replay. */
+export const replayPath = (id: string) => `/online/${encodeURIComponent(id)}/replay`
 
 /** The invite link's path for a game code. */
 export const joinPath = (code: string) => `/join/${encodeURIComponent(code)}`
@@ -111,6 +119,7 @@ export const isAuthPath = (pathname: string) => (Object.values(AUTH_PATHS) as st
 export const NAV_TABS: readonly NavTab[] = [
   { path: PATHS.mainMenu, key: 'mainMenu', label: 'Main Menu' },
   { path: PATHS.online, key: 'online', label: 'Play online' },
+  { path: PATHS.leaderboard, key: 'leaderboard', label: 'Leaderboard' },
   { path: PATHS.tournaments, key: 'tournaments', label: 'Tournaments' },
   { path: PATHS.locker, key: 'locker', label: 'Locker' },
   { path: PATHS.shop, key: 'shop', label: 'Shop' },

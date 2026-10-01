@@ -9,6 +9,7 @@ import {
   IconHome,
   IconMap,
   IconScale,
+  IconPodium,
   IconStar,
   IconTopHat,
   IconTrophy,
@@ -20,6 +21,7 @@ type Icon = ComponentType<IconProps>
 const PAGE_ICONS: Record<string, Icon> = {
   [PATHS.mainMenu]: IconHome,
   [PATHS.online]: IconGlobe,
+  [PATHS.leaderboard]: IconPodium,
   [PATHS.tournaments]: IconBracket,
   [PATHS.locker]: IconTopHat,
   [PATHS.shop]: IconCrate,

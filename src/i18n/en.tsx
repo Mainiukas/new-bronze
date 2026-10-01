@@ -83,6 +83,7 @@ const en = {
     shop: 'Shop',
     achievements: 'Achievements',
     online: 'Play online',
+    leaderboard: 'Leaderboard',
     board: 'Map board',
     howToPlay: 'How to Play',
     settings: 'Settings',

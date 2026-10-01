@@ -1,3 +1,4 @@
+import { replayStates, type ReplayData } from '../online/replay'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { START_RATING, START_RD } from '../rating/config'
 import { CONNECTION_LOST_MS, DISCONNECT_GRACE_MS, MAX_TIMEOUTS, TIME_CONTROL } from '../rules/config/game'
@@ -8,7 +9,7 @@ import type { Action } from '../rules/state'
 import { isHiddenCard } from './redact'
 import { createMemoryStore } from './memoryStore'
 import { createGameServer, type Caller } from './server'
-import type { GameView } from './types'
+import type { FriendsView, GameView, Leaderboard, OnlineProfile } from './types'
 
 const ctx: RulesContext = { data: RULES_DATA, map: BRASS_MAP }
 const ada: Caller = { userId: 'u-ada', username: 'Ada' }
@@ -304,9 +305,14 @@ describe('online games: clocks, disconnections and bots', () => {
     expect(v.status).toBe('finished')
     expect([...v.result!.places].sort()).toEqual([1, 2, 3])
     expect(v.result!.ratings).toEqual([])
-    const replay = (await t.call(ada, { op: 'replay', gameId: lobby.id })).body as { seed: number; actions: unknown[] }
+    const replay = (await t.call(ada, { op: 'replay', gameId: lobby.id })).body as ReplayData
     expect(replay.seed).toBeGreaterThan(0)
     expect(replay.actions.length).toBeGreaterThan(50)
+    // The browser rebuilds every position from the seed and the log, ending where the server did.
+    const states = replayStates(replay)
+    expect(states).toHaveLength(replay.actions.length + 1)
+    expect(states.at(-1)!.finished).toBe(true)
+    expect(states.at(-1)!.players.map((p) => p.vp)).toEqual((await t.store.loadGame(lobby.id))!.state!.players.map((p) => p.vp))
   })
 })
 
@@ -425,5 +431,125 @@ describe('online games: quick play', () => {
     // Bob waits; after 60 s his range is 450, but nobody else is queued.
     t.tick(60_000)
     expect((await t.call(bob, { op: 'quick-play', players: 2 })).body).toMatchObject({ status: 'waiting', range: 450 })
+  })
+})
+
+describe('people: profiles, the leaderboard, friends', () => {
+  let t: Setup
+  beforeEach(() => {
+    t = setup()
+  })
+
+  /** Plays a 2-player public game between Ada and Bob to the end (both pass). */
+  async function playOut(): Promise<string> {
+    const { id } = await started(t, 2)
+    let v = await t.must(ada, { op: 'view', gameId: id })
+    for (let guard = 0; guard < 400 && v.status === 'playing'; guard++) {
+      const turn = await whoseTurn(t, id)
+      v = await t.must(turn.caller, { op: 'act', gameId: id, version: turn.view.version, action: turn.pass })
+    }
+    return id
+  }
+
+  it('shows a profile: ratings per map, the rating graph, stats and the last games (replayable)', async () => {
+    const id = await playOut()
+    const p = (await t.call(cy, { op: 'profile', username: 'ada' })).body as OnlineProfile
+    expect(p).toMatchObject({ username: 'Ada', hidden: false, friend: 'none' })
+    expect(p.ratings).toHaveLength(1)
+    expect(p.ratings[0]).toMatchObject({ mapId: 'wales-and-the-west', gamesPlayed: 1, provisional: true })
+    expect(p.graph).toHaveLength(1)
+    expect(p.stats).toMatchObject({ games: 1, rated: 1 })
+    expect(p.games[0]).toMatchObject({ id, rated: true, replayable: true })
+    expect(p.games[0].players.map((x) => x.username).sort()).toEqual(['Ada', 'Bob'])
+    expect((await t.call(cy, { op: 'profile', username: 'nobody' })).body).toMatchObject({ error: 'no-player' })
+  })
+
+  it('keeps private and friends-only profiles to their owner (and friends)', async () => {
+    await playOut()
+    await t.call(cy, { op: 'friends' })
+    t.store.users.get('u-ada')!.profileVisibility = 'friends'
+    const stranger = (await t.call(cy, { op: 'profile', username: 'Ada' })).body as OnlineProfile
+    expect(stranger).toMatchObject({ hidden: true, ratings: [], games: [] })
+    // Friends see it.
+    await t.call(cy, { op: 'friend-request', username: 'Ada' })
+    await t.call(ada, { op: 'friend-respond', username: 'Cy', accept: true })
+    expect(((await t.call(cy, { op: 'profile', username: 'Ada' })).body as OnlineProfile).hidden).toBe(false)
+    // History private: ratings show, games don't.
+    t.store.users.get('u-ada')!.historyVisibility = 'private'
+    const p = (await t.call(cy, { op: 'profile', username: 'Ada' })).body as OnlineProfile
+    expect(p).toMatchObject({ hidden: false, historyHidden: true, games: [], graph: [] })
+    expect(p.ratings).toHaveLength(1)
+    // The owner always sees everything.
+    expect(((await t.call(ada, { op: 'profile', username: 'Ada' })).body as OnlineProfile).games).toHaveLength(1)
+  })
+
+  it('ranks the top 100 settled ratings and says where you are (or that you are still provisional)', async () => {
+    const settled = (userId: string, rating: number) => ({ userId, mapId: 'wales-and-the-west', rating, rd: 60, volatility: 0.06, gamesPlayed: 20, peakRating: rating, updatedAt: t.now() })
+    for (let i = 0; i < 120; i++) {
+      await t.store.touch(`u-${i}`, `Player${i}`, t.now())
+      t.store.ratings.set(`u-${i}|wales-and-the-west`, settled(`u-${i}`, 1000 + i * 5))
+    }
+    // A provisional high rating isn't ranked.
+    await t.store.touch('u-new', 'Newcomer', t.now())
+    t.store.ratings.set('u-new|wales-and-the-west', { ...settled('u-new', 2000), gamesPlayed: 3 })
+    await t.call(ada, { op: 'friends' })
+    t.store.ratings.set('u-ada|wales-and-the-west', settled('u-ada', 1012))
+    const board = (await t.call(ada, { op: 'leaderboard' })).body as Leaderboard
+    expect(board.rows).toHaveLength(100)
+    expect(board.rows[0]).toMatchObject({ rank: 1, username: 'Player119', rating: 1595 })
+    expect(board.rows.some((r) => r.username === 'Newcomer')).toBe(false)
+    // Ada (1012) is outside the top 100 but still told her rank.
+    expect(board.me).toMatchObject({ rating: 1012, provisional: false })
+    expect(board.me!.rank).toBe(118)
+    // Cy has no rating yet.
+    expect(((await t.call(cy, { op: 'leaderboard' })).body as Leaderboard).me).toBeNull()
+  })
+
+  it('finds players, sends, accepts and declines friend requests, and shows who is online and what they play', async () => {
+    for (const p of [ada, bob, cy]) await t.call(p, { op: 'friends' })
+    const found = (await t.call(ada, { op: 'friend-search', query: 'bo' })).body as { results: { username: string; friend: string }[] }
+    expect(found.results).toEqual([{ username: 'Bob', avatar: null, friend: 'none' }])
+    let view = (await t.call(ada, { op: 'friend-request', username: 'Bob' })).body as FriendsView
+    expect(view.outgoing.map((x) => x.username)).toEqual(['Bob'])
+    expect(((await t.call(bob, { op: 'friends' })).body as FriendsView).incoming.map((x) => x.username)).toEqual(['Ada'])
+    view = (await t.call(bob, { op: 'friend-respond', username: 'Ada', accept: true })).body as FriendsView
+    expect(view.friends).toMatchObject([{ username: 'Ada', online: true, playing: null }])
+    // Declined: nothing left.
+    await t.call(cy, { op: 'friend-request', username: 'Ada' })
+    view = (await t.call(ada, { op: 'friend-respond', username: 'Cy', accept: false })).body as FriendsView
+    expect(view.incoming).toEqual([])
+    // Online goes after 2 minutes of silence; a game in progress shows (and may be watched).
+    t.tick(3 * 60_000)
+    expect(((await t.call(bob, { op: 'friends' })).body as FriendsView).friends[0].online).toBe(false)
+    const lobby = await t.must(ada, { op: 'create', players: 2, visibility: 'public' })
+    await t.must(cy, { op: 'join', code: lobby.code! })
+    await t.must(cy, { op: 'ready', gameId: lobby.id, ready: true })
+    await t.must(ada, { op: 'start', gameId: lobby.id })
+    expect(((await t.call(bob, { op: 'friends' })).body as FriendsView).friends[0]).toMatchObject({ online: true, playing: { gameId: lobby.id, canWatch: true } })
+    // Removing a friend.
+    view = (await t.call(bob, { op: 'friend-remove', username: 'Ada' })).body as FriendsView
+    expect(view.friends).toEqual([])
+  })
+
+  it('lets you invite friends (only friends) to a game that hasn’t started', async () => {
+    for (const p of [ada, bob, cy]) await t.call(p, { op: 'friends' })
+    await t.call(ada, { op: 'friend-request', username: 'Bob' })
+    await t.call(bob, { op: 'friend-request', username: 'Ada' }) // asking back accepts
+    const lobby = await t.must(ada, { op: 'create', players: 3, visibility: 'private' })
+    expect((await t.call(ada, { op: 'invite', username: 'Cy', gameId: lobby.id })).body).toMatchObject({ error: 'not-friends' })
+    expect((await t.call(ada, { op: 'invite', username: 'Bob', gameId: lobby.id })).status).toBe(200)
+    const inv = ((await t.call(bob, { op: 'friends' })).body as FriendsView).invites
+    expect(inv).toMatchObject([{ from: 'Ada', gameId: lobby.id, code: lobby.code }])
+    // The invite's code joins the private game, and the invite goes once used.
+    expect((await t.call(bob, { op: 'join', code: inv[0].code })).status).toBe(200)
+    expect(((await t.call(bob, { op: 'friends' })).body as FriendsView).invites).toEqual([])
+    // Or dismiss it.
+    await t.call(ada, { op: 'friend-request', username: 'Cy' })
+    await t.call(cy, { op: 'friend-respond', username: 'Ada', accept: true })
+    await t.must(ada, { op: 'invite', username: 'Cy', gameId: lobby.id })
+    const cyInv = ((await t.call(cy, { op: 'friends' })).body as FriendsView).invites
+    expect(cyInv).toHaveLength(1)
+    const after = (await t.call(cy, { op: 'invite-dismiss', id: cyInv[0].id })).body as FriendsView
+    expect(after.invites).toEqual([])
   })
 })

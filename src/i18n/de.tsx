@@ -70,6 +70,7 @@ const de: Messages = {
     shop: 'Laden',
     achievements: 'Erfolge',
     online: 'Online spielen',
+    leaderboard: 'Bestenliste',
     board: 'Kartenbrett',
     howToPlay: 'Spielanleitung',
     settings: 'Einstellungen',

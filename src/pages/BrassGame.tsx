@@ -864,7 +864,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
     <div className="brass-screen flex min-h-dvh flex-col overflow-x-clip">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-bronze-500/30 bg-soot-950/90 px-3 py-1">
         <GameMenuButton onRules={onOpenRules} onSettings={onOpenSettings} onLeave={onLeave} />
-        <span className={`rounded-full border px-2.5 py-0.5 font-display text-xs font-bold tracking-[0.12em] uppercase ${state.era === 'canal' ? 'border-verdigris-400/50 text-verdigris-200' : 'border-brass-300/50 text-brass-200'}`}>{b.era[state.era]}</span>
+        <span className={`rounded-full border px-2.5 py-0.5 font-display text-xs font-bold tracking-[0.12em] uppercase ${state.era === 'canal' ? 'border-verdigris-400/50 text-verdigris-300' : 'border-brass-300/50 text-brass-200'}`}>{b.era[state.era]}</span>
         <span className="text-sm text-parchment-300">{b.round(state.round, roundsInEra(state))}</span>
         <div className="mx-auto">
           <TurnOrder
@@ -1233,7 +1233,7 @@ function ConfirmDialogs({
           </ul>
           {p.overbuild && <p>{p.overbuild.owner === me ? b.overbuildOwn : b.overbuild(state.players[p.overbuild.owner].name)}</p>}
           {(flow.industry === 'coal' || flow.industry === 'iron') && p.tile.cubes > 0 && (
-            <p className={p.sold.cubes > 0 ? 'text-verdigris-200' : 'text-parchment-400'}>
+            <p className={p.sold.cubes > 0 ? 'text-verdigris-300' : 'text-parchment-400'}>
               {p.sold.cubes > 0 ? b.sellCubes(p.sold.cubes, flow.industry, p.sold.money) : flow.industry === 'coal' ? b.coalStays : b.marketFull}
             </p>
           )}

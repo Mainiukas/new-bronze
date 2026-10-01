@@ -46,6 +46,11 @@ explains the features they unlock until they're done.
 - [ ] **12.** Try the new features.
 - [ ] **13.** Run `supabase/migrations/003_onboarding_ratings.sql` (safe to
       run again): the first-time welcome slides and ratings.
+- [ ] **14.** Run `supabase/migrations/004_multiplayer.sql` and deploy the
+      `game` function: online play.
+- [ ] **15.** Run `supabase/migrations/005_social.sql` and deploy `game`
+      again: friends, online status, invites, profiles' online section,
+      the leaderboard and replays.
 
 ---
 
@@ -531,3 +536,38 @@ If you change anything in `src/rules` or `src/server`, run
 `npm run build:server` and deploy `game` again: the function runs
 `supabase/functions/_shared/game-server.js`, built from that code (a test
 fails if it's out of date).
+
+## 15. Friends, the leaderboard and replays (run `005`, deploy `game` again)
+
+This adds friends (find players by name, requests, who's online, Watch and
+game invites), the online part of each profile (ratings per map, the rating
+graph, stats and the last 20 games with replays) and the **Leaderboard** (the
+top 100 settled ratings, and your own place).
+
+1. **SQL Editor → + New query**. Open `supabase/migrations/005_social.sql`,
+   copy **all** of it, paste, **Run**. It should say **Success. No rows
+   returned**. (Needs 001–004. Safe to run again.)
+2. Check in **Table Editor**: new tables `friendships`, `presence` and
+   `game_invites`, each with **RLS enabled** (browsers can't read or write
+   them; only the `game` function can).
+3. Deploy the function again (the server code changed):
+
+   ```bash
+   supabase functions deploy game --no-verify-jwt
+   ```
+
+Check it: log in as two players, find the other one by name in the
+**Friends** panel on the main menu and **Add friend**; accept on the other
+side. Both now show as **Online**. Create a private game with one: **Invite
+friends** lists the other, and the invite appears in their Friends panel with
+**Join**. After a finished game, open your profile: the game is in **Last 20
+games** with **Replay**.
+
+Good to know:
+
+- "Online" means the player's app talked to the server in the last 2
+  minutes. Nothing else about their activity is stored.
+- Profile privacy (step 10) applies here too: a private profile shows only
+  the name and picture, and **Friends only** now really means friends.
+- The leaderboard leaves out provisional ratings (fewer than 10 rated games,
+  or uncertain after a long break), as `docs/RATINGS.md` explains.

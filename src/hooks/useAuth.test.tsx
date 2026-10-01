@@ -12,13 +12,18 @@ import { useAuth } from './useAuth'
 const ada: Profile = { id: 'u1', username: 'Ada', avatarUrl: null, createdAt: 'then', stats: { ...EMPTY_STATS, wins: 2, matches: 5 } }
 const adaUser: AuthUser = { id: 'u1', email: 'ada@example.com', displayName: null, avatarUrl: null }
 
-/** A backend that reports `user` once asked, and answers the profile when `release` is called. */
-function backendFor(user: AuthUser | null) {
+/**
+ * A backend that reports `user` once asked (or, with `manual`, when `answer` is
+ * called), and answers the profile when `release` is called.
+ */
+function backendFor(user: AuthUser | null, { manual = false } = {}) {
   let release = () => {}
+  let answer = () => {}
   const profileReady = new Promise<void>((resolve) => (release = resolve))
   const backend = {
     onUserChange(callback: (user: AuthUser | null, recovery: boolean) => void) {
-      setTimeout(() => callback(user, false), 0)
+      answer = () => callback(user, false)
+      if (!manual) setTimeout(answer, 0)
       return () => undefined
     },
     getMfaState: async () => ({ current: 'aal1', next: 'aal1', factors: [] }),
@@ -28,7 +33,7 @@ function backendFor(user: AuthUser | null) {
     },
     async signOut() {},
   } as unknown as AuthBackend
-  return { backend, release: () => release() }
+  return { backend, release: () => release(), answer: () => act(() => answer()) }
 }
 
 /** Prints what useAuth() says, as the screens would read it. */
@@ -72,9 +77,10 @@ describe('useAuth()', () => {
   })
 
   it('is loading until the service answers, then a guest', async () => {
-    const { backend } = backendFor(null)
+    const { backend, answer } = backendFor(null, { manual: true })
     await render(backend)
     expect(container()).toBe('configured loading guest')
+    await answer()
     await until('configured ready guest')
     expect(container()).toBe('configured ready guest')
   })

@@ -45,6 +45,7 @@ import { Tournaments } from './pages/Tournaments'
 // the account screens, the Rules and Settings dialogs, and the legal pages. The likely next ones are also
 // fetched once the first page has loaded and the browser is idle (main.tsx).
 const BrassGame = lazy(() => import('./pages/BrassGame').then((module) => ({ default: module.BrassGame })))
+const CardSheet = lazy(() => import('./pages/CardSheet').then((module) => ({ default: module.CardSheet })))
 const MapBoard = lazy(() => import('./pages/MapBoard').then((module) => ({ default: module.MapBoard })))
 const AuthScreen = lazy(() => import('./pages/AuthScreen').then((module) => ({ default: module.AuthScreen })))
 const Welcome = lazy(() => import('./pages/Welcome').then((module) => ({ default: module.Welcome })))
@@ -302,6 +303,14 @@ function AppShell() {
             element={
               <Suspense fallback={null}>
                 <MapBoard />
+              </Suspense>
+            }
+          />
+          <Route
+            path={PATHS.cards}
+            element={
+              <Suspense fallback={null}>
+                <CardSheet />
               </Suspense>
             }
           />

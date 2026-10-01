@@ -51,6 +51,8 @@ export const PATHS = {
   play: '/play',
   /** The illustrated map board and its calibration editor. */
   board: '/board',
+  /** A test page: every card type at every size (not linked from the menus). */
+  cards: '/cards',
   /** Your profile: goes to /u/<your username> (signed in). */
   profile: '/profile',
   /** A player's public profile: /u/<username>. */

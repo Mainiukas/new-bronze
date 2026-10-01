@@ -57,16 +57,24 @@ export function regionOf(card: Card | string): Region {
 
 /* Geometry on the 300 × 420 card (tools/build-cards.js). */
 export const CARD_BOX = { w: 300, h: 420 }
-/**
- * The ribbon's outline (notched at both ends): the art's ribbon (x 28–272,
- * y 360–396), a little taller so the name can be ~14 px on a hand-size card,
- * and covering the art's lettering entirely.
- */
-export const RIBBON_PATH = 'M24 354 H276 L265 378 L276 402 H24 L35 378 Z'
-/** Where the name sits: the ribbon between its notches (centred on y 378). */
-export const RIBBON_TEXT = { x: 36, y: 358, w: 228, h: 40 }
-/** An overlapped card's name is left off (the ribbon stays) rather than squeezed narrower than this. */
-export const NAME_MIN_SCALE_X = 0.72
+/** The ribbon's bottom edge, and its height for a one-line name (it grows upwards for two lines). */
+export const RIBBON_BOTTOM = 402
+export const RIBBON_MIN_H = 48
+/** The ribbon's sides (wider than the art's x 28–272, so long names fit) and the depth of its end notches. */
+const RIBBON_LEFT = 10
+const RIBBON_RIGHT = 290
+const NOTCH = 11
+/** Where the name may go: between the notches, `RIBBON_PAD` in from the ribbon's top and bottom. */
+export const RIBBON_TEXT_X = { from: RIBBON_LEFT + NOTCH + 1, to: RIBBON_RIGHT - NOTCH - 1 }
+export const RIBBON_PAD = 6
+
+/** The ribbon's outline (notched at both ends) from `top` down to RIBBON_BOTTOM, `inset` units in. */
+export function ribbonPath(top: number, inset = 0): string {
+  const [x0, x1, y0, y1] = [RIBBON_LEFT + inset, RIBBON_RIGHT - inset, top + inset, RIBBON_BOTTOM - inset]
+  const mid = (top + RIBBON_BOTTOM) / 2
+  return `M${x0} ${y0} H${x1} L${x1 - NOTCH} ${mid} L${x1} ${y1} H${x0} L${x0 + NOTCH} ${mid} Z`
+}
+
 /** The two side banners of a location card (their names are only shown in the large view). */
 export const bannerPath = (x: number) => `M${x - 15} 12 H${x + 15} V128 L${x} 118 L${x - 15} 128 Z`
 export const BANNER_X = [42, 258] as const
@@ -89,22 +97,38 @@ export function ribbonAt(region: Region, t: number): string {
   return '#' + [1, 3, 5].map((i) => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t).toString(16).padStart(2, '0')).join('')
 }
 
-/* ---- Fitting the name on one line ---- */
+/* ---- Fitting the name ---- */
 
 export const NAME_MAX_PX = 14
-export const NAME_MIN_PX = 10
+export const NAME_MIN_PX = 9
 /** Letter spacing, as a share of the font size. */
 export const NAME_TRACKING = 0.04
 
 /**
- * The font size that fits `width` (the name's width at 1 px) into `space` px:
- * up to `max`, never below NAME_MIN_PX (scaled 1 : 2.5 for the large view);
- * if it still doesn't fit at the minimum, the text is narrowed (scaleX)
- * rather than wrapped or cut.
+ * A name's lines: names of several words (or with hyphens) break at the last
+ * space or hyphen ("Merthyr / Tydfil", "Stoke-on- / Trent", "Cotton / Mill");
+ * a single word stays on one line.
  */
-export function fitName(widthAt1px: number, space: number, max = NAME_MAX_PX, min = NAME_MIN_PX): { size: number; scaleX: number } {
-  if (widthAt1px <= 0 || space <= 0) return { size: max, scaleX: 1 }
+export function nameLines(name: string): string[] {
+  const at = Math.max(name.lastIndexOf(' '), name.lastIndexOf('-'))
+  if (at <= 0 || at >= name.length - 1) return [name]
+  return name[at] === '-' ? [name.slice(0, at + 1), name.slice(at + 1)] : [name.slice(0, at), name.slice(at + 1)]
+}
+
+/**
+ * The font size that fits lines `widthAt1px` wide (the widest line, at 1 px)
+ * into `space` px: up to `max`, shrinking for long names. Never narrowed or
+ * cut: if even `min` doesn't fit, the size goes below it (`belowMin`) so the
+ * name still stays inside the ribbon (only on phone-size cards).
+ */
+export function fitName(widthAt1px: number, space: number, max = NAME_MAX_PX, min = NAME_MIN_PX): { size: number; belowMin: boolean } {
+  if (widthAt1px <= 0 || space <= 0) return { size: max, belowMin: false }
   const size = Math.min(max, space / widthAt1px)
-  if (size >= min) return { size, scaleX: 1 }
-  return { size: min, scaleX: space / (widthAt1px * min) }
+  return { size, belowMin: size < min - 1e-9 }
+}
+
+/** The ribbon's top for a name of `lines` lines at `size` px on a card `cardWidth` px wide (line height 1). */
+export function ribbonTop(lines: number, size: number, cardWidth: number): number {
+  const textUnits = (lines * size * CARD_BOX.w) / cardWidth
+  return RIBBON_BOTTOM - Math.max(RIBBON_MIN_H, textUnits + 2 * RIBBON_PAD + 2)
 }

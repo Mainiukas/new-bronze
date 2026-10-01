@@ -17,7 +17,7 @@ import type { Card, Era } from '../../rules/state'
 import { INDUSTRY_ICON_URLS } from '../board/assets'
 import { Dialog } from '../Dialog'
 import { CARD_BACK_URL, CARD_RATIO, NO_LOAN_URL, cardArt } from './cardArt'
-import { BANNER_X, bannerPath, CARD_BOX, CARD_TEXT, fitName, NAME_MIN_PX, NAME_MIN_SCALE_X, NAME_TRACKING, regionOf, RIBBON_COLORS, RIBBON_PATH, RIBBON_TEXT } from './cardRibbon'
+import { BANNER_X, bannerPath, CARD_BOX, CARD_TEXT, fitName, NAME_MAX_PX, NAME_MIN_PX, nameLines, NAME_TRACKING, regionOf, RIBBON_BOTTOM, RIBBON_COLORS, RIBBON_MIN_H, RIBBON_PAD, RIBBON_TEXT_X, ribbonPath, ribbonTop } from './cardRibbon'
 
 /** Width of an element, kept up to date. */
 function useWidth(ref: React.RefObject<HTMLElement | null>): number {
@@ -69,20 +69,55 @@ function nameWidth(name: string): number {
   return measureCtx.measureText(name).width / 100 + name.length * NAME_TRACKING
 }
 
+/** How a card's name is set: its lines, font size, and the ribbon's top (card units); null = no name drawn. */
+interface NameLayout {
+  lines: string[]
+  size: number
+  top: number
+  /** px from the card's left edge, and the width the lines are centred in. */
+  left: number
+  width: number
+}
+
+/**
+ * Lays the name out for a card `cardWidth` px wide of which `visible` (0–1)
+ * shows: names of several words on two lines, single words on one, shrunk to
+ * fit (~14 px at hand size, 2.5× in the large view, at least 9 px in
+ * proportion). On an overlapped card the name fits the part that shows, or is
+ * left off; it never overflows the ribbon.
+ */
+function layoutName(name: string, cardWidth: number, visible: number): NameLayout | null {
+  const scale = cardWidth / CARD_BOX.w
+  const shown = Math.min(1, visible)
+  const left = RIBBON_TEXT_X.from * scale
+  const space = Math.max(0, Math.min((RIBBON_TEXT_X.to - RIBBON_TEXT_X.from) * scale, cardWidth * shown - left - 3) - 4)
+  const lines = nameLines(name)
+  const min = NAME_MIN_PX * Math.max(1, cardWidth / 130)
+  const max = Math.max(min, Math.min((NAME_MAX_PX * cardWidth) / 130, (RIBBON_MIN_H - 2 * RIBBON_PAD) * scale * 0.95))
+  const fit = fitName(Math.max(...lines.map(nameWidth)), space, max, min)
+  // A mostly hidden card whose name would have to go below the minimum keeps just its ribbon.
+  if (fit.belowMin && shown < 0.95) return null
+  return { lines, size: fit.size, top: ribbonTop(lines.length, fit.size, cardWidth), left, width: space + 4 }
+}
+
 /**
  * One card: front and back, so it can flip. The front's name is real text on
- * a ribbon drawn in code (over the art's own, too-small lettering), sized to
- * fit on one line. `compact` (hand size) also covers the side banners' tiny
+ * a ribbon drawn in code (over the art's own, too-small lettering): two lines
+ * for names of several words (the ribbon grows taller), one for single words,
+ * shrunk to fit. `compact` (hand size) also covers the side banners' tiny
  * names, keeping just their colour; the large views show them.
  */
 export function CardImage({ card, label, width, visible = 1, compact = false, className = '', style }: { card: Card | string; label?: string; width?: number; visible?: number; compact?: boolean; className?: string; style?: CSSProperties }) {
+  useFontsReady()
+  const layout = label && width ? layoutName(label, width, visible) : null
+  const top = layout?.top ?? (label && width ? ribbonTop(nameLines(label).length, (NAME_MIN_PX * Math.max(1, width / 130)), width) : RIBBON_BOTTOM - RIBBON_MIN_H)
   return (
     <span className={`card3d block ${className}`} style={style}>
       <span className="card3d-inner block size-full">
         <span className="card3d-face block overflow-hidden rounded-[7%]">
           <img src={cardArt(card)} alt="" draggable={false} className="size-full object-cover select-none" />
-          {label && <CardRibbon card={card} compact={compact} />}
-          {label && width ? <CardName name={label} cardWidth={width} visible={visible} /> : null}
+          {label && <CardRibbon card={card} compact={compact} top={top} />}
+          {layout && width ? <CardName layout={layout} cardWidth={width} /> : null}
         </span>
         <img src={CARD_BACK_URL} alt="" draggable={false} className="card3d-face card3d-back size-full rounded-[7%] object-cover select-none" />
       </span>
@@ -90,18 +125,18 @@ export function CardImage({ card, label, width, visible = 1, compact = false, cl
   )
 }
 
-/** The ribbon (and, at hand size, plain side banners) in the region's colours, drawn over the art. */
-function CardRibbon({ card, compact }: { card: Card | string; compact: boolean }) {
+/** The ribbon (from `top` down, in card units) and, at hand size, plain side banners, in the region's colours, drawn over the art. */
+function CardRibbon({ card, compact, top }: { card: Card | string; compact: boolean; top: number }) {
   const id = useId()
   const region = regionOf(card)
-  const [top, bottom] = RIBBON_COLORS[region]
+  const [from, to] = RIBBON_COLORS[region]
   const banners = compact && region !== 'industry'
   return (
     <svg aria-hidden="true" viewBox={`0 0 ${CARD_BOX.w} ${CARD_BOX.h}`} preserveAspectRatio="none" className="pointer-events-none absolute inset-0 size-full">
       <defs>
         <linearGradient id={`${id}r`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={top} />
-          <stop offset="1" stopColor={bottom} />
+          <stop offset="0" stopColor={from} />
+          <stop offset="1" stopColor={to} />
         </linearGradient>
       </defs>
       {banners &&
@@ -111,51 +146,43 @@ function CardRibbon({ card, compact }: { card: Card | string; compact: boolean }
             <path d={bannerPath(x)} fill="none" stroke="#d9b877" strokeOpacity="0.5" strokeWidth="1" />
           </g>
         ))}
-      <path d={RIBBON_PATH} fill={`url(#${id}r)`} stroke="#120c08" strokeWidth="2" />
-      <path d={RIBBON_PATH} fill="none" stroke="#e6cc92" strokeOpacity="0.55" strokeWidth="1" transform="translate(150 378) scale(0.96 0.86) translate(-150 -378)" />
+      <path d={ribbonPath(top)} fill={`url(#${id}r)`} stroke="#120c08" strokeWidth="2" />
+      <path d={ribbonPath(top, 4)} fill="none" stroke="#e6cc92" strokeOpacity="0.55" strokeWidth="1" />
     </svg>
   )
 }
 
-/**
- * The name, centred both ways in the ribbon: Cinzel 700, cream with a thin
- * dark outline and a soft shadow, ~14 px at hand size. Long names shrink to
- * fit (never below 10 px, never wrapped or cut). On an overlapped card it
- * fits into the part that shows.
- */
-function CardName({ name, cardWidth, visible }: { name: string; cardWidth: number; visible: number }) {
-  useFontsReady()
+/** The name, centred both ways in the ribbon: Cinzel 700, cream with a thin dark outline and a soft shadow, line height 1. */
+function CardName({ layout, cardWidth }: { layout: NameLayout; cardWidth: number }) {
   const scale = cardWidth / CARD_BOX.w
-  const shown = Math.min(1, visible)
-  const left = RIBBON_TEXT.x * scale
-  const space = Math.max(0, Math.min(RIBBON_TEXT.w * scale, cardWidth * shown - left - 4) - 4)
-  // ~14 px on a ~130 px card, in proportion (2.5× in the large view); never below 10 px.
-  const min = NAME_MIN_PX * Math.max(1, cardWidth / 130)
-  const max = Math.max(min, Math.min(cardWidth * 0.108, RIBBON_TEXT.h * scale * 0.9))
-  const fit = fitName(nameWidth(name), space, max, min)
-  // On a card mostly hidden under the next one, a name that would have to be squeezed is left off.
-  if (shown < 0.95 && fit.scaleX < NAME_MIN_SCALE_X) return null
+  const top = (layout.top + RIBBON_PAD) * scale
   return (
     <span
       aria-hidden="true"
       data-card-name
-      className="pointer-events-none absolute grid place-items-center [backface-visibility:hidden]"
-      style={{ left, width: space + 4, top: RIBBON_TEXT.y * scale, height: RIBBON_TEXT.h * scale }}
+      data-lines={layout.lines.length}
+      className="pointer-events-none absolute flex flex-col items-center justify-center text-center [backface-visibility:hidden]"
+      style={{ left: layout.left, width: layout.width, top, height: (RIBBON_BOTTOM - RIBBON_PAD) * scale - top }}
     >
-      <span
-        className="block leading-none whitespace-nowrap"
-        style={{
-          fontFamily: 'Cinzel, serif',
-          fontWeight: 700,
-          fontSize: `${fit.size.toFixed(2)}px`,
-          letterSpacing: `${NAME_TRACKING}em`,
-          color: CARD_TEXT,
-          textShadow: '1px 0 0 #120c08, -1px 0 0 #120c08, 0 1px 0 #120c08, 0 -1px 0 #120c08, 0 2px 4px rgb(0 0 0 / 0.6)',
-          transform: fit.scaleX < 1 ? `scaleX(${fit.scaleX.toFixed(3)})` : undefined,
-        }}
-      >
-        {name}
-      </span>
+      {layout.lines.map((line) => (
+        <span
+          key={line}
+          className="block whitespace-nowrap"
+          style={{
+            fontFamily: 'Cinzel, serif',
+            fontWeight: 700,
+            fontSize: `${layout.size.toFixed(2)}px`,
+            lineHeight: 1,
+            letterSpacing: `${NAME_TRACKING}em`,
+            // The spacing after the last letter, taken back so the line is truly centred.
+            marginRight: `-${NAME_TRACKING}em`,
+            color: CARD_TEXT,
+            textShadow: '1px 0 0 #120c08, -1px 0 0 #120c08, 0 1px 0 #120c08, 0 -1px 0 #120c08, 0 2px 4px rgb(0 0 0 / 0.6)',
+          }}
+        >
+          {line}
+        </span>
+      ))}
     </span>
   )
 }

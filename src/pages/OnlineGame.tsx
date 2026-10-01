@@ -244,6 +244,8 @@ function OnlineMatch({ game, view, settings, onOpenRules, onOpenSettings, overla
   const match: BrassMatch = { kind: 'brass', modeId: view.mode, mapId: view.mapId, state }
   const spectating = view.mySeat === null
   const now = useNow() + game.clockOffset
+  // A rated game that ended: each player's rating change.
+  const ratings = view.result?.ratings.length ? Object.fromEntries(view.result.ratings.map((r) => [r.seat, r])) : undefined
   // Chess clocks: the player to move counts down from when their turn started.
   const clocks: Record<number, SeatClock> = {}
   for (const s of view.seats) {
@@ -311,7 +313,7 @@ function OnlineMatch({ game, view, settings, onOpenRules, onOpenSettings, overla
           onOpenSettings={onOpenSettings}
           overlayOpen={overlayOpen}
           localAvatarUrl={auth.profile?.avatarUrl ?? null}
-          online={{ seat: view.mySeat ?? 0, spectating, busy: game.busy, submit, clocks }}
+          online={{ seat: view.mySeat ?? 0, spectating, busy: game.busy, submit, clocks, ratings }}
           banner={banner}
         />
       </Suspense>

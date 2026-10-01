@@ -59,6 +59,7 @@ const DataRequest = lazy(() => import('./pages/legal/DataRequest').then((module)
 const Credits = lazy(() => import('./pages/legal/Credits').then((module) => ({ default: module.Credits })))
 const Unsubscribe = lazy(() => import('./pages/legal/Unsubscribe').then((module) => ({ default: module.Unsubscribe })))
 const PublicProfile = lazy(() => import('./pages/PublicProfile').then((module) => ({ default: module.PublicProfile })))
+const Tutorial = lazy(() => import('./pages/Tutorial').then((module) => ({ default: module.Tutorial })))
 const OnlineLobby = lazy(() => import('./pages/OnlineLobby').then((module) => ({ default: module.OnlineLobby })))
 const OnlineGame = lazy(() => import('./pages/OnlineGame').then((module) => ({ default: module.OnlineGame })))
 const JoinInvite = lazy(() => import('./pages/OnlineGame').then((module) => ({ default: module.JoinInvite })))
@@ -234,6 +235,14 @@ function AppShell() {
           element={
             <Suspense fallback={null}>
               <OnlineGame settings={settings} onOpenRules={() => setOverlay('how-to-play')} onOpenSettings={() => setOverlay('settings')} overlayOpen={overlay !== null} />
+            </Suspense>
+          }
+        />
+        <Route
+          path={PATHS.tutorial}
+          element={
+            <Suspense fallback={null}>
+              <Tutorial settings={settings} onOpenRules={() => setOverlay('how-to-play')} onOpenSettings={() => setOverlay('settings')} overlayOpen={overlay !== null} />
             </Suspense>
           }
         />

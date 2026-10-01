@@ -9,6 +9,7 @@ import { pluralizer } from './languages'
 import accountWords from './account/lt'
 import brassWords from './brass/lt'
 import onlineWords from './online/lt'
+import tutorialWords from './tutorial/lt'
 import welcomeWords from './welcome/lt'
 import type { Messages } from './messages'
 
@@ -805,6 +806,7 @@ const lt: Messages = {
   brass: brassWords,
   welcome: welcomeWords,
   online: onlineWords,
+  tutorial: tutorialWords,
 }
 
 export default lt

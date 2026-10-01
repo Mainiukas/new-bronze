@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ComponentType, type Dispatch, type SetStateAction } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { PLAYER_STYLE } from '../components/game/glyphs'
-import { IconComputer, IconGlobe, IconLock, IconPlay, IconUsers, type IconProps } from '../components/icons'
+import { IconBook, IconComputer, IconGlobe, IconLock, IconPlay, IconUsers, type IconProps } from '../components/icons'
 import { FriendsPanel } from '../components/FriendsPanel'
 import { AchievementsCard, TournamentsCard } from '../components/LobbyCards'
 import { MatchSetupPanel, type MatchSetup } from '../components/MatchSetupPanel'
@@ -140,6 +140,8 @@ export function MainMenu({
               ))}
             </div>
           </fieldset>
+
+          <TutorialCard />
 
           <OpponentsControl
             value={opponentsOf(setup.seats, count)}
@@ -297,5 +299,27 @@ function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (va
         })}
       </div>
     </fieldset>
+  )
+}
+
+/** The way into the tutorial: a guided practice game against one Easy bot. */
+function TutorialCard() {
+  const t = useT()
+  const navigate = useNavigate()
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(PATHS.tutorial)}
+      className="plate iron flex animate-fade-up items-center gap-3 rounded-xl px-4 py-3 text-left transition [animation-delay:120ms] hover:border-ember-400/70"
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-full border border-brass-300/60 bg-soot-950/80 text-brass-200" aria-hidden="true">
+        <IconBook className="size-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-display text-base font-extrabold tracking-[0.08em] text-parchment-50 uppercase">{t.tutorial.cta}</span>
+        <span className="block text-sm text-parchment-300">{t.tutorial.ctaText}</span>
+      </span>
+      <IconPlay className="size-4 shrink-0 text-brass-300" aria-hidden="true" />
+    </button>
   )
 }

@@ -3,7 +3,7 @@ import type { GameModeId } from '../data/gameModes'
 import { getMap, isPlayableMapId, MAPS, type MapId } from '../data/maps'
 import { MAX_NAME, placeholderName, seatCount, toSeatSetups, withController, type SavedSetup, type SeatDraft } from '../data/matchSetup'
 import { MAX_PLAYERS, MIN_PLAYERS } from '../game/engine'
-import { AI_LEVELS, type AILevel, type SeatSetup } from '../game/types'
+import { OFFERED_AI_LEVELS, type AILevel, type SeatSetup } from '../game/types'
 import { displayName, useT } from '../i18n'
 import { randomSeed } from '../lib/random'
 import { START_MONEY } from '../rules/constants'
@@ -153,7 +153,7 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
                   {seat.isAI && (
                     <Segmented
                       label={t.setup.difficulty(i + 1)}
-                      options={AI_LEVELS.map((level) => [level, t.aiLevels[level]] as const)}
+                      options={OFFERED_AI_LEVELS.map((level) => [level, t.aiLevels[level]] as const)}
                       value={seat.aiLevel}
                       onChange={(v) => updateSeat(i, (s) => ({ ...s, aiLevel: v as AILevel }))}
                     />

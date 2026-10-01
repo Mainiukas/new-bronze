@@ -9,7 +9,9 @@ import type { Action, Card, GameState } from '../rules/state'
 export type GameStatus = 'lobby' | 'playing' | 'finished' | 'aborted'
 export type Visibility = 'public' | 'private'
 export type ModeId = 'normal' | 'blitz' | 'bullet'
-export type BotLevel = 'easy' | 'normal'
+import type { BotLevel } from '../rules/bots'
+
+export type { BotLevel }
 
 export interface Seat {
   seat: number
@@ -33,6 +35,8 @@ export interface Seat {
 
 export interface RatingResult {
   userId: string
+  /** Their seat (= their player number in the game). */
+  seat: number
   before: number
   after: number
   delta: number

@@ -20,7 +20,7 @@ import { isProvisional, rateGame } from '../rating/glicko2'
 import { CONNECTION_LOST_MS, DISCONNECT_GRACE_MS, MAX_PLAYERS, MAX_TIMEOUTS, MIN_PLAYERS, TIME_CONTROL } from '../rules/config/game'
 import { applyAction, createGame, currentPlayerId, type RulesContext } from '../rules/engine'
 import { RuleError, type Action, type GameState } from '../rules/state'
-import { botAction, timeoutAction } from './bots'
+import { botAction, timeoutAction } from '../rules/bots'
 import { redactState } from './redact'
 import type { ActionRow, BotLevel, GameRecord, GameStore, GameSummary, GameView, ModeId, QueueEntry, RatingRow, Request, Seat, SeatView } from './types'
 
@@ -216,7 +216,7 @@ export function createGameServer(deps: ServerDeps) {
       saved,
       changes.map((c) => ({ userId: c.id, mapId: record.mapId, gameId: record.id, before: c.before, after: c.after, delta: c.delta, mode: record.mode, at: now })),
     )
-    record.result.ratings = changes.map((c) => ({ userId: c.id, before: c.before, after: c.after, delta: c.delta }))
+    record.result.ratings = changes.map((c) => ({ userId: c.id, seat: record.seats.find((x) => x.userId === c.id)!.seat, before: c.before, after: c.after, delta: c.delta }))
   }
 
   /* ---- Views ---- */

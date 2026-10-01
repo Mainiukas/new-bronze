@@ -18,11 +18,12 @@ import { motionOff } from '../components/brass/flights'
 import { GameLog } from '../components/brass/GameLog'
 import { MarketStrip } from '../components/brass/Markets'
 import { TurnOrder } from '../components/brass/TurnOrder'
+import { EraScoring, FinalScreen, type RatingChange } from '../components/brass/Scoring'
 import type { SeatClock } from '../components/brass/clock'
 import { useCardFlights } from '../components/brass/useCardFlights'
 import { ActionButtons, StatsBar, UpgradeBar, type ActionState } from '../components/brass/Panel'
 import { rowInfo } from '../components/brass/rowInfo'
-import { Coin, Cube, IncomeArrow, VpHex } from '../components/brass/Symbols'
+import { Coin, Cube, IncomeArrow } from '../components/brass/Symbols'
 import { Dialog } from '../components/Dialog'
 import { colorHex } from '../components/game/glyphs'
 import { ZoomPan } from '../components/game/ZoomPan'
@@ -35,7 +36,7 @@ import { usePersistentState } from '../hooks/usePersistentState'
 import { useToast } from '../hooks/useToast'
 import { useT } from '../i18n'
 import { STORAGE_KEYS } from '../lib/storage'
-import { chooseAction } from '../rules/ai'
+import { botAction } from '../rules/bots'
 import { LOANS } from '../rules/constants'
 import { RULES } from '../rules/context'
 import { applyAction, currentPlayerId, inPlay, networkOf, planBuild, roundsInEra, saleOptions, type BuildPlan, type NetworkPlan } from '../rules/engine'
@@ -92,6 +93,24 @@ export interface OnlineSeat {
   submit: (actions: Action[]) => Promise<boolean>
   /** Each player's chess clock, shown under their circle. */
   clocks?: Record<number, SeatClock>
+  /** A rated game that ended: each player's rating change, by player. */
+  ratings?: Record<number, RatingChange>
+}
+
+/** A turn being played: its moves so far and where they lead, from the match as it was when the turn began. */
+interface PendingTurn {
+  base: GameState
+  player: number
+  actions: Action[]
+  state: GameState
+  /** Confirmed online: on its way to the server. */
+  sent?: boolean
+}
+
+/** All the turn's moves are made: the next player is up, a new round began, or the game ended. */
+function turnFinished(turn: PendingTurn): boolean {
+  const s = turn.state
+  return s.finished || currentPlayerId(s) !== turn.player || s.log.slice(turn.base.log.length).some((e) => e.kind === 'round')
 }
 
 type Flow =
@@ -128,7 +147,13 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const t = useT()
   const b = t.brass
   const notify = useToast()
-  const state = match.state
+  /**
+   * This turn's moves, not confirmed yet: shown on the board, and undone one at a time until Confirm.
+   * It belongs to the match it started from: if the match moves on without it (online: the clock ran out), it's dropped.
+   */
+  const [pending, setPending] = useState<PendingTurn | null>(null)
+  const livePending = pending && pending.base === match.state ? pending : null
+  const state = livePending?.state ?? match.state
   const mode = isGameModeId(match.modeId) ? getGameMode(match.modeId) : null
   const [chosenFlow, setFlow] = useState<Flow>({ kind: 'idle' })
   /** The card(s) the player picked in their hand: one, or two as the joker. */
@@ -139,6 +164,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const [viewing, setViewing] = useState<number | null>(null)
   const [pulse, setPulse] = useState<{ industry: IndustryId; key: number } | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetTab, setSheetTab] = useState<'mat' | 'log'>('mat')
   const [resultsOpen, setResultsOpen] = useState(state.finished)
   const [unlocked, setUnlocked] = useState<Achievement[]>([])
   const [recent, setRecent] = useState<{ entry: LogEntry; key: number } | null>(null)
@@ -146,20 +172,25 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const [closedBanner, setClosedBanner] = useState<number | null>(null)
 
   const current = currentPlayerId(state)
+  // The provisional turn's moves are all made: only Undo or Confirm are left.
+  const turnDone = livePending !== null && turnFinished(livePending)
   const humans = state.players.flatMap((p, i) => (p.isAI ? [] : [i]))
   const [seatAtDevice, setSeatAtDevice] = useState<number | null>(humans.length === 1 ? humans[0] : null)
   // Online, every seat is a person somewhere (or a bot on the server): this device is only its own seat.
-  const currentIsHuman = !state.finished && (online ? current === online.seat && !online.spectating : !state.players[current].isAI)
-  const needsHandoff = !online && currentIsHuman && humans.length > 1 && seatAtDevice !== current
+  const currentIsHuman = livePending ? !turnDone : !state.finished && (online ? current === online.seat && !online.spectating : !state.players[current].isAI)
+  const needsHandoff = !livePending && !online && currentIsHuman && humans.length > 1 && seatAtDevice !== current
   // Whose mat and hand this device shows: the human playing now, else the last human at the device.
-  const me = online ? online.seat : currentIsHuman && !needsHandoff ? current : (seatAtDevice ?? humans[0] ?? 0)
-  const myTurn = currentIsHuman && !needsHandoff && current === me && !online?.busy
-  const paused = overlayOpen || needsHandoff || resultsOpen
-  const colorOf = (p: number) => colorHex(state.players[p].color as PlayerColor)
+  const me = livePending ? livePending.player : online ? online.seat : currentIsHuman && !needsHandoff ? current : (seatAtDevice ?? humans[0] ?? 0)
+  const myTurn = currentIsHuman && !needsHandoff && (livePending !== null || current === me) && !online?.busy && !livePending?.sent
+  // Computer players wait while a turn waits for Confirm.
+  const paused = overlayOpen || needsHandoff || resultsOpen || livePending !== null
+  // (No one is "current" once the game is over: fall back to a neutral colour.)
+  const colorOf = (p: number) => colorHex((state.players[p]?.color ?? 'white') as PlayerColor)
   const townName = (id: string) => ctx.map.places[id]?.name ?? id
   const slotTown = (slot: string) => townName(ctx.map.slots[slot].town)
 
-  const hand = state.players[me].hand
+  // Cards drawn at the end of a turn stay hidden until it's confirmed (so Undo can't be used to peek).
+  const hand = turnDone ? state.players[me].hand.filter((c) => livePending.base.players[me].hand.some((h) => h.id === c.id)) : state.players[me].hand
   const cardName = (card: Card) => (card.kind === 'location' ? townName(card.town) : b.industry[card.industry])
   const cardKind = (card: Card) => (card.kind === 'location' ? b.locationCard : b.industryCard)
   // Avatars on the turn order track: the signed-in player's own, else an illustrated one per seat.
@@ -190,9 +221,13 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
     setJokerOffer(null)
   }
 
-  /** Apply an action for a player; errors become toasts (and change nothing). */
+  /**
+   * Apply an action for a player; errors become toasts (and change nothing). The player at this device moves
+   * provisionally (Undo until Confirm); computer players' moves count at once.
+   */
   const dispatch = (player: number, action: Action): GameState | null => {
-    if (online) return dispatchOnline([action])
+    if (player === me && currentIsHuman) return provisional([action])
+    if (online) return null
     try {
       const next = applyAction(state, ctx, player, action)
       const nextMatch = { ...match, state: next }
@@ -215,12 +250,14 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   }
 
   /**
-   * Online: check the moves here first (the same rules, so a mistake is explained at once), then send them.
-   * The server checks them again and its answer becomes the match. Returns what the moves lead to here.
+   * The player's own moves: checked and shown at once (online the server checks them again when they're sent),
+   * kept provisional until Confirm. A move that reveals something hidden (a distant-market tile) can't be taken
+   * back: it's confirmed with the rest of the turn straight away.
    */
-  const dispatchOnline = (actions: Action[]): GameState | null => {
-    if (!online) return null
-    let next: GameState = state
+  const provisional = (actions: Action[]): GameState | null => {
+    const from = state
+    let next: GameState = from
+    let unknown = false
     try {
       for (const action of actions) next = applyAction(next, ctx, me, action)
     } catch (error) {
@@ -228,12 +265,59 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         notify(b.errors[error.code])
         return null
       }
-      // Something only the server knows (a hidden card, say) decides it: let the server judge.
+      // Online: something only the server knows (a hidden card, say) decides it: send it and let the server judge.
+      if (!online) throw error
+      unknown = true
     }
-    const entry = [...next.log.slice(state.log.length)].reverse().find((e) => ['build', 'network', 'develop', 'sell', 'sell-failed', 'loan', 'pass'].includes(e.kind))
+    const added = next.log.slice(from.log.length)
+    const entry = [...added].reverse().find((e) => ['build', 'network', 'develop', 'sell', 'sell-failed', 'loan', 'pass'].includes(e.kind))
     if (entry) setRecent({ entry, key: next.log.length })
-    void online.submit(actions)
+    if (added.some((e) => e.kind === 'sell-failed')) setClosedBanner(next.log.length)
+    const turn: PendingTurn = { base: livePending?.base ?? match.state, player: me, actions: [...(livePending?.actions ?? []), ...actions], state: next }
+    const reveals = unknown || added.some((e) => (e.kind === 'sell' && e.distant) || e.kind === 'sell-failed')
+    if (reveals) confirmTurn(turn)
+    else setPending(turn)
     return next
+  }
+
+  /** Confirm: the turn's moves count (online: they go to the server, which checks them again). */
+  const confirmTurn = (turn: PendingTurn | null = livePending) => {
+    if (!turn) return
+    if (online) {
+      // Keep showing the turn until the server's answer replaces it (or drop it if the server refused).
+      setPending({ ...turn, sent: true })
+      void online.submit(turn.actions).then((ok) => {
+        if (!ok) setPending(null)
+      })
+      return
+    }
+    const nextMatch = { ...match, state: turn.state }
+    if (!turn.base.finished && turn.state.finished) {
+      setUnlocked(onMatchFinished(nextMatch))
+      setResultsOpen(true)
+    }
+    setPending(null)
+    onMatchChange(nextMatch)
+  }
+
+  /** Undo: take back the last provisional move (replayed from the start of the turn). */
+  const undo = () => {
+    if (!livePending || livePending.sent) return
+    const actions = livePending.actions.slice(0, -1)
+    let s = livePending.base
+    for (const a of actions) s = applyAction(s, ctx, me, a)
+    setPending(actions.length ? { ...livePending, actions, state: s } : null)
+    setRecent(null)
+    afterHuman(actions.length ? s : null)
+  }
+
+  // The canal era just ended: its scoring counts up (once; not again after a reload).
+  const canalEnd = state.log.findIndex((e) => e.kind === 'era-end' && e.era === 'canal')
+  const [seenCanalEnd, setSeenCanalEnd] = useState(canalEnd)
+  const [canalScoringOpen, setCanalScoringOpen] = useState(false)
+  if (canalEnd !== seenCanalEnd) {
+    setSeenCanalEnd(canalEnd)
+    if (canalEnd !== -1 && !state.finished) setCanalScoringOpen(true)
   }
 
   // Online, the match ends on the server: open the results when it does.
@@ -281,7 +365,8 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const playComputer = useEffectEvent(() => {
     const id = currentPlayerId(state)
     if (state.finished || !state.players[id].isAI) return
-    dispatch(id, chooseAction(state, ctx, id))
+    // Easy: a random legal move, preferring to build; Normal (and Hard, from old saves): the scoring AI. The same bots as online.
+    dispatch(id, botAction(state, ctx, id, state.players[id].aiLevel === 'easy' ? 'easy' : 'normal', state.log.length))
   })
   useEffect(() => {
     if (online || state.finished || !state.players[current].isAI || paused) return
@@ -518,16 +603,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
             break
           }
         }
-        if (online) {
-          if (passes.length) dispatchOnline(passes)
-        } else if (s && s !== state) {
-          const nextMatch = { ...match, state: s }
-          if (!state.finished && s.finished) {
-            setUnlocked(onMatchFinished(nextMatch))
-            setResultsOpen(true)
-          }
-          onMatchChange(nextMatch)
-        }
+        if (passes.length) provisional(passes)
         afterHuman(null)
         break
       }
@@ -583,11 +659,13 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
   const status: ReactNode = state.finished
     ? b.gameOver
-    : myTurn
-      ? b.yourTurn(state.actionsLeft)
-      : state.players[current].isAI
-        ? b.thinking(state.players[current].name)
-        : b.theirTurn(state.players[current].name)
+    : turnDone
+      ? b.turnReady
+      : myTurn
+        ? b.yourTurn(state.actionsLeft)
+        : state.players[current].isAI
+          ? b.thinking(state.players[current].name)
+          : b.theirTurn(state.players[current].name)
 
   const hint =
     flow.kind === 'build'
@@ -698,14 +776,27 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         />
       )}
       <StatsBar player={player} ctx={ctx} />
-      <GameLog state={state} ctx={ctx} />
     </div>
   )
 
   const zoomCard = zoom ? (hand.find((c) => c.id === zoom) ?? null) : null
 
   // The strip above the hand: what to do next, the "Play as" bar, or the joker prompt.
-  const handBar: ReactNode = !myTurn ? (
+  const handBar: ReactNode = livePending && (turnDone || livePending.sent) ? (
+    <div className="flex flex-wrap items-center justify-center gap-2 rounded-md border px-3 py-1 text-sm font-semibold text-parchment-50" style={{ borderColor: colorOf(me), background: `${colorOf(me)}22` }}>
+      <span>{livePending.sent ? online ? t.online.game.waitingServer : '' : b.turnReady}</span>
+      {!livePending.sent && (
+        <>
+          <button type="button" className="btn btn-ghost min-h-8 px-3 text-xs" onClick={undo}>
+            {b.undo}
+          </button>
+          <button type="button" className="btn btn-primary min-h-8 px-4 text-xs" onClick={() => confirmTurn()} autoFocus>
+            {b.confirmTurn}
+          </button>
+        </>
+      )}
+    </div>
+  ) : !myTurn ? (
     <p className="text-sm font-semibold text-parchment-200">{status}</p>
   ) : jokerCards ? (
     <JokerPrompt
@@ -757,13 +848,20 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       )}
     </div>
   ) : (
-    <p className="text-sm text-parchment-300">
-      <span className="font-semibold text-parchment-100">{status}</span> · {b.pickCard}
+    <p className="flex flex-wrap items-center justify-center gap-x-2 text-sm text-parchment-300">
+      <span>
+        <span className="font-semibold text-parchment-100">{status}</span> · {b.pickCard}
+      </span>
+      {livePending && (
+        <button type="button" className="btn btn-ghost min-h-8 px-3 text-xs" onClick={undo}>
+          {b.undo}
+        </button>
+      )}
     </p>
   )
 
   return (
-    <div className="brass-screen flex min-h-dvh flex-col">
+    <div className="brass-screen flex min-h-dvh flex-col overflow-x-clip">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-bronze-500/30 bg-soot-950/90 px-3 py-1">
         <GameMenuButton onRules={onOpenRules} onSettings={onOpenSettings} onLeave={onLeave} />
         <span className={`rounded-full border px-2.5 py-0.5 font-display text-xs font-bold tracking-[0.12em] uppercase ${state.era === 'canal' ? 'border-verdigris-400/50 text-verdigris-200' : 'border-brass-300/50 text-brass-200'}`}>{b.era[state.era]}</span>
@@ -841,7 +939,10 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         </div>
 
         <aside className="brass-panel hidden lg:block" aria-label={b.showPanel}>
-          <div className="plate rivets iron p-2.5">{panel}</div>
+          <div className="plate rivets iron flex flex-col gap-2 p-2.5">
+            {panel}
+            <GameLog state={state} ctx={ctx} />
+          </div>
         </aside>
       </main>
 
@@ -850,7 +951,26 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         <button type="button" className="btn btn-primary w-full rounded-none" aria-expanded={sheetOpen} onClick={() => setSheetOpen((v) => !v)}>
           {sheetOpen ? b.hidePanel : b.showPanel}
         </button>
-        {sheetOpen && <div className="max-h-[70dvh] overflow-y-auto bg-soot-950/[0.98] p-2.5">{panel}</div>}
+        {sheetOpen && (
+          <div className="max-h-[70dvh] overflow-y-auto bg-soot-950/[0.98] p-2.5">
+            {/* Tabs: your mat (and actions), or the game log. */}
+            <div role="tablist" aria-label={b.showPanel} className="mb-2 grid grid-cols-2 gap-1 rounded-lg border border-bronze-500/30 bg-soot-900 p-1">
+              {(['mat', 'log'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={sheetTab === tab}
+                  onClick={() => setSheetTab(tab)}
+                  className={`min-h-9 rounded-md font-display text-sm font-bold tracking-[0.1em] uppercase ${sheetTab === tab ? 'bg-bronze-500/30 text-parchment-50' : 'text-parchment-400'}`}
+                >
+                  {tab === 'mat' ? b.tabMat : b.log.title}
+                </button>
+              ))}
+            </div>
+            {sheetTab === 'mat' ? panel : <GameLog state={state} ctx={ctx} />}
+          </div>
+        )}
       </div>
 
       <ConfirmDialogs
@@ -879,17 +999,22 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
           setZoom(null)
         }}
         onClose={() => setZoom(null)}
+        onStep={(d) => {
+          const i = hand.findIndex((c) => c.id === zoom)
+          if (i >= 0 && hand.length) setZoom(hand[(i + d + hand.length) % hand.length].id)
+        }}
+        position={zoomCard ? `${hand.findIndex((c) => c.id === zoomCard.id) + 1} / ${hand.length}` : undefined}
       />
 
       <Dialog open={needsHandoff && !overlayOpen} onClose={() => setSeatAtDevice(current)} labelledBy="handoff-title">
         <div className="plate rivets flex flex-col items-center gap-4 bg-soot-900/95 px-6 py-8 text-center">
           <span className="size-8 rounded-full border-2 border-black" style={{ background: colorOf(current) }} aria-hidden="true" />
           <h2 id="handoff-title" className="font-display text-3xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-            {b.handoffTitle(state.players[current].name)}
+            {b.handoffTitle(state.players[current]?.name ?? '')}
           </h2>
           <p className="text-parchment-300">{b.handoffBody}</p>
           <button type="button" className="btn btn-primary px-8" onClick={() => setSeatAtDevice(current)}>
-            {b.handoffReady(state.players[current].name)}
+            {b.handoffReady(state.players[current]?.name ?? '')}
           </button>
         </div>
       </Dialog>
@@ -897,7 +1022,17 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       {/* Flying cards (dealt, drawn, played), cubes and distant-market tiles are drawn here, over everything. */}
       <div ref={flights} className="pointer-events-none fixed inset-0 z-[60] overflow-hidden" aria-hidden="true" />
 
-      <Results open={resultsOpen && state.finished} state={state} colorOf={colorOf} unlocked={unlocked} onClose={() => setResultsOpen(false)} onRematch={onRematch} onLeave={onLeave} />
+      <EraScoring open={canalScoringOpen && !resultsOpen} state={state} colorOf={colorOf} onClose={() => setCanalScoringOpen(false)} />
+      <FinalScreen
+        open={resultsOpen && state.finished}
+        state={state}
+        colorOf={colorOf}
+        ratings={online?.ratings}
+        extra={unlocked.length > 0 && <p className="text-sm text-brass-200">{unlocked.map((a) => t.achievements.list[a.id].name).join(', ')}</p>}
+        onClose={() => setResultsOpen(false)}
+        onRematch={onRematch}
+        onLeave={onLeave}
+      />
     </div>
   )
 }
@@ -1192,42 +1327,6 @@ function ConfirmDialogs({
 }
 
 /* ---- Results ------------------------------------------------------------------------ */
-
-function Results({ open, state, colorOf, unlocked, onClose, onRematch, onLeave }: { open: boolean; state: GameState; colorOf: (p: number) => string; unlocked: Achievement[]; onClose: () => void; onRematch: () => void; onLeave: () => void }) {
-  const t = useT()
-  const b = t.brass
-  const id = useId()
-  const ranking = state.ranking ?? []
-  return (
-    <Dialog open={open} onClose={onClose} labelledBy={id}>
-      <div className="plate rivets flex min-w-[20rem] flex-col gap-4 bg-soot-900/[0.98] p-6">
-        <h2 id={id} className="font-display text-3xl font-extrabold tracking-[0.1em] text-parchment-50 uppercase">
-          {b.gameOver}
-        </h2>
-        {ranking.length > 0 && <p className="font-display text-xl font-bold text-brass-200">{b.wins(state.players[ranking[0]].name)}</p>}
-        <ol className="flex flex-col gap-1.5">
-          {ranking.map((p, i) => (
-            <li key={p} className="flex items-center gap-3 rounded-md border border-bronze-500/30 bg-soot-950/70 px-3 py-1.5">
-              <span className="w-5 font-display font-bold text-parchment-300">{i + 1}</span>
-              <span className="size-4 rounded-full border border-black" style={{ background: colorOf(p) }} aria-hidden="true" />
-              <span className="flex-1 font-semibold text-parchment-50">{state.players[p].name}</span>
-              <VpHex value={state.players[p].vp} size="sm" label={b.finalVp(state.players[p].vp)} />
-            </li>
-          ))}
-        </ol>
-        {unlocked.length > 0 && <p className="text-sm text-brass-200">{unlocked.map((a) => t.achievements.list[a.id].name).join(', ')}</p>}
-        <div className="flex flex-wrap justify-end gap-2">
-          <button type="button" className="btn btn-ghost" onClick={onLeave}>
-            {b.leave}
-          </button>
-          <button type="button" className="btn btn-primary px-6" onClick={onRematch}>
-            {b.rematch}
-          </button>
-        </div>
-      </div>
-    </Dialog>
-  )
-}
 
 /* ---- Menu ------------------------------------------------------------------------------ */
 

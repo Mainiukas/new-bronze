@@ -8,6 +8,7 @@ import type { GoodsKind, IndustryKind, LogEntry, RouteKind } from '../game/types
 import accountWords from './account/en'
 import brassWords from './brass/en'
 import onlineWords from './online/en'
+import tutorialWords from './tutorial/en'
 import welcomeWords from './welcome/en'
 import game, { renderWith } from './game/en'
 import { pluralizer } from './languages'
@@ -788,6 +789,7 @@ const en = {
   brass: brassWords,
   welcome: welcomeWords,
   online: onlineWords,
+  tutorial: tutorialWords,
 }
 
 export default en

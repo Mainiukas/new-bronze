@@ -9,6 +9,7 @@ import { pluralizer } from './languages'
 import accountWords from './account/fr'
 import brassWords from './brass/fr'
 import onlineWords from './online/fr'
+import tutorialWords from './tutorial/fr'
 import welcomeWords from './welcome/fr'
 import type { Messages } from './messages'
 
@@ -803,6 +804,7 @@ const fr: Messages = {
   brass: brassWords,
   welcome: welcomeWords,
   online: onlineWords,
+  tutorial: tutorialWords,
 }
 
 export default fr

@@ -1,6 +1,6 @@
 /**
- * Computer players on the server: bot seats, and stand-ins for players who
- * are disconnected or have forfeited.
+ * Computer players, the same in local games and on the server (bot seats,
+ * and stand-ins for players who are disconnected or have forfeited).
  * - Easy: a random legal move, preferring to build.
  * - Normal: the rules AI's scoring (income early, points late, sells when it
  *   can: src/rules/ai.ts).
@@ -8,11 +8,12 @@
  * so a game can be replayed from its action log.
  */
 
-import { chooseAction } from '../rules/ai'
-import type { RulesContext } from '../rules/engine'
-import { legalActions } from '../rules/options'
-import type { Action, GameState } from '../rules/state'
-import type { BotLevel } from './types'
+import { chooseAction } from './ai'
+import type { RulesContext } from './engine'
+import { legalActions } from './options'
+import type { Action, GameState } from './state'
+
+export type BotLevel = 'easy' | 'normal'
 
 /** A number in [0, 1) from a seed and a move number (mulberry32). */
 export function seededRandom(seed: number, n: number): number {

@@ -40,6 +40,8 @@ export const PATHS = {
   onlineGame: '/online/:gameId',
   /** An invite link: /join/<code>. */
   join: '/join/:code',
+  /** The tutorial: a guided practice game against one Easy bot. */
+  tutorial: '/tutorial',
   /** The match screen (not in the sidebar: the lobby is hidden during a match). */
   play: '/play',
   /** The illustrated map board and its calibration editor. */

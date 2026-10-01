@@ -3172,10 +3172,10 @@ function chooseAction(state, ctx, playerId) {
 	return best;
 }
 //#endregion
-//#region src/server/bots.ts
+//#region src/rules/bots.ts
 /**
-* Computer players on the server: bot seats, and stand-ins for players who
-* are disconnected or have forfeited.
+* Computer players, the same in local games and on the server (bot seats,
+* and stand-ins for players who are disconnected or have forfeited).
 * - Easy: a random legal move, preferring to build.
 * - Normal: the rules AI's scoring (income early, points late, sells when it
 *   can: src/rules/ai.ts).
@@ -3486,6 +3486,7 @@ function createGameServer(deps) {
 		})));
 		record.result.ratings = changes.map((c) => ({
 			userId: c.id,
+			seat: record.seats.find((x) => x.userId === c.id).seat,
 			before: c.before,
 			after: c.after,
 			delta: c.delta

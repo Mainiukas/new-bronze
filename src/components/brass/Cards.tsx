@@ -146,18 +146,73 @@ export function HandRow({ cards, selected, interactive, cardWidth, name, kind, l
   )
 }
 
-/** A card shown large (tap on touch screens, or any card when it isn't your turn). */
-export function CardZoom({ card, name, kind, canPlay, selected, onPlay, onClose }: { card: Card | null; name: string; kind: string; canPlay: boolean; selected: boolean; onPlay: () => void; onClose: () => void }) {
+/**
+ * A card shown large (tap on touch screens, or any card when it isn't your turn).
+ * Swipe left or right (or use the arrow keys) to look through the rest of the hand.
+ */
+export function CardZoom({
+  card,
+  name,
+  kind,
+  canPlay,
+  selected,
+  onPlay,
+  onClose,
+  onStep,
+  position,
+}: {
+  card: Card | null
+  name: string
+  kind: string
+  canPlay: boolean
+  selected: boolean
+  onPlay: () => void
+  onClose: () => void
+  /** Show the previous (−1) or next (+1) card of the hand. */
+  onStep?: (direction: -1 | 1) => void
+  /** "3 / 8": where this card is in the hand. */
+  position?: string
+}) {
   const t = useT()
   const b = t.brass
   const id = useId()
+  const swipe = useRef<{ x: number; y: number } | null>(null)
   return (
     <Dialog open={card !== null} onClose={onClose} labelledBy={id}>
       {card && (
-        <div className="flex flex-col items-center gap-3 p-2">
-          <CardImage card={card} className="aspect-[5/7] w-[min(78vw,20rem)] drop-shadow-[0_10px_24px_rgb(0_0_0/0.7)]" />
+        <div
+          className="flex touch-pan-y flex-col items-center gap-3 p-2 select-none"
+          onPointerDown={(e) => (swipe.current = { x: e.clientX, y: e.clientY })}
+          onPointerUp={(e) => {
+            const from = swipe.current
+            swipe.current = null
+            if (!from || !onStep) return
+            const dx = e.clientX - from.x
+            if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(e.clientY - from.y)) onStep(dx < 0 ? 1 : -1)
+          }}
+          onKeyDown={(e) => {
+            if (!onStep) return
+            if (e.key === 'ArrowRight') onStep(1)
+            else if (e.key === 'ArrowLeft') onStep(-1)
+          }}
+          data-testid="card-zoom"
+        >
+          <div className="flex items-center gap-2">
+            {onStep && (
+              <button type="button" className="icon-btn" aria-label={b.prevCard} onClick={() => onStep(-1)}>
+                ‹
+              </button>
+            )}
+            <CardImage card={card} className="aspect-[5/7] w-[min(70vw,20rem)] drop-shadow-[0_10px_24px_rgb(0_0_0/0.7)]" />
+            {onStep && (
+              <button type="button" className="icon-btn" aria-label={b.nextCard} onClick={() => onStep(1)}>
+                ›
+              </button>
+            )}
+          </div>
           <p id={id} className="font-display text-lg font-bold tracking-[0.06em] text-parchment-50">
             {kind}: {name}
+            {position && <span className="ml-2 text-sm font-semibold text-parchment-400">{position}</span>}
           </p>
           <div className="flex gap-2">
             <button type="button" className="btn btn-ghost" onClick={onClose}>

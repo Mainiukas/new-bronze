@@ -60,13 +60,13 @@ import boardFile from './board.json?raw'
 import { BRASS_MAP } from '../rules/map'
 
 describe('board.json', () => {
-  it('is valid and complete: 25 locations and 39 links', () => {
+  it('is valid and complete: 25 locations and 40 links', () => {
     expect(validateBoardData(BOARD)).toEqual([])
     const byType = (t: string) => BOARD.locations.filter((l) => l.type === t).map((l) => l.id)
     expect(byType('hub')).toEqual(['the_north', 'london', 'west_wales'])
     expect(byType('stop')).toEqual(['brecon', 'reading', 'taunton'])
     expect(byType('city')).toHaveLength(19)
-    expect(BOARD.links).toHaveLength(39)
+    expect(BOARD.links).toHaveLength(40)
   })
 
   it('uses only the five industries, and hubs buy only cotton, coal and iron', () => {
@@ -86,13 +86,13 @@ describe('board.json', () => {
       }
     }
     const pairs = BOARD.links.map((l) => [l.from, l.to].sort().join('|'))
-    expect(new Set(pairs).size).toBe(39)
+    expect(new Set(pairs).size).toBe(40)
   })
 
   it('matches the design for a few spot checks', () => {
     const at = (id: string) => BOARD.locations.find((l) => l.id === id)
     expect(at('lichfield')).toMatchObject({ type: 'city', slots: [['coal']], region: 'midlands' })
-    expect(at('merthyr')).toMatchObject({ slots: [['iron'], ['iron'], ['coal']] })
+    expect(at('merthyr')).toMatchObject({ slots: [['iron'], ['cotton'], ['coal']] })
     expect(at('bristol')).toMatchObject({ slots: [['cotton', 'port'], ['cotton', 'port'], ['cotton', 'iron'], ['coal']] })
     expect(at('london')).toMatchObject({ type: 'hub', price: 7, buys: ['cotton', 'coal', 'iron'] })
     expect(at('the_north')).toMatchObject({ type: 'hub', price: 6, buys: ['cotton', 'coal'], era: 'rail', ring: 1 })
@@ -152,19 +152,19 @@ describe('board.json', () => {
 
 /** The checks from the board spec (section 12). */
 describe('design checks', () => {
-  it('1. canal + both links from Birmingham reach everything except The North, Plymouth and Taunton', () => {
+  it('1. canal + both links from Birmingham reach everything except The North, Plymouth, Taunton and Carmarthen (no canal reaches it)', () => {
     const reached = reachable(BOARD, 'birmingham', 'canal')
-    expect(BOARD.locations.filter((l) => !reached.has(l.id)).map((l) => l.id).sort()).toEqual(['plymouth', 'taunton', 'the_north'])
+    expect(BOARD.locations.filter((l) => !reached.has(l.id)).map((l) => l.id).sort()).toEqual(['carmarthen', 'plymouth', 'taunton', 'the_north'])
   })
 
   it('2. rail + both links reach every location', () => {
     expect(reachable(BOARD, 'birmingham', 'rail').size).toBe(25)
   })
 
-  it('3. degrees add up to 78, with 17 both, 5 canal and 17 rail links', () => {
-    expect([...degrees(BOARD).values()].reduce((a, b) => a + b, 0)).toBe(78)
+  it('3. degrees add up to 80, with 15 both, 6 canal and 19 rail links', () => {
+    expect([...degrees(BOARD).values()].reduce((a, b) => a + b, 0)).toBe(80)
     const count = (t: string) => BOARD.links.filter((l) => l.type === t).length
-    expect([count('both'), count('canal'), count('rail')]).toEqual([17, 5, 17])
+    expect([count('both'), count('canal'), count('rail')]).toEqual([15, 6, 19])
   })
 
   it('4. tile distribution: 2 cities with 4 slots, 4 with 3, 10 with 2, 3 with 1', () => {
@@ -180,9 +180,9 @@ describe('design checks', () => {
   it('reports a network that breaks the design', () => {
     const cut: BoardData = { ...BOARD, links: BOARD.links.filter((l) => l.id !== 'barnstaple-exeter') }
     const problems = designProblems(cut, BOARD_DESIGN).join('\n')
-    expect(problems).toMatch(/unreachable: the_north, taunton, exeter, plymouth/)
-    expect(problems).toMatch(/add up to 76, expected 78/)
-    expect(problems).toMatch(/4 canal links, expected 5/)
+    expect(problems).toMatch(/unreachable: the_north, taunton, carmarthen, exeter, plymouth/)
+    expect(problems).toMatch(/add up to 78, expected 80/)
+    expect(problems).toMatch(/5 canal links, expected 6/)
   })
 
   it('5. no trace of the removed industries, drink tiles, merchant tiles, drawn industry icons or drawn link spaces in the code', () => {
@@ -347,8 +347,8 @@ describe('board layout', () => {
   })
 
   it('draws only the era’s links: canal and both in the canal era, rail and both in the rail era', () => {
-    expect(routes('canal').map((r) => r.link.type).sort()).toEqual([...Array(17).fill('both'), ...Array(5).fill('canal')])
-    expect(routes('rail').map((r) => r.link.type).sort()).toEqual([...Array(17).fill('both'), ...Array(17).fill('rail')])
+    expect(routes('canal').map((r) => r.link.type).sort()).toEqual([...Array(15).fill('both'), ...Array(6).fill('canal')])
+    expect(routes('rail').map((r) => r.link.type).sort()).toEqual([...Array(15).fill('both'), ...Array(19).fill('rail')])
   })
 
   it('runs every route from the centre of one group to the centre of the other, so its ends stay under the art', () => {
@@ -537,9 +537,42 @@ describe('Wales: Brecon, Wrexham and the Wrexham – Wolverhampton link', () => 
     }
   })
 
+  it('Brecon sits near the south-west coast (by Carmarthen and Swansea Bay), south-west of where it was', () => {
+    // It was at 35.4 %, 37.4 %.
+    expect(at('brecon').x).toBeLessThan(30)
+    expect(at('brecon').y).toBeGreaterThan(39)
+    expect(at('brecon').x).toBeGreaterThan(at('carmarthen').x)
+  })
+
   it('rejects maxBend above 8 %, and maxBend together with points', () => {
     const link = BOARD.links[0]
     expect(validateBoardData({ ...BOARD, links: [{ ...link, maxBend: 9 }, ...BOARD.links.slice(1)] })).toContain(`${link.id}: maxBend must be a number from 0 to 8`)
     expect(validateBoardData({ ...BOARD, links: [{ ...link, maxBend: 4, points: [[50, 50]] }, ...BOARD.links.slice(1)] })).toContain(`${link.id}: a link has either points or maxBend, not both`)
+  })
+})
+
+describe('South Wales links: canals reach Merthyr Tydfil and West Wales, Carmarthen only by rail', () => {
+  const link = (a: string, b: string) => BOARD.links.find((l) => [l.from, l.to].sort().join('|') === [a, b].sort().join('|'))
+  const rules = (a: string, b: string) => Object.values(BRASS_MAP.links).find((l) => [l.from, l.to].sort().join('|') === [a, b].sort().join('|'))
+
+  it('Merthyr Tydfil – West Wales is a canal (canal era only)', () => {
+    expect(link('merthyr', 'west_wales')?.type).toBe('canal')
+    expect(isLinkActive('canal', 'canal')).toBe(true)
+    expect(rules('merthyr', 'west_wales')).toMatchObject({ canal: true, rail: false })
+  })
+
+  it('West Wales – Carmarthen and Merthyr Tydfil – Carmarthen are railways only', () => {
+    for (const [a, b] of [['west_wales', 'carmarthen'], ['merthyr', 'carmarthen']]) {
+      expect(link(a, b)?.type, `${a}-${b}`).toBe('rail')
+      expect(rules(a, b), `${a}-${b}`).toMatchObject({ canal: false, rail: true })
+    }
+  })
+
+  it('no canal reaches Carmarthen', () => {
+    const atCarmarthen = BOARD.links.filter((l) => l.from === 'carmarthen' || l.to === 'carmarthen')
+    expect(atCarmarthen.length).toBeGreaterThan(0)
+    expect(atCarmarthen.filter((l) => isLinkActive(l.type, 'canal'))).toEqual([])
+    expect(BRASS_MAP.linksAt.carmarthen.filter((l) => l.canal)).toEqual([])
+    expect(reachable(BOARD, 'birmingham', 'canal').has('carmarthen')).toBe(false)
   })
 })

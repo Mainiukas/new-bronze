@@ -29,7 +29,7 @@ const SAMPLE_BUILT: BuiltState = {
   // "Both" links, so a token shows in either era: a barge in the canal era, a locomotive in the rail era.
   links: {
     'birmingham-oxford': { player: 0 },
-    'carmarthen-merthyr': { player: 1 },
+    'brecon-wrexham': { player: 1 },
     'gloucester-bristol': { player: 2 },
   },
 }

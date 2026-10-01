@@ -855,9 +855,15 @@ svg [role='button']:focus-visible {
   will-change: transform;
 }
 
-/* The match screen. Desktop: top bar, then a grid, [side strip | markets + board | player panel] with the
-   hand strip under the board. The board is scaled to fit the space left (it is square), so the whole
-   board and frame are always visible; nothing but the confirm dialogs covers it. Narrower screens stack. */
+/* The match screen. Desktop: the play area fills the window: a top bar, then a grid,
+   [coal/iron market + deck | map | distant market] with the hand under them, and the player panel the
+   full height on the right (one plate, scrolling inside). The two sides are equally wide, so the map is
+   centred; it is scaled to fit the space left (it is square), so the whole board and frame are always
+   visible. The game log is below the play area. Narrower screens: one column. */
+.brass-stage,
+.brass-side {
+  display: contents;
+}
 .brass-board-fit {
   display: flex;
   align-items: center;
@@ -866,8 +872,35 @@ svg [role='button']:focus-visible {
 .brass-board-fit > [data-board] {
   width: 100%;
 }
+/* Phones and tablets: the coal and iron market a little smaller, so the map stays near the top. */
+@media (max-width: 63.99rem) {
+  .brass-market {
+    zoom: 0.75;
+  }
+}
+/* The player panel scrolls inside its plate: a thin brass scrollbar shows there is more. */
+.brass-panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(220 184 92 / 0.55) transparent;
+}
+.brass-log-hint {
+  display: block;
+  border-top: 1px solid rgb(184 150 58 / 0.3);
+  padding: 0.45rem 0.75rem;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-brass-200);
+}
+.brass-log-hint:hover {
+  color: var(--color-parchment-50);
+  background: rgb(184 150 58 / 0.12);
+}
 @media (min-width: 64rem) {
-  .brass-screen {
+  .brass-play {
     height: 100dvh;
     overflow: hidden;
   }
@@ -875,23 +908,29 @@ svg [role='button']:focus-visible {
     display: grid;
     min-height: 0;
     flex: 1;
-    grid-template-columns: 13rem minmax(0, 1fr) minmax(20rem, 24rem);
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    --panel-w: clamp(19rem, 19vw, 22rem);
+    --side-w: clamp(15rem, 14vw, 17rem);
+    grid-template-columns: minmax(0, 1fr) var(--panel-w);
+    grid-template-rows: minmax(0, 1fr) auto;
     grid-template-areas:
-      'left market panel'
-      'left board panel'
-      'hand hand hand';
+      'stage panel'
+      'hand panel';
   }
-  .brass-left {
-    grid-area: left;
+  .brass-stage {
+    grid-area: stage;
+    display: grid;
     min-height: 0;
+    gap: 0.5rem;
+    grid-template-columns: var(--side-w) minmax(0, 1fr) var(--side-w);
+  }
+  .brass-side {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 0.5rem;
     overflow-y: auto;
   }
-  .brass-market {
-    grid-area: market;
-  }
   .brass-board-fit {
-    grid-area: board;
     min-height: 0;
     container-type: size;
   }
@@ -904,7 +943,8 @@ svg [role='button']:focus-visible {
   .brass-panel {
     grid-area: panel;
     min-height: 0;
-    overflow-y: auto;
+    flex-direction: column;
+    padding: 0;
   }
 }
 

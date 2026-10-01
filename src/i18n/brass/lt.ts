@@ -129,6 +129,8 @@ const brassWords: BrassWords = {
   },
   log: {
     title: 'Žaidimo žurnalas',
+    jump: 'Žaidimo žurnalas ↓',
+    jumpLabel: 'Slinkti žemyn į žaidimo žurnalą',
     links: (name, era, routes) => `${name} nutiesė ${era === 'canal' ? 'kanalą' : 'geležinkelį'}: ${routes}`,
     developed: (name, what) => `${name} patobulino: ${what}`,
     flip: (name, what, town, income) => `${name} ${what} (${town}) apversta: pajamos +${income}`,

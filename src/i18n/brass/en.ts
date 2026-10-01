@@ -133,6 +133,9 @@ const brassWords = {
   },
   log: {
     title: 'Game log',
+    /** The hint at the bottom of the play area: the log is below it. */
+    jump: 'Game log ↓',
+    jumpLabel: 'Scroll down to the game log',
     links: (name: string, era: string, routes: string) => `${name} built ${era === 'canal' ? 'a canal' : 'rail'}: ${routes}`,
     developed: (name: string, what: string) => `${name} developed ${what}`,
     flip: (name: string, what: string, town: string, income: number) => `${name}’s ${what} in ${town} flipped: +${income} income`,

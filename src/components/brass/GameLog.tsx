@@ -19,7 +19,11 @@ interface Group {
   lines: { key: number; text: string }[]
 }
 
-export function GameLog({ state, ctx }: { state: GameState; ctx: RulesContext }) {
+/**
+ * `page`: the full-width log below the play area (larger text, every group
+ * shown in full, no inner scrolling); otherwise a compact scrolling box.
+ */
+export function GameLog({ state, ctx, page = false }: { state: GameState; ctx: RulesContext; page?: boolean }) {
   const t = useT()
   const b = t.brass
   const name = (p: number) => state.players[p]?.name ?? ''
@@ -89,12 +93,12 @@ export function GameLog({ state, ctx }: { state: GameState; ctx: RulesContext })
 
   return (
     <section aria-label={b.log.title} className="flex min-h-0 flex-col gap-1">
-      <h2 className="font-display text-[0.65rem] font-bold tracking-[0.12em] text-parchment-300 uppercase">{b.log.title}</h2>
-      <div className="flex max-h-56 flex-col overflow-y-auto pr-1 text-xs leading-snug" data-testid="game-log">
+      <h2 className={`font-display font-bold tracking-[0.12em] text-parchment-300 uppercase ${page ? 'text-sm' : 'text-[0.65rem]'}`}>{b.log.title}</h2>
+      <div className={page ? 'grid gap-x-8 gap-y-2 text-sm leading-snug md:grid-cols-2 2xl:grid-cols-3' : 'flex max-h-56 flex-col overflow-y-auto pr-1 text-xs leading-snug'} data-testid={page ? 'game-log-page' : 'game-log'}>
         {shown.map((g) => (
           <section key={g.key} aria-label={g.title}>
             <h3
-              className={`sticky top-0 z-10 mt-1 flex items-center gap-2 bg-soot-950/95 py-0.5 font-display text-[0.65rem] font-bold tracking-[0.1em] uppercase ${g.scoring ? 'text-brass-200' : 'text-bronze-200'}`}
+              className={`${page ? 'mb-1 text-xs' : 'sticky top-0 z-10 text-[0.65rem]'} mt-1 flex items-center gap-2 bg-soot-950/95 py-0.5 font-display font-bold tracking-[0.1em] uppercase ${g.scoring ? 'text-brass-200' : 'text-bronze-200'}`}
             >
               <span aria-hidden="true" className="h-px flex-1 bg-bronze-500/40" />
               {g.title}

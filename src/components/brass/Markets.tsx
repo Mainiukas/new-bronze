@@ -1,10 +1,10 @@
 /**
- * The coal and iron markets, one row each, above the board, laid out as on
+ * The coal and iron markets, one block each, beside the board, laid out as on
  * the board: the most expensive price on the left down to the cheapest on the
  * right (£5 ∞, £4, £3, £2, £1). The first step is the price when the market
- * is empty: always available (∞). Each price step shows a coin with its
- * price, one square per space (a cube when filled, an empty outlined square
- * when not) and how many cubes are left at that price.
+ * is empty: always available (∞). Each price is a column: its price on top
+ * (bold), then its spaces stacked, a cube when filled and an empty outlined
+ * square when not.
  *
  * Only the order on screen is reversed; the rules are the same: buying takes
  * the cheapest cube (the rightmost filled space, outlined), and cubes sold to
@@ -34,11 +34,14 @@ function steps(spaces: readonly number[]): Step[] {
 
 function PriceCoin({ price }: { price: number }) {
   return (
-    <span className="inline-flex items-center gap-0.5 font-display text-xs font-bold text-parchment-50 tabular-nums">
-      <Coin className="size-3.5" />£{price}
+    <span className="inline-flex items-center gap-0.5 font-display text-base leading-none font-extrabold text-parchment-50 tabular-nums">
+      <Coin className="size-4" />£{price}
     </span>
   )
 }
+
+/** Spaces per price column (the tallest step), so every column lines up. */
+const rowsOf = (spaces: readonly number[]) => Math.max(...steps(spaces).map((s) => s.spaces.length))
 
 function MarketRow({ kind, state, ctx }: { kind: 'coal' | 'iron'; state: GameState; ctx: RulesContext }) {
   const t = useT()
@@ -48,33 +51,37 @@ function MarketRow({ kind, state, ctx }: { kind: 'coal' | 'iron'; state: GameSta
   const total = market.spaces.length
   const firstFilled = total - cubes
   const label = kind === 'coal' ? b.coalMarket : b.ironMarket
+  const rows = rowsOf(market.spaces)
+  // A cell is 26 px of cube plus its border: the columns are as wide as their price.
+  const column = 'flex min-w-[2.6rem] flex-col items-center gap-1 rounded-md border px-1 py-1'
   return (
-    <div id={`market-${kind}`} role="group" aria-label={b.marketLabel(label, cubes, marketBuyPrice(ctx, kind, cubes))} className="flex min-w-0 items-center gap-1.5">
-      <span className="flex w-14 shrink-0 items-center gap-1 font-display text-[0.65rem] font-bold tracking-[0.1em] text-parchment-300 uppercase" aria-hidden="true">
-        <Cube kind={kind} className="size-3.5" />
+    <div id={`market-${kind}`} role="group" aria-label={b.marketLabel(label, cubes, marketBuyPrice(ctx, kind, cubes))} className="flex flex-col gap-1">
+      <span className="flex items-center gap-1.5 font-display text-sm font-extrabold tracking-[0.12em] text-parchment-100 uppercase" aria-hidden="true">
+        <Cube kind={kind} className="size-6" />
         {kind === 'coal' ? b.coal : b.iron}
       </span>
-      <span className="flex min-w-0 flex-wrap items-center gap-1" aria-hidden="true">
-        <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-px ${cubes === 0 ? 'border-brass-300/60 bg-soot-900/80' : 'border-bronze-500/25 bg-soot-950/60'}`} title={b.marketEmptyPrice(market.empty)}>
+      <span className="flex items-stretch gap-1" aria-hidden="true">
+        <span className={`${column} ${cubes === 0 ? 'border-brass-300/70 bg-soot-900/80' : 'border-bronze-500/30 bg-soot-950/60'}`} title={b.marketEmptyPrice(market.empty)}>
           <PriceCoin price={market.empty} />
-          <span className="font-display text-sm leading-none font-bold text-parchment-200">∞</span>
+          <span className="grid flex-1 place-items-center font-display text-2xl leading-none font-bold text-parchment-200">∞</span>
         </span>
-        {/* Most expensive step first, and each step's spaces from its dearest to its cheapest. */}
+        {/* Most expensive step first, and each step's spaces from its dearest (top) to its cheapest. */}
         {steps(market.spaces).reverse().map((step) => {
           const left = step.spaces.filter((i) => i >= firstFilled).length
           return (
-            <span key={step.price} className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-px ${left ? 'border-bronze-400/50 bg-soot-900/80' : 'border-bronze-500/25 bg-soot-950/60'}`}>
+            <span key={step.price} className={`${column} ${left ? 'border-bronze-400/60 bg-soot-900/80' : 'border-bronze-500/30 bg-soot-950/60'}`}>
               <PriceCoin price={step.price} />
-              {step.spaces.toReversed().map((i) =>
-                i >= firstFilled ? (
-                  <span key={i} data-market-space={`${kind}-${i}`} className={`grid size-4 place-items-center rounded-[3px] ${i === firstFilled ? 'outline-2 outline-offset-1 outline-brass-200/80' : ''}`}>
-                    <Cube kind={kind} className="size-4" />
-                  </span>
-                ) : (
-                  <span key={i} data-market-space={`${kind}-${i}`} className="size-4 rounded-[3px] border-[1.5px] border-parchment-300/55" />
-                ),
-              )}
-              <span className="text-[0.62rem] font-semibold text-parchment-300 tabular-nums">×{left}</span>
+              <span className="grid gap-1" style={{ gridTemplateRows: `repeat(${rows}, 1.625rem)` }}>
+                {step.spaces.toReversed().map((i) =>
+                  i >= firstFilled ? (
+                    <span key={i} data-market-space={`${kind}-${i}`} className={`grid size-[1.625rem] place-items-center rounded-[4px] ${i === firstFilled ? 'outline-2 outline-offset-1 outline-brass-200/90' : ''}`}>
+                      <Cube kind={kind} className="size-[1.625rem]" />
+                    </span>
+                  ) : (
+                    <span key={i} data-market-space={`${kind}-${i}`} className="size-[1.625rem] rounded-[4px] border-2 border-dashed border-parchment-300/70 bg-black/35" />
+                  ),
+                )}
+              </span>
             </span>
           )
         })}
@@ -85,7 +92,7 @@ function MarketRow({ kind, state, ctx }: { kind: 'coal' | 'iron'; state: GameSta
 
 export function MarketStrip({ state, ctx }: { state: GameState; ctx: RulesContext }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-lg border border-bronze-500/35 bg-soot-950/80 px-2 py-1">
+    <div className="flex flex-col gap-2.5 rounded-lg border border-bronze-500/40 bg-soot-950/80 p-2.5">
       <MarketRow kind="coal" state={state} ctx={ctx} />
       <MarketRow kind="iron" state={state} ctx={ctx} />
     </div>

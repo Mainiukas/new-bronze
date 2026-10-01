@@ -58,7 +58,7 @@ playable yet) only the towns on it have cards, and 1 card per player is put asid
 | --- | --- | --- | --- |
 | 1 | Trade-icon places for the distant market | hubs: The North, London, West Wales | Done as RULES.md §7 says. Their **link value** is still `?` |
 | 2 | The coal/iron market needs a connection to a market or port location "as printed" | nothing printed | Decided in the gameplay spec: a hub, or a town with a port slot (a "trade location") |
-| 3 | Several shipyard locations | one shipyard slot, in Plymouth, which is a rail-only town | Not changed. Shipyard I can't be built in the canal era at all, and the "2 shipyards" achievement can't be earned. **Proposal**: add a port/shipyard option to Bristol and Southampton |
+| 3 | Several shipyard locations | shipyard slots in Southampton, Carmarthen and Plymouth (rail-only) | Done: Southampton and Carmarthen have a shipyard slot, so shipyards can be built in the canal era too (see TILES.md, "Our map: slot and link changes") |
 | 4 | — | stops (Brecon, Reading, Taunton) | Links pass through them. Nothing is built there, they have no cards, and they have link value 0 |
 | 5 | — | rail-only places (Plymouth, Taunton, The North) | No canals to them, and no building there in the canal era |
 | 6 | — | the drawn practice maps have no ports or hubs | Brass matches always use the painted board |

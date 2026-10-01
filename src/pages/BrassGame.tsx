@@ -254,7 +254,8 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const boardFrame = useRef<HTMLElement>(null)
   const axis = useHandAxis(handStrip, boardFrame)
   const cardGap = viewportWidth >= 768 ? 12 : 6
-  const wanted = Math.min(142, Math.max(86, viewportHeight * 0.12))
+  // Desktop: ~11 % of the height (at least 108 px, so every name fits at 9 px or more); smaller screens: 12 %.
+  const wanted = viewportWidth >= 1024 ? Math.min(142, Math.max(108, viewportHeight * 0.11)) : Math.min(142, Math.max(86, viewportHeight * 0.12))
   const fitsFullHand = axis.width ? (axis.width - (HAND_SIZE - 1) * cardGap) / HAND_SIZE : wanted
   // (Phones: at least 84 px, overlapping; a long press shows any card large.)
   const cardWidth = Math.round(Math.max(Math.min(wanted, fitsFullHand), Math.min(wanted, viewportWidth >= 768 ? 72 : 84)))
@@ -758,6 +759,12 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
                 : b.sellPickBuyer
               : null
 
+  /** "Game log ↓": scroll down to the log below the play area. */
+  const jumpToLog = (event: React.MouseEvent) => {
+    event.preventDefault()
+    document.getElementById('game-log')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const panel = (
     <div className="flex flex-col gap-2">
       {readOnly && (
@@ -930,6 +937,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
   return (
     <div className="brass-screen flex min-h-dvh flex-col overflow-x-clip">
+      <div className="brass-play flex flex-col">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-bronze-500/30 bg-soot-950/90 px-3 py-1">
         <GameMenuButton onRules={onOpenRules} onSettings={onOpenSettings} onLeave={onLeave} />
         <span className={`rounded-full border px-2.5 py-0.5 font-display text-xs font-bold tracking-[0.12em] uppercase ${state.era === 'canal' ? 'border-verdigris-400/50 text-verdigris-300' : 'border-brass-300/50 text-brass-200'}`}>{b.era[state.era]}</span>
@@ -953,11 +961,19 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       </header>
 
       <main id="main-content" tabIndex={-1} className="brass-layout flex flex-col gap-2 p-2 pb-14 outline-none lg:pb-2">
-        <div className="brass-market">
-          <MarketStrip state={state} ctx={ctx} />
+        {/* Desktop: [coal/iron market + deck | map | distant market], the map centred between equal sides. Narrower: one column. */}
+        <div className="brass-stage">
+        <div className="brass-side">
+          <div className="brass-market order-1 lg:order-none">
+            <MarketStrip state={state} ctx={ctx} />
+          </div>
+          <div className="order-4 flex items-end gap-3 self-start rounded-lg border border-bronze-500/40 bg-soot-950/80 p-2 lg:order-none">
+            <DeckIndicator state={state} />
+            <DiscardPile state={state} cardName={cardName} />
+          </div>
         </div>
 
-        <div className="brass-board-fit">
+        <div className="brass-board-fit order-2 lg:order-none">
           <section ref={boardFrame} data-board className="plate relative aspect-square overflow-hidden p-1" aria-label={t.nav.board}>
             <ZoomPan>
               <BrassBoard
@@ -993,31 +1009,39 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
           </section>
         </div>
 
-        <div ref={handStrip} className="brass-hand">
+        <div className="brass-side">
+          <div className="order-5 flex min-h-0 w-full lg:order-none lg:flex-1">
+            <DistantMarketPanel state={state} ctx={ctx} me={me} speed={ANIMATION_SCALE[settings.animationSpeed]} />
+          </div>
+        </div>
+        </div>
+
+        <div ref={handStrip} className="brass-hand order-3 lg:order-none">
           {/* Centred on the map frame's centre line. */}
           <div data-testid="hand-axis" className="flex flex-col items-center" style={axis.width ? { marginLeft: axis.left, width: axis.width } : undefined}>
-            <div className="flex min-h-9 w-full items-center justify-center text-center">{handBar}</div>
+            <div className="flex min-h-8 w-full items-center justify-center text-center">{handBar}</div>
             {!online?.spectating && (
               <HandRow cards={hand} selected={fanSelected} interactive={myTurn && !state.selling} cardWidth={cardWidth} gap={cardGap} name={cardName} kind={cardKind} allows={cardAllows} label={b.handTitle} onSelect={onCard} onZoom={setZoom} />
             )}
           </div>
         </div>
 
-        <div className="brass-left flex flex-wrap items-start gap-2 lg:flex-col lg:flex-nowrap">
-          <div className="flex items-end gap-3 rounded-lg border border-bronze-500/40 bg-soot-950/80 p-2">
-            <DeckIndicator state={state} />
-            <DiscardPile state={state} cardName={cardName} />
-          </div>
-          <DistantMarketPanel state={state} ctx={ctx} me={me} speed={ANIMATION_SCALE[settings.animationSpeed]} />
-        </div>
-
-        <aside className="brass-panel hidden lg:block" aria-label={b.showPanel}>
-          <div className="plate rivets iron flex flex-col gap-2 p-2.5">
+        {/* The player panel: one plate the full height of the play area, scrolling inside when it's taller. */}
+        <aside className="brass-panel plate rivets iron hidden lg:flex" aria-label={b.showPanel}>
+          <div className="brass-panel-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5" data-testid="player-panel-scroll">
             {panel}
-            <GameLog state={state} ctx={ctx} />
           </div>
+          <a href="#game-log" className="brass-log-hint" aria-label={b.log.jumpLabel} onClick={jumpToLog}>
+            {b.log.jump}
+          </a>
         </aside>
       </main>
+      </div>
+
+      {/* Desktop: the game log, full width below the play area (scroll down to it); newest first. */}
+      <section id="game-log" className="hidden border-t border-bronze-500/30 bg-soot-950/60 px-4 py-4 lg:block">
+        <GameLog state={state} ctx={ctx} page />
+      </section>
 
       {/* Narrow screens: the panel is a bottom sheet. */}
       <div className="fixed inset-x-0 bottom-0 z-30 lg:hidden">

@@ -2,9 +2,10 @@
  * The distant cotton market beside the board, drawn like the board's own
  * track: a tall riveted iron plaque hanging from a bracket. Four income rows,
  * £3 at the top down to £0, each with a coin-stack badge and two round
- * spaces; below them a big engraved X and one last space. An engraved zig-zag
- * line joins the spaces in the order the marker walks them (the track in
- * config/distantMarket.ts), and a small plate at the bottom shows a cotton
+ * spaces; below them the X row: a big engraved X in the badges' column, and
+ * one last space straight below the last £0 space. An engraved zig-zag line
+ * joins the spaces in the order the marker walks them (the track in
+ * config/distantMarket.ts; its last step, down to X, is a straight vertical), and a small plate at the bottom shows a cotton
  * mill. The plaque fills the height it is given.
  *
  * The marker hops along the line one space at a time once the flipped tile
@@ -26,7 +27,6 @@ const MIN_H = 380
 const MAX_H = 640
 const BADGE_X = 36
 const COLUMN = { a: 96, b: 146 } as const
-const X_SPACE = 121
 const SPACE_R = 17
 const TOP = 18
 /** How long a flipped tile takes to reach the pile (flights.ts: rise, hold, leave). */
@@ -38,13 +38,16 @@ const HOP = 150
 /** Row 0 is £3 at the top, row 4 the X row. */
 const rowOf = (space: DistantSpaceId) => (space === 'X' ? 4 : 3 - Number(space[0]))
 
-function geometry(h: number) {
+function geometry(h: number, track: readonly DistantSpaceId[]) {
+  // X sits in the column of the space before it (the last £0 space), straight below it.
+  const beforeX = track[track.indexOf('X') - 1]
+  const xColumn = COLUMN[(beforeX?.[1] ?? 'a') as 'a' | 'b']
   const plateH = 44
   const top = TOP + 18
   const bottom = h - 6 - plateH - 14
   const step = (bottom - top) / 5
   const rowY = (row: number) => top + step * (row + 0.5)
-  const point = (space: DistantSpaceId) => ({ x: space === 'X' ? X_SPACE : COLUMN[space[1] as 'a' | 'b'], y: rowY(rowOf(space)) })
+  const point = (space: DistantSpaceId) => ({ x: space === 'X' ? xColumn : COLUMN[space[1] as 'a' | 'b'], y: rowY(rowOf(space)) })
   return { rowY, point, plate: { y: h - 6 - plateH - 6, h: plateH } }
 }
 
@@ -140,7 +143,7 @@ export function DistantMarketPanel({ state, ctx, me, speed }: { state: GameState
   const { spaces, track, tiles } = ctx.data.distantMarket
   const { marker, closed, deck, used } = state.distant
   const [box, h, plaqueWidth] = useFill()
-  const { rowY, point, plate } = geometry(h)
+  const { rowY, point, plate } = geometry(h, spaces)
   const markerRef = useRef<SVGGElement>(null)
   const plaqueRef = useRef<SVGSVGElement>(null)
   const lockRef = useRef<HTMLSpanElement>(null)
@@ -256,7 +259,9 @@ export function DistantMarketPanel({ state, ctx, me, speed }: { state: GameState
             {incomeRows.map((s) => (
               <CoinStack key={s} x={BADGE_X} y={rowY(rowOf(s)) - 4} income={Number(s[0])} />
             ))}
-            <Engraved d={`M${BADGE_X - 15} ${xRow - 15} L${BADGE_X + 15} ${xRow + 15} M${BADGE_X + 15} ${xRow - 15} L${BADGE_X - 15} ${xRow + 15}`} width={7} />
+            <g data-distant-x>
+              <Engraved d={`M${BADGE_X - 16} ${xRow - 16} L${BADGE_X + 16} ${xRow + 16} M${BADGE_X + 16} ${xRow - 16} L${BADGE_X - 16} ${xRow + 16}`} width={7.5} />
+            </g>
             {spaces.map((s) => {
               const p = point(s)
               return <Space key={s} x={p.x} y={p.y} />

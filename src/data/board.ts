@@ -97,13 +97,13 @@ export interface BoardLink {
   from: string
   to: string
   type: LinkType
+  /** Up to 3 bend points in %, set in the editor. Without them the link gets an automatic bend. */
+  points?: [number, number][]
   /**
-   * How much the link bows, set in the editor: its control point sits this
-   * many % of the link's length off the midpoint, to the right going from
-   * `from` to `to` (negative: to the left). 0 or missing: straight. At most
-   * ±MAX_BEND, so every link is near-straight.
+   * Keep the automatic bend to one gentle arc: at most this many % of the
+   * link's length off the straight line (no wide sweeps). Up to MAX_GENTLE_BEND.
    */
-  bend?: number
+  maxBend?: number
 }
 
 export interface BoardData {
@@ -127,8 +127,9 @@ export interface BuiltState {
 export const EMPTY_BUILT: BuiltState = { slots: {}, links: {} }
 
 export const MAX_SLOTS = 4
-/** The largest bend a link may have, in % of its length. */
-export const MAX_BEND = 8
+export const MAX_BEND_POINTS = 3
+/** The most a `maxBend` link may curve: % of its length. */
+export const MAX_GENTLE_BEND = 8
 
 export function slotKey(locationId: string, slotIndex: number): string {
   return `${locationId}:${slotIndex}`
@@ -221,10 +222,20 @@ export function validateBoardData(raw: unknown): string[] {
     if (pairs.has(pair)) errors.push(`${where}: another link already joins these two locations`)
     pairs.add(pair)
     if (!['canal', 'rail', 'both'].includes(link.type as string)) errors.push(`${where}: type must be canal, rail or both`)
-    if (link.bend !== undefined && !(typeof link.bend === 'number' && Math.abs(link.bend) <= MAX_BEND)) {
-      errors.push(`${where}: bend must be a number from −${MAX_BEND} to ${MAX_BEND} (% of the link's length)`)
+    if (link.maxBend !== undefined && (!isNumber(link.maxBend) || link.maxBend < 0 || link.maxBend > MAX_GENTLE_BEND)) {
+      errors.push(`${where}: maxBend must be a number from 0 to ${MAX_GENTLE_BEND}`)
     }
-    if ('points' in link) errors.push(`${where}: bend points are gone: a link is one gentle arc, set with "bend"`)
+    if (link.maxBend !== undefined && link.points !== undefined) errors.push(`${where}: a link has either points or maxBend, not both`)
+    if (link.points !== undefined) {
+      const points = link.points
+      if (
+        !Array.isArray(points) ||
+        points.length > MAX_BEND_POINTS ||
+        !points.every((p) => Array.isArray(p) && p.length === 2 && isPercent(p[0]) && isPercent(p[1]))
+      ) {
+        errors.push(`${where}: points must be up to ${MAX_BEND_POINTS} [x, y] pairs from 0 to 100`)
+      }
+    }
   }
   return errors
 }
@@ -275,7 +286,7 @@ export interface BoardDesign {
   tiles: Record<number, number>
 }
 
-export const BOARD_DESIGN: BoardDesign = { start: 'birmingham', links: { both: 16, canal: 6, rail: 17 }, tiles: { 4: 2, 3: 4, 2: 10, 1: 3 } }
+export const BOARD_DESIGN: BoardDesign = { start: 'birmingham', links: { both: 17, canal: 5, rail: 17 }, tiles: { 4: 2, 3: 4, 2: 10, 1: 3 } }
 
 /**
  * Everything about the network that breaks its design, as readable messages:
@@ -317,7 +328,7 @@ export function designProblems(board: BoardData, design: BoardDesign): string[] 
 /* ------------------------------------------------------------------------ */
 
 const LOCATION_KEYS = ['id', 'name', 'type', 'x', 'y', 'region', 'ring', 'era', 'labelOffset', 'slots', 'price', 'buys']
-const LINK_KEYS = ['id', 'from', 'to', 'type', 'bend']
+const LINK_KEYS = ['id', 'from', 'to', 'type', 'points', 'maxBend']
 
 /** One object per line, `{ "key": value, ... }` in a fixed key order, as board.json is laid out. */
 function inline(obj: object, keys?: string[]): string {

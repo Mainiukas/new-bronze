@@ -3,7 +3,7 @@ import '@fontsource/cinzel/latin-800.css'
 import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import {
   EMPTY_BUILT,
-  MAX_BEND,
+  MAX_BEND_POINTS,
   slotKey,
   type BoardData,
   type BuiltState,
@@ -12,7 +12,7 @@ import {
 import { seatColor, SEATS } from '../game/glyphs'
 import { hubPhotoUrl, imageOk, MAP_URL, TEXTURE_URLS, TOKEN_URLS, useBoardImagesReady, type TokenColor } from './assets'
 import { BoardTooltip, type TooltipTarget } from './BoardTooltip'
-import { cubicAt, cubicPath, inflate, polyline, polylinePath, roundPercent, texturePieces, toView, type Point, type Rect, type TexturePiece } from './geometry'
+import { cubicPath, inflate, polyline, polylinePath, roundPercent, texturePieces, toPercent, toView, type Point, type Rect, type TexturePiece } from './geometry'
 import {
   boardFont,
   CITY_FONT,
@@ -20,9 +20,7 @@ import {
   HUB_FONT,
   HUB_WEIGHT,
   layoutBoard,
-  bendHandle,
-  bendThrough,
-  routeCurve,
+  segmentMidpoints,
   STOP_FONT,
   STOP_WEIGHT,
   TEXTURE_PIECE,
@@ -93,7 +91,7 @@ export interface IllustratedBoardProps {
   onSelectLocation?: (locationId: string) => void
   onSelectSlot?: (locationId: string, slotIndex: number) => void
   onSelectLink?: (linkId: string) => void
-  /** Calibration mode: drag locations, plaques and link bends instead of selecting. */
+  /** Calibration mode: drag locations, plaques and bend points instead of selecting. */
   editable?: boolean
   /** Receives the edited board while dragging in edit mode. */
   onBoardChange?: (board: BoardData) => void
@@ -120,10 +118,10 @@ export interface IllustratedBoardProps {
   className?: string
 }
 
-type DragTarget = { type: 'point'; id: string } | { type: 'group'; id: string } | { type: 'bend'; linkId: string }
+type DragTarget = { type: 'point'; id: string } | { type: 'group'; id: string } | { type: 'bend'; linkId: string; index: number }
 /** An editor drag in progress: previewed as it moves, committed to the board on release. */
 type Drag = DragTarget & { start: Point; at: Point }
-type EditFocus = { type: 'point' | 'group'; id: string } | { type: 'bend'; linkId: string }
+type EditFocus = { type: 'point' | 'group'; id: string } | { type: 'bend'; linkId: string; index: number }
 
 const FONTS = [boardFont(CITY_FONT, CITY_WEIGHT), boardFont(STOP_FONT, STOP_WEIGHT), boardFont(HUB_FONT, HUB_WEIGHT)]
 /** Locations outside the mode's rings, and their links, are drawn at 35 %. */
@@ -309,10 +307,15 @@ export function IllustratedBoard({
   const update = (next: BoardData) => onBoardChange?.(next)
   const setLocation = (id: string, change: (l: BoardData['locations'][number]) => BoardData['locations'][number]) =>
     update({ ...board, locations: board.locations.map((l) => (l.id === id ? change(l) : l)) })
-  const setBend = (linkId: string, bend: number) => {
-    const link = board.links.find((l) => l.id === linkId)
-    if (link && (link.bend ?? 0) !== bend) update({ ...board, links: board.links.map((l) => (l.id === linkId ? { ...l, bend } : l)) })
-  }
+  const setPoints = (linkId: string, points: [number, number][]) =>
+    update({
+      ...board,
+      links: board.links.map((l) => {
+        if (l.id !== linkId) return l
+        const { points: _old, ...rest } = l
+        return points.length ? { ...rest, points } : rest
+      }),
+    })
 
   const moveLocation = (id: string, x: number, y: number) => {
     const l = locations.get(id)
@@ -327,6 +330,16 @@ export function IllustratedBoard({
       const { labelOffset: _old, ...rest } = loc
       return rest as typeof loc
     })
+  const moveBend = (linkId: string, index: number, p: Point) => {
+    const link = board.links.find((l) => l.id === linkId)
+    if (!link?.points?.[index]) return
+    const pct = toPercent(p)
+    setPoints(
+      linkId,
+      link.points.map((q, i): [number, number] => (i === index ? [roundPercent(pct.x), roundPercent(pct.y)] : q)),
+    )
+  }
+
   const beginDrag = (event: PointerEvent, next: DragTarget, focus: EditFocus) => {
     event.preventDefault()
     event.stopPropagation()
@@ -339,11 +352,14 @@ export function IllustratedBoard({
   const startGroupDrag = (event: PointerEvent, id: string) => {
     if (editable) beginDrag(event, { type: 'group', id }, { type: 'group', id })
   }
-  const startBendDrag = (event: PointerEvent, linkId: string) => beginDrag(event, { type: 'bend', linkId }, { type: 'bend', linkId })
-  /** The bend a drag would give its link if released now (in %). */
-  const bendResult = (d: Drag & { type: 'bend' }): number | null => {
-    const route = routesLayout?.routes.get(d.linkId)
-    return route ? bendThrough(route, d.at) : null
+  const startBendDrag = (event: PointerEvent, linkId: string, index: number) => beginDrag(event, { type: 'bend', linkId, index }, { type: 'bend', linkId, index })
+  /** Drag from a "+" handle: insert a bend point there and keep dragging it. */
+  const startNewBend = (event: PointerEvent, route: RouteLayout, index: number) => {
+    const p = toPercent(toViewPoint(event))
+    const points = [...(route.link.points ?? [])]
+    points.splice(index, 0, [roundPercent(p.x), roundPercent(p.y)])
+    setPoints(route.link.id, points)
+    startBendDrag(event, route.link.id, index)
   }
 
   const round1 = (n: number) => Math.round(n * 10) / 10
@@ -358,30 +374,26 @@ export function IllustratedBoard({
       const g = groups.get(d.id)
       return g ? { x: round1((g.center.x - g.point.x) / 10 + delta.x), y: round1((g.center.y - g.point.y) / 10 + delta.y) } : null
     }
-    return null
+    const q = board.links.find((l) => l.id === d.linkId)?.points?.[d.index]
+    return q ? { x: roundPercent(q[0] + delta.x), y: roundPercent(q[1] + delta.y) } : null
   }
   const onPointerMove = (event: PointerEvent) => {
     if (drag) setDrag({ ...drag, at: toViewPoint(event) })
   }
   const endDrag = () => {
     if (!drag) return
+    const result = dragResult(drag)
     const moved = drag.at.x !== drag.start.x || drag.at.y !== drag.start.y
     setDrag(null)
-    if (!moved) return
-    if (drag.type === 'bend') {
-      const bend = bendResult(drag)
-      if (bend !== null) setBend(drag.linkId, bend)
-      return
-    }
-    const result = dragResult(drag)
-    if (!result) return
+    if (!result || !moved) return
     if (drag.type === 'point') moveLocation(drag.id, result.x, result.y)
-    else offsetGroup(drag.id, result.x, result.y)
+    else if (drag.type === 'group') offsetGroup(drag.id, result.x, result.y)
+    else moveBend(drag.linkId, drag.index, toView(result))
   }
   /** The preview shift for a location's group while it's dragged. */
   const dragShift = (id: string) => (drag?.type === 'group' && drag.id === id ? `translate(${drag.at.x - drag.start.x} ${drag.at.y - drag.start.y})` : undefined)
 
-  // Arrow keys fine-tune the last edited item: 0.1 % per press, 1 % with Shift (a bend: 0.5 %, 2 % with Shift).
+  // Arrow keys fine-tune the last edited item: 0.1 % per press, 1 % with Shift.
   const nudge = useEffectEvent((event: globalThis.KeyboardEvent) => {
     if (!editable || !editFocus || !event.key.startsWith('Arrow')) return
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
@@ -391,9 +403,8 @@ export function IllustratedBoard({
     const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
     const round = (n: number) => Math.round(n * 10) / 10
     if (editFocus.type === 'bend') {
-      const link = board.links.find((l) => l.id === editFocus.linkId)
-      const change = (dx + dy > 0 ? 1 : -1) * (event.shiftKey ? 2 : 0.5)
-      if (link) setBend(link.id, Math.max(-MAX_BEND, Math.min(MAX_BEND, (link.bend ?? 0) + change)))
+      const q = board.links.find((l) => l.id === editFocus.linkId)?.points?.[editFocus.index]
+      if (q) moveBend(editFocus.linkId, editFocus.index, toView({ x: q[0] + dx, y: q[1] + dy }))
       return
     }
     const l = locations.get(editFocus.id)
@@ -837,19 +848,30 @@ export function IllustratedBoard({
               ) : null
             })}
             {routes.map((route) => {
-              // While dragging, preview the curve the link would take.
-              const bend = drag?.type === 'bend' && drag.linkId === route.link.id ? bendResult(drag) : null
-              const curve = bend === null ? route.segments[0] : routeCurve({ ...route.link, bend }, route.segments[0].p0, route.segments[0].p3)
-              const p = bend === null ? bendHandle(route) : cubicAt(curve, 0.5)
-              const focused = editFocus?.type === 'bend' && editFocus.linkId === route.link.id
+              const points = route.link.points ?? []
               return (
                 <g key={route.link.id}>
-                  {bend !== null && <path d={cubicPath([curve])} fill="none" className="stroke-board-glow" strokeWidth={2} strokeDasharray="6 4" pointerEvents="none" />}
-                  <g className="cursor-grab" onPointerDown={(e) => startBendDrag(e, route.link.id)} onDoubleClick={() => setBend(route.link.id, 0)}>
-                    <title>Drag across the link to bend it; double-click to straighten</title>
-                    <circle cx={p.x} cy={p.y} r={10} fill="transparent" />
-                    <circle cx={p.x} cy={p.y} r={5} fill={focused ? BOARD_COLORS.glow : BOARD_COLORS.cream} stroke="#000" strokeWidth={1.2} />
-                  </g>
+                  {points.length < MAX_BEND_POINTS &&
+                    segmentMidpoints(route).map((m, i) => (
+                      <g key={`add-${i}`} className="cursor-copy" onPointerDown={(e) => startNewBend(e, route, i)}>
+                        <title>Drag to add a bend point</title>
+                        <circle cx={m.x} cy={m.y} r={9} fill="transparent" />
+                        <circle cx={m.x} cy={m.y} r={4.5} fill="#000" fillOpacity={0.6} className="stroke-board-ink" strokeWidth={1.2} />
+                        <path d={`M${m.x - 2.5} ${m.y}h5M${m.x} ${m.y - 2.5}v5`} className="stroke-board-ink" strokeWidth={1.2} />
+                      </g>
+                    ))}
+                  {points.map(([x, y], i) => {
+                    const moving = drag?.type === 'bend' && drag.linkId === route.link.id && drag.index === i ? dragResult(drag) : null
+                    const p = toView(moving ?? { x, y })
+                    const focused = editFocus?.type === 'bend' && editFocus.linkId === route.link.id && editFocus.index === i
+                    return (
+                      <g key={`bend-${i}`} className="cursor-grab" onPointerDown={(e) => startBendDrag(e, route.link.id, i)} onDoubleClick={() => setPoints(route.link.id, points.filter((_, k) => k !== i))}>
+                        <title>Drag to bend; double-click to remove</title>
+                        <rect x={p.x - 10} y={p.y - 10} width={20} height={20} fill="transparent" />
+                        <rect x={p.x - 4.5} y={p.y - 4.5} width={9} height={9} fill={focused ? BOARD_COLORS.glow : BOARD_COLORS.cream} stroke="#000" strokeWidth={1.2} />
+                      </g>
+                    )
+                  })}
                 </g>
               )
             })}
@@ -878,10 +900,10 @@ export function IllustratedBoard({
                 const g = groups.get(editGroup.id)!
                 return <Readout at={g.center} text={`${editGroup.name} plaque  ${offset ? `offset x ${offset.x}%  y ${offset.y}%` : 'automatic'}`} />
               }
-              const route = editLink ? routesLayout.routes.get(editLink.id) : undefined
-              if (editLink && route) {
-                const bend = drag?.type === 'bend' ? (bendResult(drag) ?? 0) : (editLink.bend ?? 0)
-                return <Readout at={bendHandle(route)} text={`${editLink.id}  bend ${bend > 0 ? '+' : ''}${bend} %`} />
+              const q = editLink && editFocus?.type === 'bend' ? editLink.points?.[editFocus.index] : undefined
+              if (editLink && editFocus?.type === 'bend' && q) {
+                const at = live ?? { x: q[0], y: q[1] }
+                return <Readout at={toView(at)} text={`${editLink.id} bend ${editFocus.index + 1}  x ${at.x}%  y ${at.y}%`} />
               }
               return null
             })()}

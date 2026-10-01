@@ -470,7 +470,7 @@ const en = {
     hubKey: 'Trade hub',
     nothing: 'Nothing selected yet.',
     usable: (active: boolean, era: Era) => `${active ? 'usable' : 'closed'} in the ${era} era`,
-    bend: (value: number) => (value === 0 ? 'straight' : `bend ${value > 0 ? '+' : ''}${value} %`),
+    bends: (n: number) => (n === 0 ? 'automatic bend' : p(n, { one: `${n} bend point`, other: `${n} bend points` })),
     stop: 'Stop',
     hub: 'Trade hub',
     offset: (x: number, y: number) => `plaque offset ${x}%, ${y}%`,

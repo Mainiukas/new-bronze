@@ -75,7 +75,7 @@ const inventory: InventoryText = {
       purpose: 'Jūsų paskyros baigtos partijos (ir svečio rezultatai), kol serveris patvirtins kiekvienos išsaugojimą, kad dingus ryšiui niekas neprarastų.',
       duration: 'Pašalinama išsaugojus',
     },
-    'bronze.boardDraft': {
+    'bronze.boardDraft.v2': {
       where: 'Vietinė saugykla',
       provider: 'Bronze',
       purpose: 'Neišsaugoti žemėlapio redaktoriaus pakeitimai (#/board?edit=1). Sukuriama, tik jei naudojate redaktorių.',

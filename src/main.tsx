@@ -16,9 +16,12 @@ import { preloadBoardImages } from './components/board/assets'
 import { preloadPainting } from './components/theme/backgrounds'
 import { parseSettings } from './data/settings'
 import { detectLanguage, loadMessages, setLanguage } from './i18n'
-import { readStorage, STORAGE_KEYS } from './lib/storage'
+import { readStorage, removeStorage, STORAGE_KEYS } from './lib/storage'
 import { whenFirstPageSettled } from './components/theme/firstPaint'
 import './index.css'
+
+// A map-editor draft saved before the towns moved would hide the new board: drop it.
+removeStorage(STORAGE_KEYS.boardDraft.replace(/\.v2$/, ''))
 
 // Once the first page is on screen with its painting and the browser is idle, fetch what comes next: the
 // account screens' painting (on desktops index.html has already preloaded it), and the board's pictures and code.

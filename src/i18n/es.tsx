@@ -452,7 +452,7 @@ const es: Messages = {
     hubKey: 'Nodo comercial',
     nothing: 'Aún no hay nada seleccionado.',
     usable: (active: boolean, era: Era) => `${active ? 'utilizable' : 'cerrado'} en la ${era === 'canal' ? 'era de los canales' : 'era del ferrocarril'}`,
-    bend: (value: number) => (value === 0 ? 'recta' : `curva ${value > 0 ? '+' : ''}${value} %`),
+    bends: (n: number) => (n === 0 ? 'curva automática' : p(n, { one: `${n} punto de curva`, other: `${n} puntos de curva` })),
     stop: 'Parada',
     hub: 'Nodo comercial',
     offset: (x: number, y: number) => `placa desplazada ${x} %, ${y} %`,

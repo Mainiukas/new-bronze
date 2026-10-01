@@ -80,7 +80,7 @@ const inventory: InventoryText = {
       purpose: 'Die beendeten Partien Ihres Kontos (und Ihre Gast-Statistik), bis der Server jede als gespeichert bestätigt, damit bei Verbindungsabbruch nichts verloren geht.',
       duration: 'Wird nach dem Speichern entfernt',
     },
-    'bronze.boardDraft': {
+    'bronze.boardDraft.v2': {
       where: LOCAL,
       provider: 'Bronze',
       purpose: 'Nicht gespeicherte Änderungen im Karteneditor (#/board?edit=1). Wird nur angelegt, wenn Sie den Editor nutzen.',

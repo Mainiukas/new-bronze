@@ -47,6 +47,22 @@ export function unitNormal(a: Point, b: Point): Point {
   return { x: -d.y / len, y: d.x / len }
 }
 
+/* ---- Seeded randomness ---------------------------------------------------- */
+
+/** A stable number stream for a string, so automatic bends don't change between renders. */
+export function seededRandom(key: string): () => number {
+  let h = 2166136261
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619)
+  let state = h >>> 0
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0
+    let t = state
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
 /* ---- Curves --------------------------------------------------------------- */
 
 export function cubicAt({ p0, p1, p2, p3 }: Cubic, t: number): Point {
@@ -59,14 +75,35 @@ export function cubicAt({ p0, p1, p2, p3 }: Cubic, t: number): Point {
 }
 
 /**
- * A link's curve from a to b: one quadratic arc, as the equivalent cubic.
- * Its control point sits `bend` (a fraction of the chord) off the chord's
- * midpoint, on the unitNormal side (the right, going from a to b); 0 is a
- * straight line. The curve's own midpoint is half that far off the chord.
+ * A bowed cubic from a to b. `bend` is the sideways bulge as a fraction of the
+ * chord (positive = the unitNormal side); `skew` shifts the bulge towards one
+ * end for a less mechanical, hand-drawn look.
  */
-export function quadraticArc(a: Point, b: Point, bend: number): Cubic {
-  const control = add(lerp(a, b, 0.5), scale(unitNormal(a, b), bend * distance(a, b)))
-  return { p0: a, p1: lerp(a, control, 2 / 3), p2: lerp(b, control, 2 / 3), p3: b }
+export function bentCubic(a: Point, b: Point, bend: number, skew = 0): Cubic {
+  const chord = distance(a, b)
+  const n = unitNormal(a, b)
+  // Control points offset by k each put the curve's midpoint 0.75 k off the chord.
+  const k = (bend * chord) / 0.75
+  return {
+    p0: a,
+    p1: add(lerp(a, b, 1 / 3), scale(n, k * (1 + skew))),
+    p2: add(lerp(a, b, 2 / 3), scale(n, k * (1 - skew))),
+    p3: b,
+  }
+}
+
+/** Catmull-Rom spline through the points, as cubic segments (one per gap). */
+export function catmullRom(points: Point[]): Cubic[] {
+  const segments: Cubic[] = []
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i]
+    const p3 = points[i + 1]
+    // Mirror the neighbours at the ends.
+    const before = points[i - 1] ?? sub(scale(p0, 2), p3)
+    const after = points[i + 2] ?? sub(scale(p3, 2), p0)
+    segments.push({ p0, p1: add(p0, scale(sub(p3, before), 1 / 6)), p2: sub(p3, scale(sub(after, p0), 1 / 6)), p3 })
+  }
+  return segments
 }
 
 /** SVG path data for cubic segments. */
@@ -167,6 +204,14 @@ function segmentsCross(a: Polyline, b: Polyline): boolean {
   return false
 }
 
+export function lineBounds(line: Polyline): Rect {
+  const xs = line.points.map((p) => p.x)
+  const ys = line.points.map((p) => p.y)
+  const x = Math.min(...xs)
+  const y = Math.min(...ys)
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }
+}
+
 /* ---- Texture pieces ------------------------------------------------------- */
 
 /**
@@ -223,6 +268,66 @@ export function texturePieces(
 export function upright(angle: number): number {
   const a = ((angle % 360) + 360) % 360
   return a > 90 && a < 270 ? a - 180 : a
+}
+
+/* ---- Hulls ---------------------------------------------------------------- */
+
+/** Convex hull (counter-clockwise on screen) of a set of points. */
+export function convexHull(points: Point[]): Point[] {
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y)
+  const cross = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+  const build = (list: Point[]) => {
+    const out: Point[] = []
+    for (const p of list) {
+      while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], p) <= 0) out.pop()
+      out.push(p)
+    }
+    out.pop()
+    return out
+  }
+  return [...build(sorted), ...build([...sorted].reverse())]
+}
+
+/** A closed outline measured by perimeter position. */
+export interface Outline {
+  points: Point[]
+  /** Perimeter position of each vertex. */
+  lengths: number[]
+  perimeter: number
+}
+
+export function outline(points: Point[]): Outline {
+  const lengths = [0]
+  for (let i = 1; i < points.length; i++) lengths.push(lengths[i - 1] + distance(points[i - 1], points[i]))
+  return { points, lengths, perimeter: lengths[lengths.length - 1] + distance(points[points.length - 1], points[0]) }
+}
+
+/** The outline's point at perimeter position p (wraps around). */
+export function outlinePoint(o: Outline, p: number): Point {
+  const pos = ((p % o.perimeter) + o.perimeter) % o.perimeter
+  let i = 0
+  while (i < o.points.length - 1 && o.lengths[i + 1] <= pos) i++
+  const a = o.points[i]
+  const b = o.points[(i + 1) % o.points.length]
+  const span = (i + 1 < o.points.length ? o.lengths[i + 1] : o.perimeter) - o.lengths[i] || 1
+  return lerp(a, b, (pos - o.lengths[i]) / span)
+}
+
+/** Perimeter position where a ray from `from` (inside) in direction `dir` leaves the outline. */
+export function rayExit(o: Outline, from: Point, dir: Point): number {
+  let best = { t: Infinity, pos: 0 }
+  for (let i = 0; i < o.points.length; i++) {
+    const a = o.points[i]
+    const b = o.points[(i + 1) % o.points.length]
+    const e = sub(b, a)
+    const denom = dir.x * e.y - dir.y * e.x
+    if (Math.abs(denom) < 1e-9) continue
+    const w = sub(a, from)
+    const t = (w.x * e.y - w.y * e.x) / denom
+    const u = (w.x * dir.y - w.y * dir.x) / denom
+    if (t > 0 && u >= 0 && u <= 1 && t < best.t) best = { t, pos: o.lengths[i] + u * distance(a, b) }
+  }
+  return best.pos
 }
 
 /* ---- Rects ---------------------------------------------------------------- */

@@ -2,13 +2,18 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import {
+  bentCubic,
+  catmullRom,
+  convexHull,
   cubicAt,
   distance,
   distanceToRect,
   flatten,
   lineGap,
+  outline,
+  outlinePoint,
   polyline,
-  quadraticArc,
+  rayExit,
   rectGap,
   texturePieces,
   toView,
@@ -20,7 +25,7 @@ import {
 import {
   BUBBLE_H,
   BUBBLE_W,
-  bendThrough,
+  FAN,
   groupProblems,
   HEX,
   layoutBoard,
@@ -46,13 +51,13 @@ import {
   formatBoardJson,
   INDUSTRY_IDS,
   isLinkActive,
-  MAX_BEND,
   parseBoardData,
   reachable,
   validateBoardData,
   type BoardData,
 } from './board'
 import boardFile from './board.json?raw'
+import { BRASS_MAP } from '../rules/map'
 
 describe('board.json', () => {
   it('is valid and complete: 25 locations and 39 links', () => {
@@ -106,7 +111,7 @@ describe('board.json', () => {
     const edited: BoardData = {
       ...BOARD,
       locations: BOARD.locations.map((l) => (l.id === 'bristol' ? { ...l, x: 55.4, y: 57.9, labelOffset: { x: -1.2, y: 0.5 } } : l)),
-      links: BOARD.links.map((l) => (l.id === 'taunton-bristol' ? { ...l, bend: -3.5 } : l)),
+      links: BOARD.links.map((l) => (l.id === 'bristol-taunton' ? { ...l, points: [[50.1, 63.2]] } : l)),
     }
     const text = formatBoardJson(edited)
     expect(parseBoardData(JSON.parse(text))).toEqual(edited)
@@ -120,8 +125,7 @@ describe('board.json', () => {
       links: [
         ...BOARD.links,
         { id: 'x', from: 'bristol', to: 'atlantis', type: 'tram' },
-        { id: 'y', from: 'stoke', to: 'the_north', type: 'both', points: [[1, 2]] },
-        { id: 'z', from: 'plymouth', to: 'london', type: 'both', bend: 12 },
+        { id: 'y', from: 'stoke', to: 'the_north', type: 'both', points: [[1, 2], [3, 4], [5, 6], [7, 8]] },
       ],
     }
     const withBadHub = { ...broken, locations: broken.locations.map((l) => (l.id === 'london' ? { ...l, value: 12, buys: ['cotton', 'port'] } : l)) }
@@ -132,8 +136,7 @@ describe('board.json', () => {
     expect(errors).toMatch(/x: unknown from\/to/)
     expect(errors).toMatch(/x: type must be/)
     expect(errors).toMatch(/y: another link already joins/)
-    expect(errors).toMatch(/y: bend points are gone/)
-    expect(errors).toMatch(/z: bend must be a number from −8 to 8/)
+    expect(errors).toMatch(/y: points must be up to 3/)
     expect(errors).toMatch(/london: a hub buys a list of cotton, coal, iron/)
     expect(errors).toMatch(/london: hubs have no "value"/)
     expect(parseBoardData(broken)).toBeUndefined()
@@ -158,10 +161,10 @@ describe('design checks', () => {
     expect(reachable(BOARD, 'birmingham', 'rail').size).toBe(25)
   })
 
-  it('3. degrees add up to 78, with 16 both, 6 canal and 17 rail links', () => {
+  it('3. degrees add up to 78, with 17 both, 5 canal and 17 rail links', () => {
     expect([...degrees(BOARD).values()].reduce((a, b) => a + b, 0)).toBe(78)
     const count = (t: string) => BOARD.links.filter((l) => l.type === t).length
-    expect([count('both'), count('canal'), count('rail')]).toEqual([16, 6, 17])
+    expect([count('both'), count('canal'), count('rail')]).toEqual([17, 5, 17])
   })
 
   it('4. tile distribution: 2 cities with 4 slots, 4 with 3, 10 with 2, 3 with 1', () => {
@@ -179,7 +182,7 @@ describe('design checks', () => {
     const problems = designProblems(cut, BOARD_DESIGN).join('\n')
     expect(problems).toMatch(/unreachable: the_north, taunton, exeter, plymouth/)
     expect(problems).toMatch(/add up to 76, expected 78/)
-    expect(problems).toMatch(/5 canal links, expected 6/)
+    expect(problems).toMatch(/4 canal links, expected 5/)
   })
 
   it('5. no trace of the removed industries, drink tiles, merchant tiles, drawn industry icons or drawn link spaces in the code', () => {
@@ -213,19 +216,21 @@ describe('curves and texture pieces', () => {
   const a = { x: 100, y: 500 }
   const b = { x: 500, y: 500 }
 
-  it('draws a link as one quadratic arc: straight at 0, its midpoint half the bend off the chord, to the right going a → b', () => {
-    const straight = flatten([quadraticArc(a, b, 0)], 1)
-    expect(straight.points.every((p) => Math.abs(p.y - 500) < 1e-9)).toBe(true)
-    // a → b runs east, so the right is south (+y on screen).
-    expect(cubicAt(quadraticArc(a, b, 0.08), 0.5)).toEqual({ x: 300, y: 500 + 0.08 * 400 * 0.5 })
-    expect(cubicAt(quadraticArc(a, b, -0.08), 0.5).y).toBeCloseTo(500 - 16)
-    // One gentle bow: every point on the same side of the chord, never further than the midpoint.
-    const bow = flatten([quadraticArc(a, b, 0.08)], 1).points.map((p) => p.y - 500)
-    expect(bow.every((d) => d >= -1e-9 && d <= 16 + 1e-9)).toBe(true)
+  it('bows a link by the given share of its length', () => {
+    const mid = cubicAt(bentCubic(a, b, 0.1, 0.2), 0.5)
+    expect(Math.abs(mid.y - 500)).toBeCloseTo(40)
+  })
+
+  it('passes a Catmull-Rom spline through its bend points', () => {
+    const points = [a, { x: 300, y: 420 }, { x: 420, y: 560 }, b]
+    const segments = catmullRom(points)
+    expect(segments).toHaveLength(3)
+    expect(segments[1].p0).toEqual(points[1])
+    expect(segments[1].p3).toEqual(points[2])
   })
 
   it('lays texture pieces edge to edge with no overlap, the last one clipped at the end', () => {
-    const line = flatten([quadraticArc(a, b, 0.08)], 1)
+    const line = flatten([bentCubic(a, b, 0.15)], 1)
     const at = (s: number) => pointAtLength(line, s)
     for (const era of ['canal', 'rail'] as const) {
       const pieces = texturePieces(at, line.total, TEXTURE_PIECE[era], TRACK_H[era])
@@ -250,7 +255,12 @@ describe('curves and texture pieces', () => {
     expect(upright(270)).toBe(270 % 360)
   })
 
-  it('measures route gaps (0 where they cross)', () => {
+  it('finds where rays leave a hull, and measures route gaps', () => {
+    const o = outline(convexHull([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }, { x: 5, y: 5 }]))
+    expect(o.perimeter).toBeCloseTo(40)
+    const exit = outlinePoint(o, rayExit(o, { x: 5, y: 5 }, { x: 1, y: 0 }))
+    expect(exit.x).toBeCloseTo(10)
+    expect(exit.y).toBeCloseTo(5)
     expect(lineGap(polyline([{ x: 0, y: 0 }, { x: 10, y: 10 }]), polyline([{ x: 0, y: 10 }, { x: 10, y: 0 }]))).toBe(0)
     expect(lineGap(polyline([{ x: 0, y: 0 }, { x: 10, y: 0 }]), polyline([{ x: 0, y: 6 }, { x: 10, y: 6 }]))).toBeCloseTo(6)
   })
@@ -337,8 +347,8 @@ describe('board layout', () => {
   })
 
   it('draws only the era’s links: canal and both in the canal era, rail and both in the rail era', () => {
-    expect(routes('canal').map((r) => r.link.type).sort()).toEqual([...Array(16).fill('both'), ...Array(6).fill('canal')])
-    expect(routes('rail').map((r) => r.link.type).sort()).toEqual([...Array(16).fill('both'), ...Array(17).fill('rail')])
+    expect(routes('canal').map((r) => r.link.type).sort()).toEqual([...Array(17).fill('both'), ...Array(5).fill('canal')])
+    expect(routes('rail').map((r) => r.link.type).sort()).toEqual([...Array(17).fill('both'), ...Array(17).fill('rail')])
   })
 
   it('runs every route from the centre of one group to the centre of the other, so its ends stay under the art', () => {
@@ -347,8 +357,10 @@ describe('board layout', () => {
         const [from, to] = [layout.groups.get(r.link.from)!, layout.groups.get(r.link.to)!]
         expect(distance(r.line.points[0], from.center)).toBeLessThan(0.01)
         expect(distance(r.line.points.at(-1)!, to.center)).toBeLessThan(0.01)
-        // One arc, no multi-point paths.
-        expect(r.segments).toHaveLength(1)
+        // The whole route is one smooth path: each segment starts where the last one ended.
+        for (let i = 1; i < r.segments.length; i++) expect(r.segments[i].p0).toEqual(r.segments[i - 1].p3)
+        // Between the two hidden ends is the visible curve.
+        expect(r.segments.slice(1, -1)).toEqual(r.main)
       }
     }
   })
@@ -363,21 +375,18 @@ describe('board layout', () => {
     }
   })
 
-  it('draws every route near-straight: at most one gentle arc (control point ≤ 8 % of its length off the midpoint), no S-bends', () => {
-    for (const link of BOARD.links) expect(Math.abs(link.bend ?? 0), link.id).toBeLessThanOrEqual(MAX_BEND)
+  it('fans route ends out at least 14 apart where they come out from under each group', () => {
     for (const era of ['canal', 'rail'] as const) {
+      const ends = new Map<string, { x: number; y: number }[]>()
       for (const r of routes(era)) {
-        const { p0, p3 } = r.segments[0]
-        const chord = distance(p0, p3)
-        const n = { x: -(p3.y - p0.y) / chord, y: (p3.x - p0.x) / chord }
-        const off = r.line.points.map((p) => (p.x - p0.x) * n.x + (p.y - p0.y) * n.y)
-        // All on one side of the chord, and at most half the largest bend (the arc's midpoint) off it.
-        expect(off.every((d) => d >= -0.01) || off.every((d) => d <= 0.01), `${era} ${r.link.id}`).toBe(true)
-        expect(Math.max(...off.map(Math.abs)), `${era} ${r.link.id}`).toBeLessThanOrEqual((chord * MAX_BEND) / 200 + 0.01)
-        // It leaves each location towards the other: within 10° of the straight line (a bend of 8 % turns it 9°).
-        const angle = (u: Point, v: Point) => (Math.acos(Math.max(-1, Math.min(1, (u.x * v.x + u.y * v.y) / (Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y))))) * 180) / Math.PI
-        const start = { x: r.line.points[1].x - p0.x, y: r.line.points[1].y - p0.y }
-        expect(angle(start, { x: p3.x - p0.x, y: p3.y - p0.y }), `${era} ${r.link.id}`).toBeLessThan(10)
+        const line = r.visible.points
+        for (const [id, p] of [
+          [r.link.from, line[0]],
+          [r.link.to, line[line.length - 1]],
+        ] as const) ends.set(id, [...(ends.get(id) ?? []), p])
+      }
+      for (const [, points] of ends) {
+        for (let i = 0; i < points.length; i++) for (let j = i + 1; j < points.length; j++) expect(distance(points[i], points[j])).toBeGreaterThanOrEqual(Math.min(14, FAN) - 0.5)
       }
     }
   })
@@ -443,26 +452,19 @@ describe('board layout', () => {
     expect(groups.filter((g) => g.railBadge).map((g) => g.location.id)).toEqual(['the_north', 'taunton', 'plymouth'])
   })
 
-  it('respects a hand-placed labelOffset and follows the link’s bend (the editor’s handle sets it)', () => {
+  it('respects a hand-placed labelOffset and follows bend points', () => {
     const edited: BoardData = {
       ...BOARD,
       locations: BOARD.locations.map((l) => (l.id === 'exeter' ? { ...l, labelOffset: { x: 2, y: -1.5 } } : l)),
-      links: BOARD.links.map((l) => (l.id === 'merthyr-barnstaple' ? { ...l, bend: 5 } : l)),
+      links: BOARD.links.map((l) => (l.id === 'merthyr-barnstaple' ? { ...l, points: [[30, 52]] } : l)),
     }
-    const result = layoutBoard(edited, createTextMeasurer(), { eras: ['canal'] })
+    const result = layoutBoard(edited, createTextMeasurer(), { quick: true, eras: ['canal'] })
     const g = result.groups.get('exeter')!
     expect(g.center.x - g.point.x).toBeCloseTo(20)
     expect(g.center.y - g.point.y).toBeCloseTo(-15)
     const route = result.routes.canal!.routes.get('merthyr-barnstaple')!
-    const { p0, p3 } = route.segments[0]
-    const mid = cubicAt(route.segments[0], 0.5)
-    // The midpoint sits 2.5 % of the length to the right of the chord, going from Merthyr to Barnstaple…
-    const chord = distance(p0, p3)
-    const right = ((mid.x - (p0.x + p3.x) / 2) * -(p3.y - p0.y) + (mid.y - (p0.y + p3.y) / 2) * (p3.x - p0.x)) / chord
-    expect(right).toBeCloseTo(chord * 0.025)
-    // …and dragging the handle back there reads the same bend; past the limit it stops at ±8.
-    expect(bendThrough(route, mid)).toBe(5)
-    expect(bendThrough(route, { x: mid.x + (p3.y - p0.y), y: mid.y - (p3.x - p0.x) })).toBe(-MAX_BEND)
+    expect(route.main).toHaveLength(2)
+    expect(route.main[0].p3).toEqual({ x: 300, y: 520 })
   })
 })
 
@@ -485,5 +487,56 @@ describe('link spaces', () => {
     const withHexes = [...groups.values()].filter((g) => g.parts.type !== 'city' && g.parts.hexes.length === 2).map((g) => g.location.id)
     expect(withHexes.sort()).toEqual(['brecon', 'london', 'reading', 'taunton', 'the_north', 'west_wales'])
     expect([...groups.values()].filter((g) => g.parts.type === 'city').every((g) => !('hexes' in g.parts))).toBe(true)
+  })
+})
+
+describe('Wales: Brecon, Wrexham and the Wrexham – Wolverhampton link', () => {
+  const at = (id: string) => BOARD.locations.find((l) => l.id === id)!
+  const layout = layoutBoard(BOARD, createTextMeasurer())
+  const route = (era: 'canal' | 'rail', id: string) => layout.routes[era]!.routes.get(id)!
+
+  it('Wrexham – Wolverhampton exists and can be built as a railway (and as a canal)', () => {
+    const link = BOARD.links.find((l) => [l.from, l.to].sort().join('|') === 'wolverhampton|wrexham')!
+    expect(link).toBeDefined()
+    expect(link.type).toBe('both')
+    expect(isLinkActive(link.type, 'rail')).toBe(true)
+    expect(isLinkActive(link.type, 'canal')).toBe(true)
+    // The rules engine joins the two towns in the rail era.
+    expect(BRASS_MAP.links[link.id]).toMatchObject({ from: 'wrexham', to: 'wolverhampton', canal: true, rail: true })
+    expect(BRASS_MAP.linksAt.wrexham.map((l) => l.id)).toContain(link.id)
+    expect(reachable({ ...BOARD, links: [link] }, 'wrexham', 'rail').has('wolverhampton')).toBe(true)
+    // Drawn in the rail era, with a link space.
+    expect(route('rail', link.id).era).toBe('rail')
+  })
+
+  it('Brecon sits inland: north of Merthyr Tydfil, south-east of Caernarfon; Wrexham east of where it was', () => {
+    expect(at('brecon').y).toBeLessThan(at('merthyr').y)
+    expect(at('brecon').x).toBeGreaterThan(at('caernarfon').x)
+    expect(at('brecon').y).toBeGreaterThan(at('caernarfon').y)
+    expect(at('wrexham').x).toBeGreaterThan(36)
+  })
+
+  it('Brecon – Wrexham and Wrexham – Wolverhampton are one gentle arc each (no S, at most 8 % of the length)', () => {
+    for (const id of ['brecon-wrexham', 'wrexham-wolverhampton']) {
+      expect(BOARD.links.find((l) => l.id === id)!.maxBend).toBeLessThanOrEqual(8)
+      for (const era of ['canal', 'rail'] as const) {
+        const r = route(era, id)
+        expect(r.main, `${era} ${id}`).toHaveLength(1)
+        const a = r.visible.points[0]
+        const b = r.visible.points[r.visible.points.length - 1]
+        const chord = distance(a, b)
+        const side = (p: Point) => ((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / chord
+        const offsets = r.visible.points.map(side)
+        // All on one side of the chord (never an S), and at most 8 % of it away.
+        expect(Math.min(...offsets) * Math.max(...offsets), `${era} ${id} one side`).toBeGreaterThanOrEqual(-0.01)
+        expect(Math.max(...offsets.map(Math.abs)) / chord, `${era} ${id} bend`).toBeLessThanOrEqual(0.08 + 1e-6)
+      }
+    }
+  })
+
+  it('rejects maxBend above 8 %, and maxBend together with points', () => {
+    const link = BOARD.links[0]
+    expect(validateBoardData({ ...BOARD, links: [{ ...link, maxBend: 9 }, ...BOARD.links.slice(1)] })).toContain(`${link.id}: maxBend must be a number from 0 to 8`)
+    expect(validateBoardData({ ...BOARD, links: [{ ...link, maxBend: 4, points: [[50, 50]] }, ...BOARD.links.slice(1)] })).toContain(`${link.id}: a link has either points or maxBend, not both`)
   })
 })

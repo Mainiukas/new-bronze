@@ -30,7 +30,7 @@ var board_default = {
 			"id": "the_north",
 			"name": "The North",
 			"type": "hub",
-			"x": 62.6,
+			"x": 64.5,
 			"y": 11.9,
 			"ring": 1,
 			"era": "rail",
@@ -42,7 +42,7 @@ var board_default = {
 			"name": "London",
 			"type": "hub",
 			"x": 85.5,
-			"y": 60.5,
+			"y": 61.7,
 			"ring": 1,
 			"price": 7,
 			"buys": [
@@ -65,8 +65,8 @@ var board_default = {
 			"id": "brecon",
 			"name": "Brecon",
 			"type": "stop",
-			"x": 15.6,
-			"y": 22.1,
+			"x": 35,
+			"y": 36.4,
 			"ring": 2
 		},
 		{
@@ -74,15 +74,15 @@ var board_default = {
 			"name": "Reading",
 			"type": "stop",
 			"x": 86,
-			"y": 47.6,
+			"y": 48.9,
 			"ring": 1
 		},
 		{
 			"id": "taunton",
 			"name": "Taunton",
 			"type": "stop",
-			"x": 55.8,
-			"y": 76.8,
+			"x": 54.2,
+			"y": 74.6,
 			"ring": 3,
 			"era": "rail"
 		},
@@ -90,7 +90,7 @@ var board_default = {
 			"id": "caernarfon",
 			"name": "Caernarfon",
 			"type": "city",
-			"x": 21.9,
+			"x": 25.4,
 			"y": 10.9,
 			"region": "wales",
 			"ring": 3,
@@ -100,8 +100,8 @@ var board_default = {
 			"id": "wrexham",
 			"name": "Wrexham",
 			"type": "city",
-			"x": 31.1,
-			"y": 31.8,
+			"x": 38.2,
+			"y": 21,
 			"region": "wales",
 			"ring": 2,
 			"slots": [["coal"], ["iron"]]
@@ -121,7 +121,7 @@ var board_default = {
 			"name": "Merthyr Tydfil",
 			"type": "city",
 			"x": 33,
-			"y": 49.8,
+			"y": 50,
 			"region": "wales",
 			"ring": 2,
 			"slots": [
@@ -134,7 +134,7 @@ var board_default = {
 			"id": "stoke",
 			"name": "Stoke-on-Trent",
 			"type": "city",
-			"x": 37.1,
+			"x": 42.7,
 			"y": 12.7,
 			"region": "midlands",
 			"ring": 1,
@@ -148,8 +148,8 @@ var board_default = {
 			"id": "derby",
 			"name": "Derby",
 			"type": "city",
-			"x": 74.4,
-			"y": 24.9,
+			"x": 76.5,
+			"y": 27.1,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [["cotton"], ["cotton", "iron"]]
@@ -158,7 +158,7 @@ var board_default = {
 			"id": "nottingham",
 			"name": "Nottingham",
 			"type": "city",
-			"x": 79.6,
+			"x": 84.4,
 			"y": 10.9,
 			"region": "midlands",
 			"ring": 2,
@@ -168,8 +168,8 @@ var board_default = {
 			"id": "lichfield",
 			"name": "Lichfield",
 			"type": "city",
-			"x": 56.4,
-			"y": 23.8,
+			"x": 60.7,
+			"y": 24.1,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [["coal"]]
@@ -178,8 +178,8 @@ var board_default = {
 			"id": "wolverhampton",
 			"name": "Wolverhampton",
 			"type": "city",
-			"x": 51.4,
-			"y": 35.8,
+			"x": 53.7,
+			"y": 33.4,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [
@@ -192,8 +192,8 @@ var board_default = {
 			"id": "birmingham",
 			"name": "Birmingham",
 			"type": "city",
-			"x": 73.2,
-			"y": 37,
+			"x": 75.4,
+			"y": 36.9,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [
@@ -208,7 +208,7 @@ var board_default = {
 			"name": "Leicester",
 			"type": "city",
 			"x": 85.9,
-			"y": 23.2,
+			"y": 23.7,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [["cotton", "coal"], ["cotton", "coal"]]
@@ -217,8 +217,8 @@ var board_default = {
 			"id": "gloucester",
 			"name": "Gloucester",
 			"type": "city",
-			"x": 55.3,
-			"y": 50.3,
+			"x": 54.4,
+			"y": 48.2,
 			"region": "thames",
 			"ring": 1,
 			"slots": [["port"], ["cotton", "port"]]
@@ -227,8 +227,8 @@ var board_default = {
 			"id": "oxford",
 			"name": "Oxford",
 			"type": "city",
-			"x": 72.6,
-			"y": 58,
+			"x": 71.5,
+			"y": 55.7,
 			"region": "thames",
 			"ring": 1,
 			"slots": [["cotton"], ["cotton"]]
@@ -237,8 +237,8 @@ var board_default = {
 			"id": "bristol",
 			"name": "Bristol",
 			"type": "city",
-			"x": 44.2,
-			"y": 64.2,
+			"x": 46.5,
+			"y": 62,
 			"region": "west",
 			"ring": 1,
 			"slots": [
@@ -252,8 +252,8 @@ var board_default = {
 			"id": "swindon",
 			"name": "Swindon",
 			"type": "city",
-			"x": 60.7,
-			"y": 69.8,
+			"x": 63.1,
+			"y": 67.2,
 			"region": "west",
 			"ring": 1,
 			"slots": [["iron"], ["coal"]]
@@ -262,8 +262,8 @@ var board_default = {
 			"id": "southampton",
 			"name": "Southampton",
 			"type": "city",
-			"x": 82.9,
-			"y": 76.3,
+			"x": 82.7,
+			"y": 77.4,
 			"region": "west",
 			"ring": 2,
 			"slots": [
@@ -276,7 +276,7 @@ var board_default = {
 			"id": "barnstaple",
 			"name": "Barnstaple",
 			"type": "city",
-			"x": 26.8,
+			"x": 29.2,
 			"y": 64.7,
 			"region": "southwest",
 			"ring": 3,
@@ -286,8 +286,8 @@ var board_default = {
 			"id": "exeter",
 			"name": "Exeter",
 			"type": "city",
-			"x": 37.1,
-			"y": 76.7,
+			"x": 36.9,
+			"y": 76.4,
 			"region": "southwest",
 			"ring": 3,
 			"slots": [["port"], ["cotton", "port"]]
@@ -309,274 +309,237 @@ var board_default = {
 			"id": "london-southampton",
 			"from": "london",
 			"to": "southampton",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "london-reading",
 			"from": "london",
 			"to": "reading",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "west_wales-carmarthen",
 			"from": "west_wales",
 			"to": "carmarthen",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "brecon-wrexham",
 			"from": "brecon",
 			"to": "wrexham",
 			"type": "both",
-			"bend": 0
+			"maxBend": 8
 		},
 		{
 			"id": "reading-oxford",
 			"from": "reading",
 			"to": "oxford",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "caernarfon-wrexham",
 			"from": "caernarfon",
 			"to": "wrexham",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "carmarthen-merthyr",
 			"from": "carmarthen",
 			"to": "merthyr",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "derby-nottingham",
 			"from": "derby",
 			"to": "nottingham",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "lichfield-birmingham",
 			"from": "lichfield",
 			"to": "birmingham",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "wolverhampton-birmingham",
 			"from": "wolverhampton",
 			"to": "birmingham",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "wolverhampton-gloucester",
 			"from": "wolverhampton",
 			"to": "gloucester",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "birmingham-leicester",
 			"from": "birmingham",
 			"to": "leicester",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "birmingham-oxford",
 			"from": "birmingham",
 			"to": "oxford",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "gloucester-bristol",
 			"from": "gloucester",
 			"to": "bristol",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "oxford-swindon",
 			"from": "oxford",
 			"to": "swindon",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "swindon-southampton",
 			"from": "swindon",
 			"to": "southampton",
-			"type": "both",
-			"bend": 0
+			"type": "both"
 		},
 		{
 			"id": "brecon-merthyr",
 			"from": "brecon",
 			"to": "merthyr",
-			"type": "canal",
-			"bend": 0
+			"type": "canal"
 		},
 		{
 			"id": "wrexham-wolverhampton",
 			"from": "wrexham",
 			"to": "wolverhampton",
-			"type": "canal",
-			"bend": 0
+			"type": "both",
+			"maxBend": 8
 		},
 		{
 			"id": "merthyr-barnstaple",
 			"from": "merthyr",
 			"to": "barnstaple",
-			"type": "canal",
-			"bend": 0
+			"type": "canal"
 		},
 		{
 			"id": "stoke-derby",
 			"from": "stoke",
 			"to": "derby",
-			"type": "canal",
-			"bend": 0
+			"type": "canal"
 		},
 		{
 			"id": "stoke-lichfield",
 			"from": "stoke",
 			"to": "lichfield",
-			"type": "canal",
-			"bend": 0
+			"type": "canal"
 		},
 		{
 			"id": "barnstaple-exeter",
 			"from": "barnstaple",
 			"to": "exeter",
-			"type": "canal",
-			"bend": 0
+			"type": "canal"
 		},
 		{
 			"id": "the_north-stoke",
 			"from": "the_north",
 			"to": "stoke",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "the_north-derby",
 			"from": "the_north",
 			"to": "derby",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "brecon-caernarfon",
 			"from": "brecon",
 			"to": "caernarfon",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "brecon-carmarthen",
 			"from": "brecon",
 			"to": "carmarthen",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "taunton-bristol",
 			"from": "taunton",
 			"to": "bristol",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "taunton-barnstaple",
 			"from": "taunton",
 			"to": "barnstaple",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "taunton-exeter",
 			"from": "taunton",
 			"to": "exeter",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "merthyr-gloucester",
 			"from": "merthyr",
 			"to": "gloucester",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "stoke-wolverhampton",
 			"from": "stoke",
 			"to": "wolverhampton",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "derby-lichfield",
 			"from": "derby",
 			"to": "lichfield",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "nottingham-leicester",
 			"from": "nottingham",
 			"to": "leicester",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "birmingham-gloucester",
 			"from": "birmingham",
 			"to": "gloucester",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "leicester-oxford",
 			"from": "leicester",
 			"to": "oxford",
-			"type": "rail",
-			"bend": -8
+			"type": "rail"
 		},
 		{
 			"id": "gloucester-oxford",
 			"from": "gloucester",
 			"to": "oxford",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "bristol-swindon",
 			"from": "bristol",
 			"to": "swindon",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "bristol-barnstaple",
 			"from": "bristol",
 			"to": "barnstaple",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		},
 		{
 			"id": "exeter-plymouth",
 			"from": "exeter",
 			"to": "plymouth",
-			"type": "rail",
-			"bend": 0
+			"type": "rail"
 		}
 	]
 };
@@ -674,8 +637,12 @@ function validateBoardData(raw) {
 			"rail",
 			"both"
 		].includes(link.type)) errors.push(`${where}: type must be canal, rail or both`);
-		if (link.bend !== void 0 && !(typeof link.bend === "number" && Math.abs(link.bend) <= 8)) errors.push(`${where}: bend must be a number from −8 to 8 (% of the link's length)`);
-		if ("points" in link) errors.push(`${where}: bend points are gone: a link is one gentle arc, set with "bend"`);
+		if (link.maxBend !== void 0 && (!isNumber(link.maxBend) || link.maxBend < 0 || link.maxBend > 8)) errors.push(`${where}: maxBend must be a number from 0 to 8`);
+		if (link.maxBend !== void 0 && link.points !== void 0) errors.push(`${where}: a link has either points or maxBend, not both`);
+		if (link.points !== void 0) {
+			const points = link.points;
+			if (!Array.isArray(points) || points.length > 3 || !points.every((p) => Array.isArray(p) && p.length === 2 && isPercent(p[0]) && isPercent(p[1]))) errors.push(`${where}: points must be up to 3 [x, y] pairs from 0 to 100`);
+		}
 	}
 	return errors;
 }

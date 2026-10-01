@@ -210,18 +210,14 @@ route end ever shows.
   value and, on a mill, the cotton waiting as pips. **Stops**: silver plaques
   with two link hexagons. **Hubs**: two link hexagons over a medallion with the
   hub's photo, a ribbon, the live price on a square badge, and what they buy.
-- **Routes** are near-straight, as on the real board: each link is one path
-  from the centre of one location's rectangle to the centre of the other's
-  (under the tiles, plate or hub, so it leaves each on the side facing the
-  other), either straight or one gentle quadratic arc. The link's `bend` in
-  `board.json` sets it: the control point sits that many % of the link's
-  length off the midpoint, to the right going from `from` to `to` (negative:
-  left), at most ±8. Every link has `"bend": 0` unless it has to curve round
-  a location's plate or tiles or another route; nothing is bent
-  automatically. Routes are measured with `getTotalLength()`/
-  `getPointAtLength()` and drawn by laying the texture along them in pieces
-  edge to edge: each piece is a quad between the route's normals, so pieces
-  never overlap or gap and the last stops exactly at the end.
+- **Routes** are curves (seeded bends of 8–15 %, or a spline through a link's
+  `points`; a link with `"maxBend": n` keeps to one gentle symmetric arc of at
+  most n % of its length, never an S, n ≤ 8) measured with `getTotalLength()`/`getPointAtLength()` and drawn by
+  laying the texture along them in pieces edge to edge: each piece is a quad
+  between the route's normals, so pieces never overlap or gap and the last
+  stops exactly at the end. Each route runs from the centre of one location's
+  rectangle to the centre of the other's, under the tiles, plate or hub, and
+  comes out from under each at its own angle.
 - **Links** without an owner show an empty bubble (52 × 21.7: a dark stadium
   with a bronze rim, nothing inside, turned to the route, never upside down) at
   the middle of the route's visible part, which pulses gold when you can build it; built
@@ -240,10 +236,9 @@ route end ever shows.
   every rectangle, its own two included. A group that would cross the safe
   area's edge moves inside, and overlapping pairs are pushed apart along the
   shortest direction (at most 200 passes); a location's point moves with its
-  group. Linked locations keep room for their link space between them. A
-  group still in a route's way steps aside and the layout is redone, but no
-  group moves more than 36 units (3.6 %) from its town; anything left is
-  reported, to be fixed with a bend or a `labelOffset`. The
+  group. Route ends fan out around each group (at least 14 apart), and bends
+  are flipped or increased until no route runs over another route or a group; a
+  group still in a route's way steps aside and the layout is redone. The
   positions in `board.json` are already resolved, so the board draws each
   location centred on its point. A location's `labelOffset` pins its group by
   hand. Labels are measured from a table of Cinzel Bold glyph widths, so the
@@ -263,7 +258,7 @@ Coordinates in `board.json` are percentages of the image (0–100), so the
 overlay stays aligned at any size. The network is held to its design by
 `designProblems`: from Birmingham, canal and "both" links reach everything but
 the rail-era places; rail and "both" links reach everything; degrees add up to
-78 (16 both, 6 canal, 17 rail links); and 2, 4, 10 and 3 cities have 4, 3, 2
+78 (17 both, 5 canal, 17 rail links); and 2, 4, 10 and 3 cities have 4, 3, 2
 and 1 tiles. Development builds refuse to start if it breaks; `npm test`
 checks it too, along with the layout.
 
@@ -271,12 +266,11 @@ checks it too, along with the layout.
 
 1. Open `#/board?edit=1`. In `npm run dev` you can also press **E** on the page.
 2. Drag a crosshair to move a location. Drag a plaque or tile group to place it
-   by hand (double-click it to go back to automatic). Each link has one dot in
-   its middle: drag it across the link to bend it gently (up to ±8 % of its
-   length; the curve previews dashed), double-click it to straighten the link.
-   Arrow keys nudge the last location or group by 0.1 % (Shift: 1 %), or the
-   last link's bend by 0.5 % (Shift: 2 %). The board is laid out again when you
-   let go. Use the era switch beside the board to check both eras' links.
+   by hand (double-click it to go back to automatic). Drag a link's "+" to add
+   a bend point (up to 3); drag the squares to move them, double-click to
+   remove. Arrow keys nudge the last one by 0.1 % (Shift: 1 %). Drags preview
+   as you move and the board is laid out again when you let go. Use the era
+   switch beside the board to check both eras' links.
 3. Click **Export** (or **Download**) and paste it over `src/data/board.json`.
    `npm test` checks the file stays valid.
 

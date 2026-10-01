@@ -80,7 +80,7 @@ const inventory: InventoryText = {
       purpose: 'Les parties terminées de votre compte (et vos statistiques d’invité) jusqu’à ce que le serveur confirme l’enregistrement de chacune, pour ne rien perdre en cas de coupure.',
       duration: 'Supprimé une fois enregistré',
     },
-    'bronze.boardDraft': {
+    'bronze.boardDraft.v2': {
       where: LOCAL,
       provider: 'Bronze',
       purpose: 'Modifications non enregistrées dans l’éditeur de carte (#/board?edit=1). Créé seulement si vous utilisez l’éditeur.',

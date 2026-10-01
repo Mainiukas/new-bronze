@@ -80,7 +80,7 @@ const inventory: InventoryText = {
       purpose: 'Las partidas terminadas de tu cuenta (y tus estadísticas de invitado) hasta que el servidor confirme que cada una se guardó, para no perder nada si se corta la conexión.',
       duration: 'Se elimina una vez guardada',
     },
-    'bronze.boardDraft': {
+    'bronze.boardDraft.v2': {
       where: LOCAL,
       provider: 'Bronze',
       purpose: 'Cambios sin guardar en el editor de mapas (#/board?edit=1). Solo se crea si usas el editor.',

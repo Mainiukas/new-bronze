@@ -454,7 +454,7 @@ const lt: Messages = {
     hubKey: 'Prekybos mazgas',
     nothing: 'Dar nieko nepasirinkta.',
     usable: (active: boolean, era: Era) => `${active ? 'naudojama' : 'uždaryta'}: ${era === 'canal' ? 'kanalų era' : 'geležinkelių era'}`,
-    bend: (value: number) => (value === 0 ? 'tiesi' : `lenkimas ${value > 0 ? '+' : ''}${value} %`),
+    bends: (n: number) => (n === 0 ? 'automatinis lenkimas' : p(n, { one: `${n} lenkimo taškas`, few: `${n} lenkimo taškai`, other: `${n} lenkimo taškų` })),
     stop: 'Stotelė',
     hub: 'Prekybos mazgas',
     offset: (x: number, y: number) => `lentelės poslinkis ${x}%, ${y}%`,

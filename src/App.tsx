@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { HashRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import { AuthProvider } from './auth/AuthProvider'
 import { supabaseConfigured } from './lib/supabase'
 import { createLazyBackend } from './auth/lazyBackend'
@@ -94,6 +95,7 @@ export default function App() {
           </AuthProvider>
         </ToastProvider>
       </I18nProvider>
+      <SpeedInsights />
     </HashRouter>
   )
 }

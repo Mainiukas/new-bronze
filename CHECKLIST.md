@@ -22,17 +22,18 @@ until the placeholders are filled in.
 | `@supabase/supabase-js` | Accounts: sign-in, profiles, consents | Bundled. Talks only to **your** Supabase project (`VITE_SUPABASE_URL`), and only when accounts are configured | Essential (for accounts) |
 | Google sign-in (via Supabase) | "Continue with Google" | Only when the player clicks it: the page goes to Google and comes back | Essential (user-initiated) |
 | Google profile photos | Avatar of players who signed in with Google | The image loads from Google's servers (with no referrer) for signed-in Google players | Essential for that feature ⚠️ |
+| Stripe.js (`@stripe/stripe-js`) | Card verification, **switched off** (`src/lib/features.ts`) | Never loads while switched off. See VERIFICATION.md before turning it on (it adds Stripe's iframe and cookies) | n/a while off |
 | Fonts: Cinzel, Barlow, Barlow Condensed | Text | **Self-hosted**: bundled via Fontsource; no Google Fonts requests | Essential |
 | Tailwind CSS, Vite | Build tools; their CSS and small runtime helpers ship in the bundle | Bundled | Essential |
 
 There are **no analytics, advertising, tracking pixels, social embeds, CDNs,
-iframes or error-reporting services**. There are no remote fonts either. A
-browser test confirms that a first visit makes no requests to any other server.
+iframes or error-reporting services**. There are no remote fonts either. A browser
+test confirms that a first visit makes no requests to any other server.
 
 ### Cookies and browser storage
 
 Bronze sets one cookie and several storage entries, all first-party. The full
-table, with purpose, category and duration for each, is generated from
+table, with purpose and duration for each, is generated from
 `src/legal/inventory.ts` and shown on the Cookie Policy (`#/cookies`).
 
 | Key | Where | Category |
@@ -45,7 +46,7 @@ table, with purpose, category and duration for each, is generated from
 | `bronze.match` (match in progress) | Local storage | Essential |
 | `bronze.stats.pending.<id>` | Local storage | Essential |
 | `bronze.boardDraft` (map editor only) | Local storage | Essential |
-| `bronze.settings`, `bronze.lobby.gameMode`, `bronze.lobby.map`, `bronze.setup`, `bronze.stats` (guest record) | Local storage | Preferences (consent) |
+| `bronze.settings`, `bronze.lobby.gameMode`, `bronze.lobby.map`, `bronze.setup`, `bronze.stats` (guest record) | Local storage | Essential (what you set or picked) |
 
 ### Personal data
 
@@ -60,23 +61,32 @@ table, with purpose, category and duration for each, is generated from
   - consent records (what was agreed to, its version and when);
   - email preferences;
   - game record (matches, wins, best score, goods shipped, maps, achievements);
+  - match history (per match: time, map, mode, players, place, score, goods, links, industries);
+  - optional profile details (bio, country, avatar picture) and privacy settings;
+  - previous usernames (30 days);
+  - two-factor authentication: the authenticator key (Supabase) and hashed recovery codes;
+  - reports about players (12 months);
+  - rate-limit counters (a day);
   - failed log-in counter (at most a day);
-  - Supabase's sign-in logs.
+  - Supabase's sign-in logs (also shown to the player as Recent sign-ins).
 - **Friends**: none. Friends are "Coming soon", so no friend data exists.
 - **Analytics**: none.
-- **Match history**: none on the server. Matches are played in the browser.
 
 ### Emails
 
-Supabase sends two emails, both transactional: **confirm your address** and
-**reset your password** (templates in the Supabase dashboard). No marketing or
+Supabase sends the transactional emails: **confirm your address**, **reset
+your password**, **change of email address** (to both addresses), the
+re-authentication code for a password change, and the **security notices**
+(password, email or two-factor changed) once they're switched on (SETUP.md
+step 11). No marketing or other
 notification emails are sent. The preferences, unsubscribe links and endpoint
 are built for when they are.
 
 ### Payments and shop
 
-None. The Shop is "Coming soon": no prices, no in-game currency, no checkout,
-no payment SDK.
+Nothing is sold. The Shop is "Coming soon": no prices, no in-game currency, no
+checkout, no payment SDK in use. (The Stripe card check is built but switched
+off; it charges nothing. See VERIFICATION.md.)
 
 ---
 
@@ -87,7 +97,8 @@ no payment SDK.
 - the data collected and why;
 - the legal basis for each item (art. 6(1)(a)/(b)/(c)/(f));
 - how long each item is kept;
-- recipients and processors (Supabase, Google, hosting, email provider, other players);
+- recipients and processors (Supabase, Google, hosting, email provider, other players and visitors);
+- who sees the profile (Public / Friends only / Private);
 - transfers outside the EEA;
 - your rights (access, rectification, erasure, portability, objection or
   restriction, withdrawing consent, complaining to the VDAI, with its address);
@@ -129,32 +140,26 @@ Nothing is sold and there's no in-game currency, so `#/refunds` says exactly tha
 **Verify**: open `#/refunds`.
 
 ### 4. Cookie Policy ✅
-`#/cookies`: the category descriptions and a full table (name/key, type,
-provider, purpose, category, duration) generated from `inventory.ts`, plus how
-to change your choices.
+`#/cookies`: why everything stored is essential, a full table (name/key, type,
+provider, purpose, duration) generated from `inventory.ts`, and how to clear
+it.
 
 **Files**: `src/pages/legal/CookiePolicy.tsx`, `src/legal/inventory.ts`.
 
 **Verify**: open `#/cookies`. `npm test` fails if the code uses a `bronze…` key the inventory doesn't list, or if the table misses one.
 
-### 5. Cookie consent banner ✅
-- Shown on the first visit, again after 12 months, and whenever the version changes (`CONSENT_VERSION`).
-- **Accept all**, **Reject all** and **Customise** have identical styling.
-- Customise shows switches for Preferences, Analytics and Marketing; Essential is always on.
-- Nothing optional is stored before a choice. Preferences only save once allowed, and withdrawing deletes them.
-- There are no analytics or marketing tools, so nothing else is gated today.
-- The choice is stored with its time, version and method.
-- "Cookie settings" in the footer (and in Settings → Privacy) reopens it and moves focus to it.
-- Copy is in English and in Lithuanian (automatic for Lithuanian browsers, plus a switch).
+### 5. Cookie notice (essential storage only) ✅
+- Bronze stores only what it needs to work (log-in, match in progress, settings and picks); there are no analytics, ads or trackers, so there's nothing to accept or reject.
+- The notice says so, links the Cookie and Privacy Policies, and has one **OK** button. It shows on the first visit, again after 12 months, and whenever the version changes (`CONSENT_VERSION`, now 2).
+- Dismissing it is stored with its time and version (`bronze.consent`).
 - It's a non-blocking panel, not a modal: Rules and the legal pages stay usable, and pages leave room for it.
-- Keyboard: it's the first stop after "Skip to content"; Customise moves focus to the first switch.
+- Copy in all five languages, with a language switch on the notice.
 
-**Files**: `src/legal/consent.ts`, `src/components/legal/CookieBanner.tsx`, `src/lib/storage.ts`, `src/hooks/usePersistentState.ts`, `src/components/legal/SiteFooter.tsx`, `src/index.css`.
+**Files**: `src/legal/consent.ts`, `src/components/legal/CookieBanner.tsx`, `src/legal/inventory.ts`, `src/pages/legal/CookiePolicy.tsx`, `src/index.css`.
 
 **Verify**:
-1. In a private window, open the site: the banner shows, and DevTools → Application → Local Storage has only essential keys.
-2. Choose Customise, turn on Preferences and save: `bronze.consent` holds `{version, timestamp, method, choices}`.
-3. Footer → Cookie settings → Reject all: `bronze.settings` is deleted.
+1. In a private window, open the site: the notice shows. DevTools → Application → Local Storage holds only keys listed in the Cookie Policy.
+2. Press OK: `bronze.consent` holds `{version: 2, timestamp, method: "notice"}`, and the notice doesn't come back on reload.
 
 ### 6. Form consents ✅
 Register has:
@@ -175,24 +180,28 @@ There are no testimonials, ratings or reviews anywhere, and no reviews section.
 **Verify**: search the code for "review", "rating" or "testimonial" (the only hits are the password-strength rating and code comments).
 
 ### 7. Data minimisation ✅
-- Only what accounts need: no phone number, no birth date (an age band only), no location.
+- Only what accounts need: no phone number, no birth date (an age band only), no location. A bio, country and avatar picture are optional.
+- Profiles of players under 18 start as "Friends only".
 - New clean-ups, run hourly by the SQL's `pg_cron` job:
   - unfinished sign-ups (no profile) are deleted after 7 days;
   - never-confirmed email sign-ups are deleted after 7 days;
-  - failed log-in counters are deleted after a day.
+  - failed log-in counters are deleted after a day;
+  - rate-limit counters are deleted after a day;
+  - old usernames (and their reservation) are deleted after 30 days;
+  - reports are deleted after a year.
 - Declined Google sign-ups are deleted at once.
 - The unsubscribe token and email choices sit in a private table (`account_settings`), and the private columns of `profiles` (news consent, Terms version) can't be read by other players.
 - Logs: the only `console` messages are for missing art files, a misconfigured account URL, a computer player that failed to move, and the dev-only board layout report. None contain personal data, and there's no error-reporting service.
 - **One open question** ⚠️: Google profile photos are stored as a public avatar URL.
 
-**Files**: `supabase/migrations/001_accounts.sql` (`account_settings`, `login_attempts.last_failed_at`, `bronze_cleanup`), `src/pages/AuthScreen.tsx`.
+**Files**: `supabase/migrations/001_accounts.sql` (`account_settings`, `login_attempts.last_failed_at`, `bronze_cleanup`), `002_profiles_security.sql` (column grants on `profiles`, `bronze_cleanup`), `src/pages/AuthScreen.tsx`.
 
 **Verify**: run the SQL, then `select * from cron.job`.
 
 ### 8. Third-party SDKs ✅
 Listed in the audit above.
 - Nothing unused ships: `link_space.png` and `link_symbol.png` are no longer bundled.
-- Fonts are self-hosted, and there's no CDN.
+- Fonts are self-hosted, and there's no CDN. Stripe.js (card verification) is switched off and never loads.
 - Nothing non-essential exists to gate. The consent categories and `consentStore.allows()` are ready for any future tool.
 - The SDKs are documented in the Privacy Policy (recipients) and the Cookie Policy.
 
@@ -203,7 +212,7 @@ Listed in the audit above.
 ### 9. Dark patterns ✅
 Changes made:
 - **"Remember me" now starts unticked**: staying logged in after the browser closes is the player's choice.
-- The cookie banner's Accept all, Reject all and Customise are equally prominent. Rejecting is one click, and withdrawing deletes the stored data.
+- No consent wall: Bronze stores only essential things, so the cookie notice has nothing to accept or reject, just OK.
 - The Terms and marketing boxes start unticked and are separate. Marketing is never offered to under-18s.
 - **Deleting an account is as easy as creating one**: Settings → Account → Delete, then type your username.
 - The Google first-sign-in exit was "Not now: log out", which left the account behind. It now deletes it and says so ("Not now: cancel and delete what Google shared").
@@ -369,13 +378,14 @@ The licence texts are in `public/licenses/` and shipped with the site.
 
 ### 20. Data deletion and export ✅
 **Settings → Account**:
-- **Download my data**: a JSON file with the account (email, sign-in methods, dates, what the sign-in provider shared), profile, email choices, every consent with its version and time, the failed log-in counter, and this browser's data.
-- **Delete my account**: a confirmation that lists what goes, then you type your username. It deletes the auth user, which cascades to the profile, settings and consents, and clears the log-in counter. It then signs out and says "Your account and its data have been deleted". There is no match history on the server, so there's nothing to anonymise; the SQL marks where that belongs if it's ever added.
+(also **Account settings → Data**)
+- **Download my data**: a JSON file with the account (email, sign-in methods, dates, what the sign-in provider shared), profile (with bio, country, avatar and privacy), email choices, every consent with its version and time, match history, previous usernames, reports made, the failed log-in counter, and this browser's data.
+- **Delete my account**: a confirmation that lists what goes, then you type your username (with two-factor on, the session must have passed it). It removes uploaded avatar pictures, then deletes the auth user, which cascades to the profile, settings, consents, match history, username history, recovery codes and reports about the player, and clears the log-in counter. Reports the player made are kept without their name. It then signs out and says "Your account and its data have been deleted".
 - **Clear this device**: removes everything Bronze stored in this browser.
 
 For people who can't log in, **`#/data-request`** explains the process and composes an email to `{{OPERATOR_EMAIL}}`. The 30-day (one-month) response time is in the Privacy Policy.
 
-**Files**: `src/components/settings/AccountSettings.tsx`, `src/components/SettingsModal.tsx`, `src/pages/legal/DataRequest.tsx`, `src/auth/*`, `001_accounts.sql` (`export_my_data`, `delete_my_account`).
+**Files**: `src/components/settings/AccountSettings.tsx`, `src/components/SettingsModal.tsx`, `src/pages/legal/DataRequest.tsx`, `src/auth/*`, `001_accounts.sql` and `002_profiles_security.sql` (`export_my_data`, `delete_my_account`).
 
 **Verify**: log in and download: the file opens as JSON. Delete: the user is gone from Supabase Authentication → Users and from `profiles`, `consents` and `account_settings`.
 

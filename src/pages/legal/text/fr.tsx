@@ -1,8 +1,7 @@
 /* oxlint-disable react/only-export-components -- a lazily loaded bundle of page text, not a component module */
-import { Bullets, DataTable, Email, Fill, LegalPage, Section, Sub, TextLink } from '../../../components/legal/LegalPage'
+import { Bullets, DataTable, Email, Fill, LegalPage, Section, TextLink } from '../../../components/legal/LegalPage'
 import { PATHS } from '../../../data/navigation'
 import { useT } from '../../../i18n'
-import { consentStore } from '../../../legal/consent'
 import { STORAGE_ITEMS, type DataItem } from '../../../legal/inventory'
 import { MIN_ACCOUNT_AGE, OPERATOR, SERVICES } from '../../../legal/operator'
 import { DocumentLinks, fileLink, linkClass as link, strongClass as strong } from './shared'
@@ -16,14 +15,14 @@ const SECURITY = 'Intérêt légitime en matière de sécurité (art. 6, par. 1,
 const LOCAL = 'Stockage local'
 const SESSION = 'Stockage de session'
 const LIBRARY = 'Bronze (bibliothèque de connexion Supabase)'
-const UNTIL_CLEARED = 'Jusqu’à ce que vous l’effaciez ou retiriez votre consentement'
+const UNTIL_CLEARED = 'Jusqu’à ce que vous l’effaciez'
 
 const inventory: InventoryText = {
   storage: {
     'bronze.consent': {
       where: LOCAL,
       provider: 'Bronze',
-      purpose: 'Retient vos choix en matière de cookies, leur date et la version de la politique à laquelle ils se rapportent.',
+      purpose: 'Retient que vous avez vu l’avis sur les cookies, avec la date et la version de la politique.',
       duration: '12 mois, ou jusqu’à une modification de la politique',
     },
     'bronze.auth': {
@@ -80,7 +79,7 @@ const inventory: InventoryText = {
       purpose: 'Les parties terminées de votre compte (et vos statistiques d’invité) jusqu’à ce que le serveur confirme l’enregistrement de chacune, pour ne rien perdre en cas de coupure.',
       duration: 'Supprimé une fois enregistré',
     },
-    'bronze.boardDraft': {
+    'bronze.boardDraft.v2': {
       where: LOCAL,
       provider: 'Bronze',
       purpose: 'Modifications non enregistrées dans l’éditeur de carte (#/board?edit=1). Créé seulement si vous utilisez l’éditeur.',
@@ -114,27 +113,13 @@ const inventory: InventoryText = {
       where: LOCAL,
       provider: 'Bronze',
       purpose: 'Vos statistiques et succès en tant qu’invité (transférés dans votre compte à la connexion).',
-      duration: 'Jusqu’à ce que vous les effaciez, retiriez votre consentement ou vous connectiez',
+      duration: 'Jusqu’à ce que vous les effaciez ou vous connectiez',
     },
   },
-  categories: [
-    { id: 'essential', title: 'Essentiels', description: 'Vous gardent connecté, sauvegardent votre partie en cours et retiennent vos choix de cookies. Toujours actifs.' },
-    {
-      id: 'preferences',
-      title: 'Préférences',
-      description: 'Retiennent sur cet appareil vos paramètres, le dernier mode de jeu, la carte, les places et vos statistiques d’invité.',
-    },
-    { id: 'analytics', title: 'Mesure d’audience', description: 'Bronze n’utilise aucune mesure d’audience aujourd’hui. Si cela change, elle ne fonctionnera que si vous l’activez.' },
-    {
-      id: 'marketing',
-      title: 'Marketing',
-      description: 'Bronze n’utilise aucun traceur publicitaire ou marketing aujourd’hui. Si cela change, ils ne fonctionneront que si vous les activez.',
-    },
-  ],
   account: [
     {
       what: 'Adresse e-mail',
-      why: 'Pour vous connecter, et pour les e-mails liés au compte (confirmation de l’adresse, réinitialisation du mot de passe).',
+      why: 'Pour vous connecter, et pour les e-mails liés au compte (confirmation de l’adresse, réinitialisation du mot de passe, alertes de sécurité quand votre mot de passe, votre e-mail ou votre double authentification changent).',
       basis: CONTRACT,
       retention: UNTIL_DELETED,
     },
@@ -144,7 +129,19 @@ const inventory: InventoryText = {
       basis: CONTRACT,
       retention: UNTIL_DELETED,
     },
-    { what: 'Nom d’utilisateur', why: 'Votre nom dans le jeu. Les autres joueurs le voient.', basis: CONTRACT, retention: UNTIL_DELETED },
+    { what: 'Nom d’utilisateur', why: 'Votre nom dans le jeu. Tout le monde peut le voir, quels que soient vos paramètres de confidentialité.', basis: CONTRACT, retention: UNTIL_DELETED },
+    {
+      what: 'Anciens noms d’utilisateur, et quand vous les avez changés',
+      why: 'Pour que les liens vers votre ancien nom mènent à votre profil pendant 30 jours, et que personne d’autre ne puisse le prendre (et se faire passer pour vous) pendant ce temps.',
+      basis: 'Intérêt légitime à empêcher l’usurpation d’identité (art. 6, par. 1, point f) du RGPD)',
+      retention: '30 jours',
+    },
+    {
+      what: 'Informations de profil que vous choisissez d’ajouter : bio, pays, avatar (un modèle ou une image que vous importez) ; et vos paramètres de confidentialité',
+      why: 'Affichées sur votre profil, aux personnes que vos paramètres de confidentialité autorisent.',
+      basis: CONTRACT,
+      retention: 'Jusqu’à ce que vous les changiez ou supprimiez votre compte',
+    },
     {
       what: 'Données du compte Google (nom, adresse e-mail, photo de profil, identifiant Google), seulement si vous vous connectez avec Google',
       why: 'Pour la connexion avec Google. Le nom sert à suggérer un nom d’utilisateur ; la photo est votre avatar, visible par les autres joueurs.',
@@ -171,9 +168,63 @@ const inventory: InventoryText = {
     },
     {
       what: 'Statistiques de jeu : parties, victoires, meilleur score, marchandises livrées, cartes jouées, succès et date de déblocage, date d’inscription ; un identifiant aléatoire pour chaque résultat enregistré',
-      why: 'Votre profil et vos succès. Les autres joueurs connectés voient vos statistiques. Les identifiants garantissent qu’un résultat envoyé deux fois ne compte qu’une fois.',
+      why: 'Votre profil et vos succès, visibles par les personnes que vos paramètres de confidentialité autorisent. Les identifiants garantissent qu’un résultat envoyé deux fois ne compte qu’une fois.',
       basis: CONTRACT,
       retention: UNTIL_DELETED,
+    },
+    {
+      what: 'Historique de parties : pour chaque partie terminée, la date, la carte et le mode de jeu, le nombre de joueurs, votre place, votre score, les marchandises livrées, les liaisons et industries construites',
+      why: 'Vos dernières parties et vos statistiques sur votre profil, visibles par les personnes que vos paramètres de confidentialité autorisent.',
+      basis: CONTRACT,
+      retention: UNTIL_DELETED,
+    },
+    {
+      what: 'Parties en ligne : les parties jouées, votre place, chacun de vos coups et son heure, le résultat, ainsi que votre pendule et votre connexion pendant la partie',
+      why: 'Pour faire tourner les parties en ligne : vérifier chaque coup, garantir le fair-play, montrer la partie à ses joueurs (et aux spectateurs des parties publiques) et permettre de la revoir.',
+      basis: CONTRACT,
+      retention: 'Tant que la partie est conservée. Si vous supprimez votre compte, votre place affiche « Joueur supprimé » et n’est plus liée à vous ; les coups restent pour que les autres joueurs gardent leur partie.',
+    },
+    {
+      what: 'Classements : votre classement sur chaque carte, sa fiabilité, le nombre de parties, votre meilleur score et chaque variation après une partie classée',
+      why: 'Pour opposer des joueurs de niveau proche, et afficher les classements sur les profils et le tableau des meilleurs.',
+      basis: CONTRACT,
+      retention: UNTIL_DELETED,
+    },
+    {
+      what: 'Amis : les joueurs que vous avez ajoutés, les demandes d’amis envoyées ou reçues et les invitations à jouer',
+      why: 'Votre liste d’amis, vos demandes et vos invitations à des parties.',
+      basis: CONTRACT,
+      retention: 'Jusqu’à ce que vous ou votre ami la retiriez, ou que l’un de vous supprime son compte. Une invitation disparaît une fois utilisée ou quand la partie commence.',
+    },
+    {
+      what: 'Statut en ligne : quand votre application a contacté le serveur de jeu pour la dernière fois',
+      why: 'Pour montrer à vos amis si vous êtes en ligne (vu dans les 2 dernières minutes).',
+      basis: CONTRACT,
+      retention: 'Remplacé à chaque fois ; supprimé avec votre compte',
+    },
+    {
+      what: 'Partie rapide : votre classement et le type de partie souhaité, pendant que vous attendez',
+      why: 'Pour vous trouver des joueurs de niveau proche.',
+      basis: CONTRACT,
+      retention: 'Jusqu’à ce que vous trouviez des adversaires ou arrêtiez d’attendre',
+    },
+    {
+      what: 'Double authentification, seulement si vous l’activez : la clé de l’application d’authentification (conservée par Supabase) et vos codes de récupération (conservés uniquement sous forme d’empreintes irréversibles)',
+      why: 'Pour demander un code de votre téléphone à la connexion, et vous laisser entrer avec un code de récupération si vous le perdez.',
+      basis: CONTRACT,
+      retention: 'Jusqu’à ce que vous la désactiviez ou supprimiez votre compte',
+    },
+    {
+      what: 'Signalements : quand vous signalez un joueur, ou qu’un joueur vous signale : qui, le motif, la note et la date',
+      why: 'Pour examiner la triche, les noms injurieux, le harcèlement et le spam, et garder le jeu loyal et sûr.',
+      basis: 'Intérêt légitime à un jeu sûr (art. 6, par. 1, point f) du RGPD)',
+      retention: '12 mois ; moins si le compte signalé est supprimé',
+    },
+    {
+      what: 'Compteurs anti-abus : l’identifiant de votre compte (ou, avant la connexion, votre adresse IP), l’action et le nombre d’essais',
+      why: 'Pour limiter la fréquence des essais de mots de passe, de codes, de vérifications de nom d’utilisateur et de signalements, contre les tentatives de devinette et le spam.',
+      basis: SECURITY,
+      retention: 'Supprimés au bout d’un jour',
     },
     {
       what: 'Compteur d’échecs de connexion : nom d’utilisateur essayé, nombre de mots de passe erronés et moment',
@@ -183,7 +234,7 @@ const inventory: InventoryText = {
     },
     {
       what: 'Événements de connexion conservés par Supabase (moment, adresse IP, navigateur)',
-      why: 'Sécurité du service de connexion.',
+      why: 'Sécurité du service de connexion, et votre liste de connexions récentes dans Paramètres du compte → Sécurité (visible par vous seul).',
       basis: SECURITY,
       retention: SERVICES.authLogRetention,
     },
@@ -217,9 +268,9 @@ const inventory: InventoryText = {
     },
     { name: SERVICES.emailProvider, role: 'Sous-traitant : envoie les e-mails du compte', data: 'Adresse e-mail et contenu de l’e-mail', location: SERVICES.emailProvider },
     {
-      name: 'Autres joueurs',
-      role: 'Voient votre profil public',
-      data: 'Nom d’utilisateur, avatar, statistiques de jeu, date d’inscription',
+      name: 'Autres joueurs et visiteurs',
+      role: 'Voient votre profil, dans la mesure permise par vos paramètres de confidentialité',
+      data: 'Toujours votre pseudo et votre avatar. Avec un profil public (ou « Amis uniquement », pour vos amis), aussi votre bio, votre pays, votre palmarès, vos classements, vos dernières parties et votre date d’inscription. Dans les parties en ligne, votre place, vos coups et votre résultat (pour ses joueurs, et les spectateurs des parties publiques). Vos amis voient quand vous êtes en ligne. Un classement établi figure au tableau des meilleurs.',
       location: 'Partout où l’on joue à Bronze',
     },
   ],
@@ -228,137 +279,157 @@ const inventory: InventoryText = {
 const HEAD = ['Quoi', 'Pourquoi', 'Base juridique', 'Durée']
 const dataRows = (items: DataItem[]) => items.map((d) => [d.what, d.why, d.basis, <Fill key="r" value={d.retention} />])
 
+const storageRows = () =>
+  STORAGE_ITEMS.map((item) => {
+    const text = inventory.storage[item.key]
+    return [
+      <code key="k" className="font-mono text-[0.85em] break-all">
+        {item.key}
+      </code>,
+      text?.where ?? item.where,
+      text?.provider ?? item.provider,
+      text?.purpose ?? item.purpose,
+      text?.duration ?? item.duration,
+    ]
+  })
+
 function PrivacyPolicy() {
   return (
     <LegalPage
       title="Politique de confidentialité"
-      intro={
-        <p>
-          Bronze est un jeu de stratégie auquel vous pouvez jouer dans votre navigateur. En tant qu’invité, vous pouvez jouer sans rien nous dire de vous. Cette
-          politique explique ce que nous traitons lorsque vous créez un compte, pourquoi, et quels sont vos droits.
-        </p>
-      }
+      intro={<p>Cette page explique simplement ce que Bronze sait de vous, pourquoi, qui d’autre le voit et ce que vous pouvez y faire.</p>}
     >
-      <Section id="controller" title="Qui nous sommes">
+      <Section id="short" title="En bref">
+        <Bullets>
+          <li>Vous pouvez jouer contre l’ordinateur en invité. Rien sur vous ne nous est alors envoyé.</li>
+          <li>Un compte demande une adresse e-mail, un mot de passe (ou Google) et un pseudo. Le reste, c’est vous qui décidez.</li>
+          <li>Les parties en ligne gardent chaque coup, pour que le jeu reste loyal et que les parties puissent être revues.</li>
+          <li>Ni publicité, ni statistiques, ni pistage. Nous ne vendons jamais vos données.</li>
+          <li>
+            Dans <strong className={strong}>Paramètres → Compte</strong>, vous pouvez à tout moment télécharger tout ce que nous avons sur vous, ou supprimer votre
+            compte.
+          </li>
+        </Bullets>
+      </Section>
+
+      <Section id="controller" title="Qui sommes-nous">
         <p>
-          Le responsable du traitement de vos données personnelles est <Fill value={OPERATOR.name} /> (<Fill value={OPERATOR.legalForm} />),{' '}
-          <Fill value={OPERATOR.address} />. Code d’entreprise <Fill value={OPERATOR.companyNumber} />. Pour toute question sur vos données, écrivez à{' '}
-          <Email value={OPERATOR.email} />. Voir aussi nos <TextLink to={PATHS.legal}>informations légales</TextLink>.
+          Bronze est exploité par <Fill value={OPERATOR.name} /> (<Fill value={OPERATOR.legalForm} />), <Fill value={OPERATOR.address} />, code d’entreprise{' '}
+          <Fill value={OPERATOR.companyNumber} />. Nous décidons de l’usage de vos données (nous sommes le « responsable du traitement »). Questions sur vos
+          données : <Email value={OPERATOR.email} />. Plus d’infos dans les <TextLink to={PATHS.legal}>informations légales</TextLink>.
         </p>
       </Section>
 
-      <Section id="guests" title="Jouer en tant qu’invité">
+      <Section id="guests" title="Jouer en invité">
         <p>
-          En tant qu’invité, rien vous concernant ne nous est envoyé. Vos parties se jouent dans votre navigateur, et ce dont Bronze se souvient (votre partie en
-          cours et, si vous l’autorisez, vos paramètres et statistiques) reste dans le stockage de votre navigateur. La liste complète figure dans la{' '}
-          <TextLink to={PATHS.cookies}>Politique relative aux cookies</TextLink>. Notre hébergeur voit néanmoins les données techniques que reçoit tout site web :
+          En invité, vous jouez contre l’ordinateur dans votre navigateur. Votre partie, vos réglages et votre palmarès restent dans le stockage de votre navigateur
+          (voir la <TextLink to={PATHS.cookies}>politique relative aux cookies</TextLink>). Comme pour tout site web, notre hébergeur voit quelques données
+          techniques :
         </p>
-        <DataTable caption="Données traitées pour chaque visiteur" head={HEAD} rows={dataRows(inventory.visitor)} />
+        <DataTable caption="Données de tous les visiteurs" head={HEAD} rows={dataRows(inventory.visitor)} />
       </Section>
 
-      <Section id="account" title="Avec un compte">
+      <Section id="account" title="Ce que nous gardons si vous avez un compte">
+        <p>Nous ne gardons que ce dont Bronze a besoin. Nous ne demandons jamais votre date de naissance, votre adresse ni votre position. Bio, pays et photo sont facultatifs.</p>
+        <DataTable caption="Données des titulaires de compte" head={HEAD} rows={dataRows(inventory.account)} />
         <p>
-          Un compte est facultatif. Il vous permet de conserver vos statistiques et succès d’un appareil à l’autre, et il sera nécessaire pour le jeu en ligne quand
-          celui-ci arrivera. Nous ne collectons que ce dont le compte a besoin : ni numéro de téléphone, ni date de naissance, ni localisation.
-        </p>
-        <DataTable caption="Données traitées pour les titulaires d’un compte" head={HEAD} rows={dataRows(inventory.account)} />
-        <p>
-          Lorsque vous supprimez votre compte, tout ce qui précède est supprimé immédiatement. Des copies peuvent subsister dans les sauvegardes de la base de
-          données jusqu’à <Fill value={SERVICES.backupRetention} />, jusqu’à ce qu’elles soient écrasées. Si vous commencez à vous connecter avec Google sans
-          terminer la création du compte, choisir « Pas maintenant » le supprime aussitôt ; sinon, l’inscription inachevée est supprimée au bout de 7 jours. Il en
-          va de même d’une inscription par e-mail jamais confirmée.
-        </p>
-        <p>
-          Nous ne vendons pas vos données, ne vous montrons pas de publicité, ne vous profilons pas et ne prenons aucune décision automatisée à votre sujet.
-          Bronze n’a aucun outil de mesure d’audience ou de suivi.
+          La « base juridique » est la règle du RGPD (la loi européenne sur la protection des données) qui autorise chaque usage. « Contrat » signifie que nous en
+          avons besoin pour vous offrir le jeu auquel vous vous êtes inscrit.
         </p>
       </Section>
 
-      <Section id="emails" title="E-mails">
-        <p>
-          Nous envoyons les e-mails de compte dont vous avez besoin : confirmation de votre adresse et réinitialisation du mot de passe. Ils ne contiennent rien
-          d’autre. Nous n’enverrions des nouvelles ou d’autres e-mails facultatifs que si vous les activez, et jamais à une personne de moins de 18 ans. Bronze
-          n’envoie encore aucun e-mail facultatif. Chaque e-mail facultatif comportera un lien de désabonnement en un clic, et vous pouvez modifier vos choix à
-          tout moment dans Paramètres → Notifications.
-        </p>
+      <Section id="online" title="Jouer en ligne">
+        <Bullets>
+          <li>Chaque coup d’une partie en ligne est vérifié et enregistré par notre serveur. Les joueurs d’une partie, et les spectateurs des parties publiques, voient le plateau, les noms et les coups. Personne d’autre ne voit vos cartes.</li>
+          <li>Les parties terminées peuvent être revues par leurs joueurs, et les publiques par tout le monde.</li>
+          <li>Les parties classées modifient votre classement. Il figure sur votre profil et, une fois établi (après 10 parties classées), au tableau des meilleurs.</li>
+          <li>Vos amis voient quand vous êtes en ligne, c’est-à-dire quand votre application a contacté notre serveur dans les 2 dernières minutes.</li>
+          <li>
+            Vous choisissez qui voit votre profil et votre historique dans <strong className={strong}>Paramètres du compte → Confidentialité</strong> :{' '}
+            <strong className={strong}>Public</strong> (tout le monde), <strong className={strong}>Amis uniquement</strong> ou <strong className={strong}>Privé</strong>{' '}
+            (vous seul). Votre pseudo et votre photo sont toujours visibles, votre adresse e-mail jamais. Les comptes des joueurs de moins de 18 ans commencent en
+            « Amis uniquement ».
+          </li>
+        </Bullets>
       </Section>
 
-      <Section id="recipients" title="Qui d’autre traite vos données">
+      <Section id="recipients" title="Qui d’autre voit vos données">
+        <p>Ces entreprises nous aident à faire tourner Bronze. Elles ne peuvent utiliser vos données que pour ce travail (ce sont des « sous-traitants »), sauf Google.</p>
         <DataTable
           caption="Destinataires des données personnelles"
           head={['Qui', 'Rôle', 'Quoi', 'Où']}
           rows={inventory.recipients.map((r) => [<Fill key="n" value={r.name} />, r.role, r.data, <Fill key="l" value={r.location} />])}
         />
-        <Sub title="Transferts hors de l’EEE">
-          <p>
-            Supabase, Inc. est établie aux États-Unis. Les données de votre compte sont stockées dans la région du projet indiquée ci-dessus ; lorsqu’elles sont
-            consultées ou transférées hors de l’Espace économique européen, elles sont protégées par <Fill value={SERVICES.transferSafeguards} />. Vous pouvez
-            nous demander une copie de ces garanties.
-          </p>
-        </Sub>
+        <p>
+          Supabase est une entreprise américaine. Lorsque vos données quittent l’Espace économique européen, elles sont protégées par{' '}
+          <Fill value={SERVICES.transferSafeguards} />. Vous pouvez nous en demander une copie.
+        </p>
       </Section>
 
       <Section id="rights" title="Vos droits">
-        <p>En vertu du RGPD, vous pouvez :</p>
         <Bullets>
           <li>
-            <strong className={strong}>accéder</strong> à vos données et <strong className={strong}>les emporter</strong> (portabilité) : Paramètres → Compte →
-            Télécharger mes données vous en donne une copie sous forme de fichier ;
+            <strong className={strong}>Voir et emporter vos données</strong> : <strong className={strong}>Paramètres → Compte → Télécharger mes données</strong> vous
+            donne un fichier (JSON) avec tout ce qui précède : compte, profil, palmarès, parties en ligne avec vos coups, classements, amis et invitations.
           </li>
           <li>
-            les <strong className={strong}>rectifier</strong> : écrivez-nous, ou modifiez vos paramètres dans le jeu ;
+            <strong className={strong}>Les supprimer</strong> : <strong className={strong}>Paramètres → Compte → Supprimer mon compte</strong>. Vous tapez votre pseudo
+            pour confirmer, et tout est supprimé aussitôt. Les parties en ligne jouées restent pour les autres joueurs, avec « Joueur supprimé » à votre place et
+            sans lien avec vous. Les sauvegardes sont écrasées sous <Fill value={SERVICES.backupRetention} />.
           </li>
           <li>
-            les <strong className={strong}>effacer</strong> : Paramètres → Compte → Supprimer mon compte ;
+            <strong className={strong}>Les corriger</strong> : dans les paramètres du compte, ou en nous le demandant.
           </li>
           <li>
-            vous <strong className={strong}>opposer</strong> à un traitement fondé sur l’intérêt légitime, ou en demander la{' '}
-            <strong className={strong}>limitation</strong> ;
+            <strong className={strong}>Vous opposer ou demander une limitation</strong> lorsque nous nous fondons sur l’« intérêt légitime ».
           </li>
           <li>
-            <strong className={strong}>retirer votre consentement</strong> à tout moment, sans effet sur ce qui précède : Paramètres des cookies (en pied de
-            page) et Paramètres → Notifications ;
+            <strong className={strong}>Retirer votre consentement</strong> (par exemple aux e-mails facultatifs) dans <strong className={strong}>Paramètres → Notifications</strong>.
           </li>
           <li>
-            <strong className={strong}>introduire une réclamation</strong> auprès de l’autorité lituanienne de protection des données, l’Inspection nationale de
-            la protection des données (<span lang="lt">Valstybinė duomenų apsaugos inspekcija, L. Sapiegos g. 17, LT-10312 Vilnius</span>, ada@ada.lt,{' '}
+            <strong className={strong}>Porter plainte</strong> auprès de l’autorité lituanienne de protection des données, l’Inspection nationale de la protection des
+            données (Valstybinė duomenų apsaugos inspekcija, <span lang="lt">L. Sapiegos g. 17, LT-10312 Vilnius</span>, ada@ada.lt,{' '}
             <a href="https://vdai.lrv.lt" className={link} rel="noopener">
               vdai.lrv.lt
             </a>
-            ), ou auprès de l’autorité de votre lieu de résidence.
+            ), ou auprès de celle de votre pays (en France, la CNIL).
           </li>
         </Bullets>
         <p>
-          Si vous ne pouvez pas vous connecter, utilisez la <TextLink to={PATHS.dataRequest}>page des demandes relatives aux données</TextLink> ou écrivez à{' '}
-          <Email value={OPERATOR.email} />. Nous répondons sous 30 jours (un mois). Pour les demandes complexes, nous pouvons prolonger ce délai de deux mois au
-          plus, et nous vous en indiquerons la raison au cours du premier mois. Nous pouvons vous demander de confirmer la demande depuis l’adresse e-mail de votre
-          compte, afin que personne d’autre n’obtienne vos données.
+          Vous ne pouvez pas vous connecter ? Utilisez la <TextLink to={PATHS.dataRequest}>page des demandes de données</TextLink> ou écrivez à{' '}
+          <Email value={OPERATOR.email} />. Nous répondons sous 30 jours. Une demande complexe peut prendre jusqu’à deux mois de plus ; nous vous dirons alors
+          pourquoi pendant le premier mois. Nous pouvons vous demander de confirmer depuis l’adresse e-mail du compte, pour que personne d’autre n’obtienne vos
+          données.
+        </p>
+      </Section>
+
+      <Section id="emails" title="E-mails">
+        <p>
+          Nous envoyons les e-mails nécessaires à votre compte : confirmation d’adresse, réinitialisation du mot de passe, et un message quand votre mot de passe,
+          votre e-mail ou votre double authentification changent. Le reste (comme les nouveautés) seulement si vous l’activez, et jamais aux moins de 18 ans. Chaque
+          e-mail facultatif a un lien de désinscription.
         </p>
       </Section>
 
       <Section id="children" title="Enfants">
         <p>
-          Les comptes sont réservés aux personnes de {MIN_ACCOUNT_AGE} ans ou plus ({MIN_ACCOUNT_AGE} ans est l’âge à partir duquel une personne peut, en
-          Lituanie, consentir elle-même aux services en ligne selon l’article 8 du RGPD). Les joueurs plus jeunes peuvent jouer en tant qu’invités, ce qui ne
-          conserve rien à leur sujet chez nous. À l’inscription, nous demandons si vous avez 14–17 ans ou 18 ans et plus ; nous ne demandons pas votre date de
-          naissance. Nous n’envoyons jamais de marketing aux moins de 18 ans, et toute personne de moins de 18 ans a besoin de l’autorisation d’un parent ou
-          tuteur pour tout achat (Bronze ne vend rien aujourd’hui). Si nous apprenons qu’un compte appartient à une personne de moins de {MIN_ACCOUNT_AGE} ans,
-          nous le supprimons.
+          Les comptes sont réservés aux personnes de {MIN_ACCOUNT_AGE} ans et plus ({MIN_ACCOUNT_AGE} ans est l’âge auquel on peut, en Lituanie, accepter seul des
+          services en ligne). Les plus jeunes peuvent jouer en invité. Nous demandons si vous avez 14–17 ans ou 18 ans et plus, pas votre date de naissance. Si nous
+          apprenons qu’un compte appartient à une personne de moins de {MIN_ACCOUNT_AGE} ans, nous le supprimons.
         </p>
       </Section>
 
       <Section id="security" title="Sécurité">
         <p>
-          Les connexions sont chiffrées (HTTPS). Les mots de passe ne sont conservés que sous forme d’empreintes. Chaque joueur ne peut lire et modifier que ses
-          propres données privées ; après 5 mots de passe erronés, les connexions pour ce nom d’utilisateur sont suspendues 30 secondes.
+          Les connexions sont chiffrées (HTTPS). Les mots de passe et codes de récupération ne sont conservés que sous forme d’empreintes illisibles. Chaque joueur
+          ne voit que ses propres données privées. Les connexions sont suspendues après 5 mauvais mots de passe. Dans{' '}
+          <strong className={strong}>Paramètres du compte → Sécurité</strong>, vous pouvez activer la double authentification, voir vos dernières connexions et
+          déconnecter vos autres appareils.
         </p>
       </Section>
 
-      <Section id="changes" title="Modifications de cette politique">
-        <p>
-          Lorsque nous modifions cette politique, nous mettons à jour la date en haut de la page. Nous vous informerons des changements importants avant leur
-          entrée en vigueur, dans le jeu ou par e-mail.
-        </p>
+      <Section id="changes" title="Modifications">
+        <p>Quand cette politique change, la date en haut change. Nous vous prévenons des changements importants à l’avance, dans le jeu ou par e-mail.</p>
       </Section>
     </LegalPage>
   )
@@ -370,101 +441,100 @@ function TermsOfService() {
       title="Conditions d’utilisation"
       intro={
         <p>
-          Ces conditions sont l’accord entre vous et <Fill value={OPERATOR.name} /> (« nous ») sur l’utilisation de Bronze. En créant un compte, vous les
-          acceptez. Si vous jouez en tant qu’invité, seules s’appliquent les parties sur le jeu loyal et sur la fourniture du jeu en l’état.
+          Voici les règles d’utilisation de Bronze : un accord entre vous et <Fill value={OPERATOR.name} /> (« nous »). En créant un compte, vous les acceptez. Pour
+          les invités, seules les parties sur le fair-play et sur le jeu fourni « tel quel » s’appliquent.
         </p>
       }
     >
-      <Section id="eligibility" title="Qui peut jouer">
+      <Section id="fan-made" title="Un jeu de fans">
         <p>
-          Tout le monde peut jouer en tant qu’invité. Pour créer un compte, vous devez avoir au moins {MIN_ACCOUNT_AGE} ans. Si vous avez moins de 18 ans, un
-          parent ou tuteur doit donner son accord avant tout achat (Bronze ne vend rien aujourd’hui).
+          Bronze est un jeu de fans inspiré de Brass. Il n’est ni affilié à Roxley Games ou aux auteurs de Brass, ni approuvé par eux. Bronze est gratuit : il n’y a
+          rien à acheter et pas de monnaie de jeu.
         </p>
+      </Section>
+
+      <Section id="eligibility" title="Qui peut jouer">
+        <p>Tout le monde peut jouer contre l’ordinateur en invité. Pour un compte et le jeu en ligne, vous devez avoir au moins {MIN_ACCOUNT_AGE} ans.</p>
       </Section>
 
       <Section id="accounts" title="Votre compte">
         <Bullets>
-          <li>Un compte par personne. Utilisez une vraie adresse e-mail à laquelle vous avez accès, et ne communiquez votre mot de passe à personne.</li>
-          <li>Vous êtes responsable de ce qui se passe sur votre compte, sauf si quelqu’un y a accédé sans faute de votre part.</li>
-          <li>Vous pouvez supprimer votre compte à tout moment : Paramètres → Compte.</li>
+          <li>Un compte par personne. Utilisez une adresse e-mail que vous consultez, et gardez votre mot de passe pour vous.</li>
+          <li>Vous êtes responsable de ce qui se passe sur votre compte, sauf si quelqu’un y est entré sans faute de votre part.</li>
+          <li>Vous pouvez supprimer votre compte à tout moment dans Paramètres → Compte.</li>
         </Bullets>
       </Section>
 
-      <Section id="usernames" title="Noms d’utilisateur">
+      <Section id="usernames" title="Pseudos">
         <p>
-          Les noms d’utilisateur comptent 3 à 20 lettres, chiffres et tirets bas, et sont visibles par les autres joueurs. Ne choisissez pas un nom qui usurpe
-          l’identité de quelqu’un, qui insulte ou harcèle, qui incite à la haine, qui est à caractère sexuel ou qui fait de la publicité. Nous pouvons vous
-          demander de changer un nom qui enfreint ces règles, ou le changer nous-mêmes si vous ne le faites pas.
+          Les pseudos font 3 à 20 lettres, chiffres et tirets bas, et tout le monde les voit. N’en choisissez pas un qui usurpe l’identité de quelqu’un, insulte, est
+          haineux ou sexuel, ou fait de la publicité. Si le vôtre enfreint ces règles, nous pouvons vous demander de le changer, ou le changer nous-mêmes.
         </p>
       </Section>
 
-      <Section id="fair-play" title="Jeu loyal">
-        <p>Jouez au jeu comme il est conçu. Il est interdit :</p>
+      <Section id="fair-play" title="Fair-play">
+        <p>Jouez loyalement et restez aimable. Il est interdit de :</p>
         <Bullets>
-          <li>de tricher, d’utiliser des robots ou scripts qui jouent à votre place, ou d’exploiter des bugs (signalez-les-nous plutôt) ;</li>
-          <li>de perturber le service, les comptes des autres joueurs ou les serveurs ;</li>
-          <li>de harceler, menacer ou insulter d’autres joueurs, ou de partager quoi que ce soit d’illégal.</li>
+          <li>tricher, laisser un programme jouer à votre place en ligne, ou gagner grâce à des bugs (signalez-les-nous plutôt) ;</li>
+          <li>quitter exprès une partie pour ne pas perdre, ou jouer avec plusieurs comptes dans une même partie ;</li>
+          <li>attaquer le service, les comptes d’autres joueurs ou nos serveurs ;</li>
+          <li>harceler, menacer ou insulter d’autres joueurs, ou partager quoi que ce soit d’illégal.</li>
         </Bullets>
-      </Section>
-
-      <Section id="virtual-items" title="Objets et monnaie virtuels">
         <p>
-          Bronze n’a aujourd’hui ni objets virtuels ni monnaie de jeu. S’il en existe plus tard : ils constituent une licence d’utilisation dans Bronze, et non une
-          propriété ; ils n’ont aucune valeur réelle et ne peuvent être échangés contre de l’argent, vendus ou transférés vers un autre compte. Cela n’affecte pas
-          vos droits de consommateur sur ce que vous avez payé (voir la <TextLink to={PATHS.refunds}>Politique de remboursement</TextLink>).
+          Un joueur qui quitte une partie en ligne commencée la perd : un bot termine à sa place et il finit dernier. Vous pouvez signaler un joueur depuis son
+          profil.
         </p>
       </Section>
 
-      <Section id="content" title="Le jeu et son contenu">
+      <Section id="content" title="Le jeu">
         <p>
-          Bronze, ses illustrations, ses cartes et son code appartiennent à <Fill value={OPERATOR.name} /> ou à ses concédants de licence (voir les{' '}
-          <TextLink to={PATHS.credits}>Crédits</TextLink>). Vous pouvez y jouer pour votre usage personnel et non commercial.
+          L’application Bronze, ses illustrations, ses cartes et son code appartiennent à <Fill value={OPERATOR.name} /> ou à leurs créateurs (voir les{' '}
+          <TextLink to={PATHS.credits}>crédits</TextLink>). Vous pouvez y jouer pour votre plaisir, à titre non commercial.
         </p>
       </Section>
 
-      <Section id="termination" title="Suspension et fermeture des comptes">
+      <Section id="termination" title="Si vous enfreignez les règles">
         <p>
-          Si vous enfreignez ces conditions de manière grave ou répétée, nous pouvons suspendre ou fermer votre compte. Sauf si cela était dangereux ou illégal, nous
-          vous en indiquerons d’abord la raison et vous donnerons la possibilité de répondre. Vous pouvez fermer votre compte à tout moment.
+          Si vous enfreignez ces règles gravement ou de façon répétée, nous pouvons suspendre ou fermer votre compte. Sauf si ce serait dangereux ou illégal, nous
+          vous disons d’abord pourquoi et vous laissons répondre.
         </p>
       </Section>
 
-      <Section id="disclaimers" title="Disponibilité">
+      <Section id="disclaimers" title="Le jeu « tel quel »">
         <p>
-          Bronze est une version précoce. Nous faisons de notre mieux pour qu’il fonctionne et que vos données restent en sécurité, mais les fonctionnalités peuvent
-          changer et le service peut être indisponible ou comporter des bugs. La progression en tant qu’invité n’existe que dans votre navigateur : si vous effacez
-          les données de votre navigateur, elle disparaît.
+          Bronze est une première version. Nous faisons en sorte qu’il fonctionne et que vos données soient en sécurité, mais les fonctions peuvent changer, et il
+          peut être indisponible ou avoir des bugs. Les classements et résultats peuvent être corrigés si un bug ou une triche les a faussés. La progression invité ne
+          vit que dans votre navigateur : effacer les données du navigateur la supprime.
         </p>
       </Section>
 
       <Section id="liability" title="Responsabilité">
         <p>
-          Bronze est gratuit. Nous ne sommes pas responsables des pertes indirectes ni des pertes que vous auriez pu éviter. Rien dans ces conditions ne limite la
-          responsabilité en cas de décès ou de dommage corporel causé par négligence, de fraude, de dommage causé intentionnellement ou par négligence grave, ni
-          aucune autre responsabilité que la loi ne permet pas de limiter. Vos droits légaux de consommateur ne sont pas affectés.
+          Bronze est gratuit. Nous ne sommes pas responsables des pertes indirectes, ni de celles que vous auriez pu éviter. Cela ne limite jamais notre
+          responsabilité en cas de décès ou de blessure dus à une négligence, de fraude, de dommage causé volontairement ou par faute lourde, ni pour tout ce que la
+          loi ne permet pas de limiter. Vos droits de consommateur restent intacts.
         </p>
       </Section>
 
       <Section id="law" title="Droit applicable et litiges">
         <p>
-          Ces conditions sont régies par le droit lituanien. Si vous êtes un consommateur résidant dans l’UE, vous conservez en outre la protection des règles
-          impératives de protection des consommateurs de votre pays de résidence et pouvez saisir ses tribunaux.
+          Ces conditions sont régies par le droit lituanien. Si vous êtes un consommateur vivant dans l’UE, le droit de la consommation de votre pays vous protège
+          toujours, et vous pouvez saisir ses tribunaux.
         </p>
         <p>
-          Contactez-nous d’abord à <Email value={OPERATOR.email} />. Les consommateurs peuvent aussi s’adresser au Service national lituanien de protection des
-          droits des consommateurs (<span lang="lt">Valstybinė vartotojų teisių apsaugos tarnyba</span>,{' '}
+          Contactez-nous d’abord : <Email value={OPERATOR.email} />. Les consommateurs peuvent aussi s’adresser au Service national lituanien de protection des
+          droits des consommateurs (Valstybinė vartotojų teisių apsaugos tarnyba,{' '}
           <a href="https://vvtat.lrv.lt" className={link} rel="noopener">
             vvtat.lrv.lt
           </a>
-          ), qui règle les litiges de consommation à l’amiable.
+          ), qui aide à régler les litiges à l’amiable.
         </p>
       </Section>
 
-      <Section id="changes" title="Modifications de ces conditions">
+      <Section id="changes" title="Modifications">
         <p>
-          Nous pouvons mettre à jour ces conditions, par exemple lorsque de nouvelles fonctionnalités arrivent. Nous vous informerons des changements importants
-          avant leur entrée en vigueur, dans le jeu ou par e-mail. Si vous n’êtes pas d’accord, vous pouvez supprimer votre compte ; sinon, les nouvelles
-          conditions s’appliquent à compter de leur date.
+          Nous pouvons mettre à jour ces conditions, par exemple à l’arrivée de nouvelles fonctions. Nous vous prévenons des changements importants à l’avance, dans
+          le jeu ou par e-mail. Si vous n’êtes pas d’accord, vous pouvez supprimer votre compte.
         </p>
       </Section>
 
@@ -504,59 +574,31 @@ function RefundPolicy() {
 }
 
 function CookiePolicy() {
-  const title = (id: string) => inventory.categories.find((c) => c.id === id)!.title
   return (
     <LegalPage
       title="Politique relative aux cookies"
       intro={
         <p>
-          Bronze utilise un cookie et quelques entrées dans le stockage local et de session de votre navigateur. Tous appartiennent à Bronze : rien n’est partagé
-          avec d’autres sites, et il n’y a aucun traceur publicitaire, de mesure d’audience ou de réseaux sociaux.
+          Bronze utilise un cookie et quelques entrées dans le stockage de votre navigateur, uniquement pour ce dont Bronze a besoin pour fonctionner. Tous
+          appartiennent à Bronze : rien n’est partagé avec d’autres sites, et il n’y a ni publicité, ni statistiques, ni traceurs de réseaux sociaux.
         </p>
       }
     >
-      <Section id="categories" title="Catégories">
-        <Bullets>
-          {inventory.categories.map((c) => (
-            <li key={c.id}>
-              <strong className={strong}>{c.title}.</strong> {c.description}
-            </li>
-          ))}
-        </Bullets>
+      <Section id="essential" title="Seulement le nécessaire">
         <p>
-          Le stockage essentiel est nécessaire à ce que vous demandez à Bronze ; il ne requiert donc pas votre consentement. Tout le reste attend votre
-          consentement : tant que vous n’autorisez pas les Préférences, vos paramètres ne durent que jusqu’à la fermeture de la page.
+          Tout ce qui suit est indispensable : cela vous garde connecté, conserve votre partie en cours et retient vos réglages et vos choix. La loi ne demande pas
+          votre consentement pour ce type de stockage ; Bronze affiche donc une fois un avis, au lieu de vous demander d’accepter ou de refuser.
         </p>
       </Section>
 
-      <Section id="list" title="Tout ce que Bronze enregistre">
-        <DataTable
-          caption="Cookies et stockage utilisés par Bronze"
-          head={['Nom', 'Type', 'Fournisseur', 'Finalité', 'Catégorie', 'Durée']}
-          rows={STORAGE_ITEMS.map((item) => {
-            const text = inventory.storage[item.key]
-            return [
-              <code key="k" className="font-mono text-[0.85em] break-all">
-                {item.key}
-              </code>,
-              text?.where ?? item.where,
-              text?.provider ?? item.provider,
-              text?.purpose ?? item.purpose,
-              title(item.category),
-              text?.duration ?? item.duration,
-            ]
-          })}
-        />
+      <Section id="list" title="Tout ce que Bronze stocke">
+        <DataTable caption="Cookies et stockage utilisés par Bronze" head={['Nom', 'Type', 'Fournisseur', 'Finalité', 'Durée']} rows={storageRows()} />
       </Section>
 
-      <Section id="choices" title="Vos choix">
+      <Section id="choices" title="Tout effacer">
         <p>
-          Vous pouvez modifier vos choix à tout moment dans les{' '}
-          <button type="button" onClick={() => consentStore.reopen()} className={link}>
-            Paramètres des cookies
-          </button>{' '}
-          (également en pied de chaque page). Désactiver une catégorie supprime ce qu’elle a enregistré. Vous pouvez aussi effacer tout ce que Bronze a enregistré
-          dans Paramètres → Compte, ou via votre navigateur. Nous vous redemandons après 12 mois, ou plus tôt si cette politique change.
+          Vous pouvez effacer tout ce que Bronze a stocké dans ce navigateur via Paramètres → Compte → Effacer cet appareil, ou dans les réglages de votre
+          navigateur. Vous serez déconnecté, et votre progression invité sera perdue.
         </p>
         <p>
           En savoir plus sur vos données : <TextLink to={PATHS.privacy}>Politique de confidentialité</TextLink>.

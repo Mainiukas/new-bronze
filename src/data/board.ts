@@ -99,6 +99,11 @@ export interface BoardLink {
   type: LinkType
   /** Up to 3 bend points in %, set in the editor. Without them the link gets an automatic bend. */
   points?: [number, number][]
+  /**
+   * Keep the automatic bend to one gentle arc: at most this many % of the
+   * link's length off the straight line (no wide sweeps). Up to MAX_GENTLE_BEND.
+   */
+  maxBend?: number
 }
 
 export interface BoardData {
@@ -114,7 +119,7 @@ export interface BuiltState {
    * Key from slotKey(locationId, slotIndex). `stars` is the ★ value shown on
    * the tile; `goods` the cotton waiting at a mill (shown as pips).
    */
-  slots: Record<string, { player: number; industry: Industry; goods?: number; stars?: number }>
+  slots: Record<string, { player: number; industry: Industry; goods?: number; stars?: number; level?: number; flipped?: boolean; cubes?: number }>
   /** Link id → owner. Built links are drawn as the current era's token. */
   links: Record<string, { player: number }>
 }
@@ -123,6 +128,8 @@ export const EMPTY_BUILT: BuiltState = { slots: {}, links: {} }
 
 export const MAX_SLOTS = 4
 export const MAX_BEND_POINTS = 3
+/** The most a `maxBend` link may curve: % of its length. */
+export const MAX_GENTLE_BEND = 8
 
 export function slotKey(locationId: string, slotIndex: number): string {
   return `${locationId}:${slotIndex}`
@@ -215,6 +222,10 @@ export function validateBoardData(raw: unknown): string[] {
     if (pairs.has(pair)) errors.push(`${where}: another link already joins these two locations`)
     pairs.add(pair)
     if (!['canal', 'rail', 'both'].includes(link.type as string)) errors.push(`${where}: type must be canal, rail or both`)
+    if (link.maxBend !== undefined && (!isNumber(link.maxBend) || link.maxBend < 0 || link.maxBend > MAX_GENTLE_BEND)) {
+      errors.push(`${where}: maxBend must be a number from 0 to ${MAX_GENTLE_BEND}`)
+    }
+    if (link.maxBend !== undefined && link.points !== undefined) errors.push(`${where}: a link has either points or maxBend, not both`)
     if (link.points !== undefined) {
       const points = link.points
       if (
@@ -275,7 +286,7 @@ export interface BoardDesign {
   tiles: Record<number, number>
 }
 
-export const BOARD_DESIGN: BoardDesign = { start: 'birmingham', links: { both: 16, canal: 6, rail: 17 }, tiles: { 4: 2, 3: 4, 2: 10, 1: 3 } }
+export const BOARD_DESIGN: BoardDesign = { start: 'birmingham', links: { both: 17, canal: 5, rail: 17 }, tiles: { 4: 2, 3: 4, 2: 10, 1: 3 } }
 
 /**
  * Everything about the network that breaks its design, as readable messages:
@@ -317,7 +328,7 @@ export function designProblems(board: BoardData, design: BoardDesign): string[] 
 /* ------------------------------------------------------------------------ */
 
 const LOCATION_KEYS = ['id', 'name', 'type', 'x', 'y', 'region', 'ring', 'era', 'labelOffset', 'slots', 'price', 'buys']
-const LINK_KEYS = ['id', 'from', 'to', 'type', 'points']
+const LINK_KEYS = ['id', 'from', 'to', 'type', 'points', 'maxBend']
 
 /** One object per line, `{ "key": value, ... }` in a fixed key order, as board.json is laid out. */
 function inline(obj: object, keys?: string[]): string {

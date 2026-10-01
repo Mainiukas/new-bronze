@@ -1,17 +1,13 @@
-import { useEffect, useState } from 'react'
-import { useConsent } from '../legal/consent'
-import { categoryOf } from '../legal/inventory'
-import { readStorage, writeStorage } from '../lib/storage'
+import { useEffect, useRef, useState } from 'react'
+import { readStorage, removeStorage, writeStorage } from '../lib/storage'
 
 /**
  * useState that is initialised from, and saved back to, localStorage.
  *
  * `parse` validates the stored value and returns undefined when it is
  * unusable (wrong type, a map id that no longer exists, ...), in which case
- * `fallback` is used instead.
- *
- * Keys in an optional category are only saved once the visitor allows it
- * (until then they live in memory); allowing it later saves the current value.
+ * `fallback` is used instead. The fallback itself is never stored: setting
+ * the value back to it removes the key (a cleared guest record stays cleared).
  */
 export function usePersistentState<T>(
   key: string,
@@ -22,13 +18,11 @@ export function usePersistentState<T>(
     const raw = readStorage(key)
     return (raw === undefined ? undefined : parse(raw)) ?? fallback
   })
-  const category = categoryOf(key)
-  const { record } = useConsent()
-  const allowed = category === 'essential' || record?.choices[category] === true
-
+  const initial = useRef(fallback)
   useEffect(() => {
-    if (allowed) writeStorage(key, value)
-  }, [key, value, allowed])
+    if (Object.is(value, initial.current)) removeStorage(key)
+    else writeStorage(key, value)
+  }, [key, value])
 
   return [value, setValue] as const
 }

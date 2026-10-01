@@ -627,6 +627,13 @@ function candidatesFor(link: BoardLink, a: Point, b: Point): Candidate[] {
     return { segments, line, coarse, box: lineBounds(coarse), marker: pointAtLength(line, line.total / 2) }
   }
   if (link.points?.length) return [make(catmullRom([a, ...link.points.map(([x, y]) => toView({ x, y })), b]))]
+  if (link.maxBend !== undefined) {
+    // One gentle symmetric arc (never an S), at most maxBend % of the length: the gentlest that fits is preferred.
+    const max = link.maxBend / 100
+    const steps = [0.5, 0.25, 0.75, 1, 0].map((k) => k * max)
+    const sign = seededRandom(link.id)() < 0.5 ? -1 : 1
+    return steps.flatMap((k) => (k === 0 ? [0] : [sign * k, -sign * k])).map((bend) => make([bentCubic(a, b, bend, 0)]))
+  }
   const random = seededRandom(link.id)
   const sign = random() < 0.5 ? -1 : 1
   const bend = BENDS[Math.floor(random() * BENDS.length)]

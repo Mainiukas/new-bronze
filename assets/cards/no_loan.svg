@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6dca0"/><stop offset=".5" stop-color="#c79a52"/><stop offset="1" stop-color="#8a6128"/></linearGradient>
+<radialGradient id="bk" cx=".5" cy=".45" r=".7"><stop offset="0" stop-color="#241c16"/><stop offset="1" stop-color="#0b0806"/></radialGradient>
+<filter id="gr"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".12"/></feComponentTransfer><feComposite in2="SourceGraphic" operator="in"/><feBlend in2="SourceGraphic" mode="multiply"/></filter>
+<radialGradient id="c" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#fff2b0"/><stop offset=".45" stop-color="#f2c043"/><stop offset="1" stop-color="#a86a12"/></radialGradient></defs>
+<circle cx="50" cy="50" r="30" fill="url(#c)" stroke="#5a3a08" stroke-width="3"/>
+<text x="50" y="61" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="30" fill="#6b4208">£</text>
+<circle cx="50" cy="50" r="43" fill="none" stroke="#1a0404" stroke-width="12"/>
+<circle cx="50" cy="50" r="43" fill="none" stroke="#d62b24" stroke-width="8"/>
+<line x1="20" y1="20" x2="80" y2="80" stroke="#1a0404" stroke-width="12" stroke-linecap="round"/>
+<line x1="20" y1="20" x2="80" y2="80" stroke="#d62b24" stroke-width="8" stroke-linecap="round"/></svg>

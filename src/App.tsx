@@ -9,19 +9,21 @@ import type { MatchSetup } from './components/MatchSetupPanel'
 import { MobileTabBar, MobileTopBar, MoreSheet } from './components/MobileNav'
 import type { LobbyProfile } from './components/ProfileChip'
 import { SceneBackground } from './components/SceneBackground'
+import { VerifyEmailBanner } from './components/VerifyEmail'
 import { Sidebar } from './components/Sidebar'
 import { backgroundForPage } from './components/theme/backgrounds'
 import { PageBackground } from './components/theme/PageBackground'
 import { markFirstPaint, whenFirstPaint } from './components/theme/firstPaint'
 import { hideSplash } from './components/theme/splash'
 import { ToastProvider } from './components/ToastProvider'
-import { DEFAULT_GAME_MODE_ID, isGameModeId } from './data/gameModes'
-import { DEFAULT_MAP_ID, getMap, isMapId } from './data/maps'
+import { DEFAULT_GAME_MODE_ID, isPlayableModeId } from './data/gameModes'
+import { DEFAULT_MAP_ID, getMap, isPlayableMapId } from './data/maps'
 import { DEFAULT_SETUP, parseSavedSetup } from './data/matchSetup'
 import { isAuthPath, PATHS, type MenuAction } from './data/navigation'
 import { ANIMATION_SCALE, defaultSettings, parseSettings } from './data/settings'
-import { createGame, parseSavedGame, readSavedGame } from './game/engine'
-import type { GameState } from './game/types'
+import { RULES } from './rules/context'
+import { roundsInEra } from './rules/engine'
+import { parseSavedMatch, savedMatchStatus, startBrassMatch, type BrassMatch } from './rules/match'
 import { useAuth } from './hooks/useAuth'
 import type { AuthLocationState } from './hooks/useOpenAuth'
 import { usePersistentState } from './hooks/usePersistentState'
@@ -42,9 +44,10 @@ import { Tournaments } from './pages/Tournaments'
 // Loaded when first needed, so the first page has less to download: the match screen and the map board,
 // the account screens, the Rules and Settings dialogs, and the legal pages. The likely next ones are also
 // fetched once the first page has loaded and the browser is idle (main.tsx).
-const Game = lazy(() => import('./pages/Game').then((module) => ({ default: module.Game })))
+const BrassGame = lazy(() => import('./pages/BrassGame').then((module) => ({ default: module.BrassGame })))
 const MapBoard = lazy(() => import('./pages/MapBoard').then((module) => ({ default: module.MapBoard })))
 const AuthScreen = lazy(() => import('./pages/AuthScreen').then((module) => ({ default: module.AuthScreen })))
+const Welcome = lazy(() => import('./pages/Welcome').then((module) => ({ default: module.Welcome })))
 const SettingsModal = lazy(() => import('./components/SettingsModal').then((module) => ({ default: module.SettingsModal })))
 const HowToPlayModal = lazy(() => import('./components/InfoModals').then((module) => ({ default: module.HowToPlayModal })))
 const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy').then((module) => ({ default: module.PrivacyPolicy })))
@@ -55,6 +58,14 @@ const LegalNotice = lazy(() => import('./pages/legal/LegalNotice').then((module)
 const DataRequest = lazy(() => import('./pages/legal/DataRequest').then((module) => ({ default: module.DataRequest })))
 const Credits = lazy(() => import('./pages/legal/Credits').then((module) => ({ default: module.Credits })))
 const Unsubscribe = lazy(() => import('./pages/legal/Unsubscribe').then((module) => ({ default: module.Unsubscribe })))
+const PublicProfile = lazy(() => import('./pages/PublicProfile').then((module) => ({ default: module.PublicProfile })))
+const Tutorial = lazy(() => import('./pages/Tutorial').then((module) => ({ default: module.Tutorial })))
+const OnlineLobby = lazy(() => import('./pages/OnlineLobby').then((module) => ({ default: module.OnlineLobby })))
+const Replay = lazy(() => import('./pages/Replay').then((module) => ({ default: module.Replay })))
+const Leaderboard = lazy(() => import('./pages/Leaderboard').then((module) => ({ default: module.Leaderboard })))
+const OnlineGame = lazy(() => import('./pages/OnlineGame').then((module) => ({ default: module.OnlineGame })))
+const JoinInvite = lazy(() => import('./pages/OnlineGame').then((module) => ({ default: module.JoinInvite })))
+const AccountPage = lazy(() => import('./pages/AccountPage').then((module) => ({ default: module.AccountPage })))
 
 /** Which dialog is open. Only one at a time. */
 type Overlay = MenuAction
@@ -103,19 +114,19 @@ function AppShell() {
   // Saved choices. Stored values are validated, so a removed mode or map
   // falls back to the default instead of breaking the menu.
   const [modeId, setModeId] = usePersistentState(STORAGE_KEYS.gameMode, DEFAULT_GAME_MODE_ID, (raw) =>
-    isGameModeId(raw) ? raw : undefined,
+    isPlayableModeId(raw) ? raw : undefined,
   )
   const [mapId, setMapId] = usePersistentState(STORAGE_KEYS.map, DEFAULT_MAP_ID, (raw) =>
-    isMapId(raw) ? raw : undefined,
+    isPlayableMapId(raw) ? raw : undefined,
   )
   // Seats, names, colours and AI levels: edited on the Play page, and seat 1 is your profile.
   const [setup, setSetup] = usePersistentState(STORAGE_KEYS.setup, DEFAULT_SETUP, parseSavedSetup)
   const [settings, setSettings] = usePersistentState(STORAGE_KEYS.settings, defaultSettings(), parseSettings)
   useEffect(() => setLanguage(settings.language), [settings.language])
   // A save from an older version can't be resumed: say so (once) instead of silently dropping it.
-  const [outdatedSave, setOutdatedSave] = useState(() => readSavedGame(readStorage(STORAGE_KEYS.match)).status === 'outdated')
+  const [outdatedSave, setOutdatedSave] = useState(() => savedMatchStatus(readStorage(STORAGE_KEYS.match)) === 'outdated')
   // Saved after every action (and every state change), so Continue resumes exactly where play stopped.
-  const [game, setGame] = usePersistentState<GameState | null>(STORAGE_KEYS.match, null, parseSavedGame)
+  const [game, setGame] = usePersistentState<BrassMatch | null>(STORAGE_KEYS.match, null, parseSavedMatch)
   // Your record: the account's when signed in, this device's as a guest.
   const { stats, record } = usePlayerStats()
 
@@ -137,7 +148,15 @@ function AppShell() {
   // Changes with every new match, so the match screen starts fresh (banners, hand-offs, choices).
   const [matchKey, setMatchKey] = useState(0)
   const startMatch = (matchSetup: MatchSetup) => {
-    setGame(createGame(matchSetup))
+    setGame(
+      startBrassMatch(RULES.ctx, {
+        modeId: matchSetup.modeId,
+        // The Brass rules need the painted board (ports, hubs, both eras): the drawn practice maps can't host them.
+        mapId: DEFAULT_MAP_ID,
+        seats: matchSetup.seats.map((seat) => ({ name: seat.name, isAI: seat.isAI, aiLevel: seat.aiLevel })),
+        seed: matchSetup.seed,
+      }),
+    )
     setMatchKey((k) => k + 1)
     setOutdatedSave(false)
     setOverlay(null)
@@ -146,26 +165,26 @@ function AppShell() {
 
   const leaveMatch = () => {
     // A finished match has nothing left to resume.
-    if (game?.status === 'finished') setGame(null)
+    if (game?.state.finished) setGame(null)
     navigate(PATHS.mainMenu)
   }
 
   /** The same seats (names, colours, AI levels) on the same mode and map, with a new seed. */
   const rematch = () => {
     if (!game) return
-    const seats = game.players.map((p) => ({ name: p.name, isAI: p.isAI, color: p.color, ...(p.aiLevel ? { aiLevel: p.aiLevel } : {}) }))
-    startMatch({ modeId: game.modeId, mapId: game.mapId, seats, seed: randomSeed() })
+    const seats = game.state.players.map((p) => ({ name: p.name, isAI: p.isAI, color: p.color, aiLevel: p.aiLevel }))
+    startMatch({ modeId: game.modeId as MatchSetup['modeId'], mapId: game.mapId as MatchSetup['mapId'], seats, seed: randomSeed() })
   }
 
   const savedMatch: SavedMatchSummary | null =
-    game && game.status === 'playing'
+    game && !game.state.finished
       ? {
-          modeId: game.modeId,
-          map: getMap(game.mapId).name,
-          round: game.round,
-          totalRounds: game.totalRounds,
-          era: game.era,
-          players: game.players.map((p) => ({ name: p.name, color: p.color, isAI: p.isAI })),
+          modeId: game.modeId as MatchSetup['modeId'],
+          map: getMap(game.mapId as MatchSetup['mapId']).name,
+          round: game.state.round,
+          totalRounds: roundsInEra(game.state),
+          era: game.state.era,
+          players: game.state.players.map((p) => ({ name: p.name, color: p.color, isAI: p.isAI })),
         }
       : null
 
@@ -193,10 +212,10 @@ function AppShell() {
               <>
                 <SceneBackground />
                 <Suspense fallback={null}>
-                  <Game
+                  <BrassGame
                     key={matchKey}
-                    game={game}
-                    onGameChange={setGame}
+                    match={game}
+                    onMatchChange={setGame}
                     onMatchFinished={record}
                     onLeave={leaveMatch}
                     onRematch={rematch}
@@ -204,12 +223,45 @@ function AppShell() {
                     onOpenRules={() => setOverlay('how-to-play')}
                     onOpenSettings={() => setOverlay('settings')}
                     overlayOpen={overlay !== null}
+                    localAvatarUrl={auth.signedIn ? (auth.profile?.avatarUrl ?? null) : null}
                   />
                 </Suspense>
               </>
             ) : (
               <Navigate to={PATHS.mainMenu} replace />
             )
+          }
+        />
+        <Route
+          path={PATHS.onlineGame}
+          element={
+            <Suspense fallback={null}>
+              <OnlineGame settings={settings} onOpenRules={() => setOverlay('how-to-play')} onOpenSettings={() => setOverlay('settings')} overlayOpen={overlay !== null} />
+            </Suspense>
+          }
+        />
+        <Route
+          path={PATHS.replay}
+          element={
+            <Suspense fallback={null}>
+              <Replay settings={settings} onOpenRules={() => setOverlay('how-to-play')} onOpenSettings={() => setOverlay('settings')} overlayOpen={overlay !== null} />
+            </Suspense>
+          }
+        />
+        <Route
+          path={PATHS.tutorial}
+          element={
+            <Suspense fallback={null}>
+              <Tutorial settings={settings} onOpenRules={() => setOverlay('how-to-play')} onOpenSettings={() => setOverlay('settings')} overlayOpen={overlay !== null} />
+            </Suspense>
+          }
+        />
+        <Route
+          path={PATHS.join}
+          element={
+            <Suspense fallback={null}>
+              <JoinInvite />
+            </Suspense>
           }
         />
         <Route element={<LobbyLayout profile={profile} onMenuAction={setOverlay} covered={onAuthRoute} />}>
@@ -239,6 +291,8 @@ function AppShell() {
               />
             }
           />
+          <Route path={PATHS.online} element={<OnlineLobby />} />
+          <Route path={PATHS.leaderboard} element={<Leaderboard />} />
           <Route path={PATHS.locker} element={<Locker />} />
           <Route path={PATHS.shop} element={<Shop />} />
           <Route path={PATHS.achievements} element={<Achievements stats={stats} />} />
@@ -251,7 +305,9 @@ function AppShell() {
               </Suspense>
             }
           />
-          <Route path={PATHS.profile} element={<Profile profile={profile} stats={stats} onOpenSettings={() => setOverlay('settings')} />} />
+          <Route path={PATHS.profile} element={<Profile />} />
+          <Route path={PATHS.publicProfile} element={<PublicProfile />} />
+          <Route path={PATHS.account} element={<AccountPage />} />
           <Route path={PATHS.terms} element={<TermsOfService />} />
           <Route path={PATHS.privacy} element={<PrivacyPolicy />} />
           <Route path={PATHS.refunds} element={<RefundPolicy />} />
@@ -261,11 +317,26 @@ function AppShell() {
           <Route path={PATHS.credits} element={<Credits />} />
           <Route path={PATHS.unsubscribe} element={<Unsubscribe />} />
         </Route>
+        <Route
+          path={PATHS.welcome}
+          element={
+            <Suspense fallback={null}>
+              <Welcome mode="replay" onClose={() => navigate(PATHS.mainMenu)} />
+            </Suspense>
+          }
+        />
         <Route path="*" element={<NotFound />} />
       </Routes>
 
-      {/* A signed-in player without a username gets that step wherever they are. */}
-      {(onAuthRoute || auth.status === 'needs-username') && (
+      {/* A signed-in player who hasn't finished the welcome slides sees them before anything else (resuming on their slide). */}
+      {auth.status === 'signed-in' && auth.onboarding && !auth.onboarding.done && !onAuthRoute && (
+        <Suspense fallback={<div className="fixed inset-0 z-[80] bg-soot-950" />}>
+          <Welcome mode="first" startStep={auth.onboarding.step} canPickLevel={auth.onboarding.canPickLevel} rulesAccepted={auth.onboarding.rulesAccepted} />
+        </Suspense>
+      )}
+
+      {/* A signed-in player without a username, or with a two-factor code still to give, gets that step wherever they are. */}
+      {(onAuthRoute || auth.status === 'needs-username' || auth.status === 'needs-mfa') && (
         <Suspense fallback={null}>
           <AuthScreen />
         </Suspense>
@@ -319,6 +390,7 @@ function LobbyLayout({ profile, onMenuAction, covered }: { profile: LobbyProfile
         className="flex flex-1 flex-col pb-[calc(3.5rem+env(safe-area-inset-bottom)+var(--cookie-banner-height,0px))] outline-none md:pb-[var(--cookie-banner-height,0px)] md:pl-[72px] lg:pl-60"
       >
         <div className="flex-1">
+          <VerifyEmailBanner />
           {/* While a page's code loads, hold a screen of space so the footer doesn't show and then jump down (layout shift). */}
           <Suspense fallback={<div className="min-h-dvh" />}>
             <Outlet />

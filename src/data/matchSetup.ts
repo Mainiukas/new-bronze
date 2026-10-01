@@ -6,7 +6,7 @@
 
 import { MAX_PLAYERS, MIN_PLAYERS } from '../game/engine'
 import { AI_NAMES } from '../game/rules'
-import { AI_LEVELS, PLAYER_COLORS, type AILevel, type PlayerColor, type SeatSetup } from '../game/types'
+import { OFFERED_AI_LEVELS, PLAYER_COLORS, type AILevel, type PlayerColor, type SeatSetup } from '../game/types'
 import { getMap, type MapId } from './maps'
 
 /** One seat as edited in the lobby (all four are kept, so switching the count back restores them). */
@@ -47,7 +47,7 @@ export function parseSavedSetup(raw: unknown): SavedSetup | undefined {
     return {
       isAI: typeof s.isAI === 'boolean' ? s.isAI : DEFAULT_SEATS[i].isAI,
       name: typeof s.name === 'string' ? s.name.slice(0, MAX_NAME) : DEFAULT_SEATS[i].name,
-      aiLevel: AI_LEVELS.includes(s.aiLevel as AILevel) ? (s.aiLevel as AILevel) : 'normal',
+      aiLevel: OFFERED_AI_LEVELS.includes(s.aiLevel as AILevel) ? (s.aiLevel as AILevel) : 'normal',
       color: PLAYER_COLORS.includes(s.color as PlayerColor) ? (s.color as PlayerColor) : DEFAULT_SEATS[i].color,
     }
   })

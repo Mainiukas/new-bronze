@@ -57,6 +57,7 @@ import {
   type BoardData,
 } from './board'
 import boardFile from './board.json?raw'
+import { BRASS_MAP } from '../rules/map'
 
 describe('board.json', () => {
   it('is valid and complete: 25 locations and 39 links', () => {
@@ -160,10 +161,10 @@ describe('design checks', () => {
     expect(reachable(BOARD, 'birmingham', 'rail').size).toBe(25)
   })
 
-  it('3. degrees add up to 78, with 16 both, 6 canal and 17 rail links', () => {
+  it('3. degrees add up to 78, with 17 both, 5 canal and 17 rail links', () => {
     expect([...degrees(BOARD).values()].reduce((a, b) => a + b, 0)).toBe(78)
     const count = (t: string) => BOARD.links.filter((l) => l.type === t).length
-    expect([count('both'), count('canal'), count('rail')]).toEqual([16, 6, 17])
+    expect([count('both'), count('canal'), count('rail')]).toEqual([17, 5, 17])
   })
 
   it('4. tile distribution: 2 cities with 4 slots, 4 with 3, 10 with 2, 3 with 1', () => {
@@ -181,7 +182,7 @@ describe('design checks', () => {
     const problems = designProblems(cut, BOARD_DESIGN).join('\n')
     expect(problems).toMatch(/unreachable: the_north, taunton, exeter, plymouth/)
     expect(problems).toMatch(/add up to 76, expected 78/)
-    expect(problems).toMatch(/5 canal links, expected 6/)
+    expect(problems).toMatch(/4 canal links, expected 5/)
   })
 
   it('5. no trace of the removed industries, drink tiles, merchant tiles, drawn industry icons or drawn link spaces in the code', () => {
@@ -346,8 +347,8 @@ describe('board layout', () => {
   })
 
   it('draws only the era’s links: canal and both in the canal era, rail and both in the rail era', () => {
-    expect(routes('canal').map((r) => r.link.type).sort()).toEqual([...Array(16).fill('both'), ...Array(6).fill('canal')])
-    expect(routes('rail').map((r) => r.link.type).sort()).toEqual([...Array(16).fill('both'), ...Array(17).fill('rail')])
+    expect(routes('canal').map((r) => r.link.type).sort()).toEqual([...Array(17).fill('both'), ...Array(5).fill('canal')])
+    expect(routes('rail').map((r) => r.link.type).sort()).toEqual([...Array(17).fill('both'), ...Array(17).fill('rail')])
   })
 
   it('runs every route from the centre of one group to the centre of the other, so its ends stay under the art', () => {
@@ -486,5 +487,59 @@ describe('link spaces', () => {
     const withHexes = [...groups.values()].filter((g) => g.parts.type !== 'city' && g.parts.hexes.length === 2).map((g) => g.location.id)
     expect(withHexes.sort()).toEqual(['brecon', 'london', 'reading', 'taunton', 'the_north', 'west_wales'])
     expect([...groups.values()].filter((g) => g.parts.type === 'city').every((g) => !('hexes' in g.parts))).toBe(true)
+  })
+})
+
+describe('Wales: Brecon, Wrexham and the Wrexham – Wolverhampton link', () => {
+  const at = (id: string) => BOARD.locations.find((l) => l.id === id)!
+  const layout = layoutBoard(BOARD, createTextMeasurer())
+  const route = (era: 'canal' | 'rail', id: string) => layout.routes[era]!.routes.get(id)!
+
+  it('Wrexham – Wolverhampton exists and can be built as a railway (and as a canal)', () => {
+    const link = BOARD.links.find((l) => [l.from, l.to].sort().join('|') === 'wolverhampton|wrexham')!
+    expect(link).toBeDefined()
+    expect(link.type).toBe('both')
+    expect(isLinkActive(link.type, 'rail')).toBe(true)
+    expect(isLinkActive(link.type, 'canal')).toBe(true)
+    // The rules engine joins the two towns in the rail era.
+    expect(BRASS_MAP.links[link.id]).toMatchObject({ from: 'wrexham', to: 'wolverhampton', canal: true, rail: true })
+    expect(BRASS_MAP.linksAt.wrexham.map((l) => l.id)).toContain(link.id)
+    expect(reachable({ ...BOARD, links: [link] }, 'wrexham', 'rail').has('wolverhampton')).toBe(true)
+    // Drawn in the rail era, with a link space.
+    expect(route('rail', link.id).era).toBe('rail')
+  })
+
+  it('Brecon sits inland: north of Merthyr Tydfil, south-east of Caernarfon; Wrexham east of where it was, clear of Stoke-on-Trent', () => {
+    expect(at('brecon').y).toBeLessThan(at('merthyr').y)
+    expect(at('brecon').x).toBeGreaterThan(at('caernarfon').x)
+    expect(at('brecon').y).toBeGreaterThan(at('caernarfon').y)
+    // Wrexham was at x 32.1, on the coast.
+    expect(at('wrexham').x).toBeGreaterThan(34)
+    // ...and keeps clear of Stoke-on-Trent's banner.
+    expect(rectGap(layout.groups.get('wrexham')!.bounds, layout.groups.get('stoke')!.bounds)).toBeGreaterThan(40)
+  })
+
+  it('Brecon – Wrexham and Wrexham – Wolverhampton are one gentle arc each (no S, at most 8 % of the length)', () => {
+    for (const id of ['brecon-wrexham', 'wrexham-wolverhampton']) {
+      expect(BOARD.links.find((l) => l.id === id)!.maxBend).toBeLessThanOrEqual(8)
+      for (const era of ['canal', 'rail'] as const) {
+        const r = route(era, id)
+        expect(r.main, `${era} ${id}`).toHaveLength(1)
+        const a = r.visible.points[0]
+        const b = r.visible.points[r.visible.points.length - 1]
+        const chord = distance(a, b)
+        const side = (p: Point) => ((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / chord
+        const offsets = r.visible.points.map(side)
+        // All on one side of the chord (never an S), and at most 8 % of it away.
+        expect(Math.min(...offsets) * Math.max(...offsets), `${era} ${id} one side`).toBeGreaterThanOrEqual(-0.01)
+        expect(Math.max(...offsets.map(Math.abs)) / chord, `${era} ${id} bend`).toBeLessThanOrEqual(0.08 + 1e-6)
+      }
+    }
+  })
+
+  it('rejects maxBend above 8 %, and maxBend together with points', () => {
+    const link = BOARD.links[0]
+    expect(validateBoardData({ ...BOARD, links: [{ ...link, maxBend: 9 }, ...BOARD.links.slice(1)] })).toContain(`${link.id}: maxBend must be a number from 0 to 8`)
+    expect(validateBoardData({ ...BOARD, links: [{ ...link, maxBend: 4, points: [[50, 50]] }, ...BOARD.links.slice(1)] })).toContain(`${link.id}: a link has either points or maxBend, not both`)
   })
 })

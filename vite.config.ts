@@ -3,6 +3,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite'
 import { viteSingleFile } from 'vite-plugin-singlefile'
+import { tilesProblems } from './scripts/tiles.mjs'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -10,6 +11,7 @@ export default defineConfig(({ mode }) => ({
   // (GitHub Pages, a storage bucket, or opened straight from disk).
   base: './',
   plugins: [
+    tilesGuard(),
     backgrounds(mode === 'single'),
     ...(mode === 'single' ? [] : [preloadFonts()]),
     react(),
@@ -120,6 +122,23 @@ function preloadFonts(): Plugin {
             injectTo: 'head',
           }))
       },
+    },
+  }
+}
+
+/**
+ * The rules' numbers come from docs/TILES.md and src/rules/config. A build
+ * stops while any is still unknown (`?`), or while src/rules/config/tiles.ts
+ * or the "To check" list in docs/TILES.md is out of date. Values not yet
+ * checked against the physical game don't stop it: they're listed there.
+ */
+function tilesGuard(): Plugin {
+  return {
+    name: 'bronze-tiles-guard',
+    apply: 'build',
+    buildStart() {
+      const problems = tilesProblems()
+      if (problems.length) this.error(problems.join('\n\n'))
     },
   }
 }

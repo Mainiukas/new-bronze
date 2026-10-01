@@ -19,6 +19,9 @@ export const VALIDATION_EN = {
   choosePassword: 'Choose a password.',
   typeAgain: 'Type the password again.',
   noMatch: 'The passwords don’t match.',
+  sameUsername: 'That’s already your username.',
+  enterCurrentPassword: 'Enter your current password.',
+  sameAsCurrent: 'Choose a password different from your current one.',
 }
 
 export type ValidationWords = typeof VALIDATION_EN
@@ -86,4 +89,41 @@ export function suggestUsername(name: string | null | undefined): string {
     .replace(/^_|_$/g, '')
     .slice(0, USERNAME_MAX)
   return cleaned.length >= USERNAME_MIN ? cleaned : `${cleaned || 'player'}_${Math.floor(Math.random() * 900 + 100)}`.slice(0, USERNAME_MAX)
+}
+
+/** How often a username may change. */
+export const USERNAME_CHANGE_DAYS = 30
+
+/** When the username may change again: 30 days after the last change (null: any time). */
+export function nextUsernameChange(changedAt: string | null | undefined): Date | null {
+  if (!changedAt) return null
+  const last = Date.parse(changedAt)
+  return Number.isNaN(last) ? null : new Date(last + USERNAME_CHANGE_DAYS * 24 * 60 * 60 * 1000)
+}
+
+export function canChangeUsername(changedAt: string | null | undefined, now: Date = new Date()): boolean {
+  const next = nextUsernameChange(changedAt)
+  return !next || next.getTime() <= now.getTime()
+}
+
+/** Why `next` can't replace `current` (the registration rules, and it must differ), or null. Availability is checked separately. */
+export function validateUsernameChange(current: string, next: string, w: ValidationWords = VALIDATION_EN): string | null {
+  return validateUsername(next, w) ?? (next.trim() === current ? w.sameUsername : null)
+}
+
+export interface PasswordChange {
+  /** Empty for accounts that sign in only with Google (they set a first password). */
+  current: string
+  next: string
+  confirm: string
+  hasPassword: boolean
+}
+
+/** Field errors for a password change: current password (if there is one), new one (8+, not the same), confirmation. */
+export function validatePasswordChange({ current, next, confirm, hasPassword }: PasswordChange, w: ValidationWords = VALIDATION_EN) {
+  return {
+    current: hasPassword && current.length === 0 ? w.enterCurrentPassword : null,
+    next: validatePassword(next, w) ?? (hasPassword && next === current ? w.sameAsCurrent : null),
+    confirm: validateConfirmation(next, confirm, w),
+  }
 }

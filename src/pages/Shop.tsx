@@ -10,6 +10,7 @@ export function Shop() {
       empty={t.pages.shop.empty}
       icon={<IconCrate />}
       blurb={t.pages.shop.blurb}
+      needsVerifiedEmail
       locked={t.pages.shop.locked}
     />
   )

@@ -1,20 +1,16 @@
 import { useState, type Dispatch, type SetStateAction } from 'react'
-import { getGameMode, type GameModeId } from '../data/gameModes'
-import { getMap, MAPS, type MapId } from '../data/maps'
-import { MAX_NAME, placeholderName, seatCount, toSeatSetups, withColor, withController, type SavedSetup, type SeatDraft } from '../data/matchSetup'
+import type { GameModeId } from '../data/gameModes'
+import { getMap, isPlayableMapId, MAPS, type MapId } from '../data/maps'
+import { MAX_NAME, placeholderName, seatCount, toSeatSetups, withController, type SavedSetup, type SeatDraft } from '../data/matchSetup'
 import { MAX_PLAYERS, MIN_PLAYERS } from '../game/engine'
-import { AI_LEVELS, PLAYER_COLORS, type AILevel, type SeatSetup } from '../game/types'
+import { OFFERED_AI_LEVELS, type AILevel, type SeatSetup } from '../game/types'
 import { displayName, useT } from '../i18n'
 import { randomSeed } from '../lib/random'
-import { PLAYER_STYLE } from './game/glyphs'
-import { IconCheck, IconChevronDown, IconPlay } from './icons'
-import { MapCard } from './MapCard'
-import { useFirstPaintDone } from './theme/firstPaint'
+import { START_MONEY } from '../rules/constants'
+import { roundsPerEra } from '../rules/match'
+import { IconChevronDown, IconPlay } from './icons'
+import { LockedMapCard, MapCard } from './MapCard'
 import { Corners } from './theme/Ornaments'
-
-/** The rail tokens, small (assets/tokens/swatches: 144 × 60 WebP copies of the board's art), for the colour choices. */
-const SWATCHES = import.meta.glob<string>('../../assets/tokens/swatches/token_rail_*.webp', { eager: true, import: 'default' })
-const swatchUrl = (color: string) => SWATCHES[`../../assets/tokens/swatches/token_rail_${color}.webp`]
 
 /** Everything a new match needs. */
 export interface MatchSetup {
@@ -44,14 +40,11 @@ interface MatchSetupPanelProps {
 export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChange, replacesMatch, onStart }: MatchSetupPanelProps) {
   const t = useT()
   const map = getMap(mapId)
-  const mode = getGameMode(modeId)
   const [seedText, setSeedText] = useState('')
   const count = seatCount(setup, mapId)
   const active = setup.seats.slice(0, count)
   const seedValid = seedText.trim() === '' || /^\d{1,9}$/.test(seedText.trim())
 
-  // The swatches are pictures: they load once the page's text is on screen.
-  const painted = useFirstPaintDone()
   const updateSeat = (index: number, update: (seat: SeatDraft) => SeatDraft) =>
     onSetupChange((prev) => ({ ...prev, seats: prev.seats.map((seat, i) => (i === index ? update(seat) : seat)) }))
 
@@ -66,8 +59,7 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
           {t.setup.title}
         </h2>
         <p className="text-sm text-parchment-300">
-          {t.modes[modeId].name} · {t.setup.rounds(mode.rounds)} · {t.setup.moneyEach(mode.startingMoney)}
-          {map.style === 'illustrated' && <> · {t.setup.railFrom(Math.floor(mode.rounds / 2) + 1)}</>}
+          {t.modes[modeId].name} · {t.setup.roundsPerEra(roundsPerEra(modeId, count))} · {t.setup.moneyEach(START_MONEY)}
         </p>
       </header>
 
@@ -76,9 +68,10 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
         <fieldset>
           <legend className="eyebrow mb-2">{t.setup.map}</legend>
           <div className="grid gap-2 @2xl:grid-cols-3">
-            {MAPS.map((m) => (
+            {MAPS.filter((m) => isPlayableMapId(m.id)).map((m) => (
               <MapCard key={m.id} map={m} selected={m.id === mapId} onSelect={() => onMapChange(m.id)} />
             ))}
+            <LockedMapCard />
           </div>
           <p className="mt-2 text-sm text-parchment-300">
             {t.maps[mapId].flavor}
@@ -130,7 +123,7 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
                   <span
                     aria-hidden="true"
                     className="grid size-8 shrink-0 place-items-center rounded-full font-display text-sm font-extrabold text-soot-950 ring-1 ring-black/40"
-                    style={{ background: PLAYER_STYLE[seat.color].hex }}
+                    style={{ background: 'var(--color-bronze-300)' }}
                   >
                     {i + 1}
                   </span>
@@ -156,48 +149,11 @@ export function MatchSetupPanel({ modeId, mapId, onMapChange, setup, onSetupChan
                     onChange={(v) => updateSeat(i, (s) => withController(s, i, v === 'ai'))}
                   />
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div role="radiogroup" aria-label={t.setup.seatColour(i + 1)} className="flex flex-wrap gap-1.5">
-                    {PLAYER_COLORS.map((color) => {
-                      const takenBy = active.findIndex((other, j) => j !== i && other.color === color)
-                      const style = PLAYER_STYLE[color]
-                      const chosen = seat.color === color
-                      const token = swatchUrl(color)
-                      return (
-                        <button
-                          key={color}
-                          type="button"
-                          role="radio"
-                          aria-checked={chosen}
-                          aria-label={takenBy >= 0 ? t.setup.colourSwapLabel(t.colors[color], takenBy + 1) : t.colors[color]}
-                          title={takenBy >= 0 ? t.setup.colourSwapTitle(t.colors[color], takenBy + 1) : t.colors[color]}
-                          onClick={() => onSetupChange((prev) => ({ ...prev, seats: withColor(prev.seats, i, color) }))}
-                          className={`relative grid h-11 w-12 place-items-center rounded-lg border transition sm:w-14 ${
-                            chosen
-                              ? 'border-brass-300/90 bg-bronze-500/25 shadow-[0_0_10px_-2px_rgb(240_215_138/0.6)]'
-                              : takenBy >= 0
-                                ? 'border-transparent opacity-35 hover:opacity-70'
-                                : 'border-bronze-500/25 hover:border-ember-400/60'
-                          }`}
-                        >
-                          {token ? (
-                            <img src={painted ? token : undefined} alt="" loading="lazy" decoding="async" className="h-5 w-10 object-contain sm:w-12" draggable={false} />
-                          ) : (
-                            <span className="h-4 w-10 rounded-full" style={{ background: style.hex }} />
-                          )}
-                          {chosen && (
-                            <span className="absolute -top-1.5 -right-1.5 grid size-4 place-items-center rounded-full border border-soot-950 bg-brass-300 text-soot-950">
-                              <IconCheck className="size-3" strokeWidth={3.2} />
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   {seat.isAI && (
                     <Segmented
                       label={t.setup.difficulty(i + 1)}
-                      options={AI_LEVELS.map((level) => [level, t.aiLevels[level]] as const)}
+                      options={OFFERED_AI_LEVELS.map((level) => [level, t.aiLevels[level]] as const)}
                       value={seat.aiLevel}
                       onChange={(v) => updateSeat(i, (s) => ({ ...s, aiLevel: v as AILevel }))}
                     />

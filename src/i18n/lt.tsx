@@ -6,6 +6,11 @@ import type { GoodsKind, IndustryKind, LogEntry, RouteKind } from '../game/types
 import { renderWith } from './game/en'
 import game from './game/lt'
 import { pluralizer } from './languages'
+import accountWords from './account/lt'
+import brassWords from './brass/lt'
+import onlineWords from './online/lt'
+import tutorialWords from './tutorial/lt'
+import welcomeWords from './welcome/lt'
 import type { Messages } from './messages'
 
 /* Visi ekrano žodžiai lietuviškai (vertimas iš en.tsx). */
@@ -66,6 +71,8 @@ const lt: Messages = {
     locker: 'Spintelė',
     shop: 'Parduotuvė',
     achievements: 'Pasiekimai',
+    online: 'Žaisti internetu',
+    leaderboard: 'Lyderių lentelė',
     board: 'Žemėlapio lenta',
     howToPlay: 'Kaip žaisti',
     settings: 'Nustatymai',
@@ -117,7 +124,6 @@ const lt: Messages = {
     opponentsTitle: 'Varžovai',
     mixed: 'Pasirinktinai: žmonės ir kompiuteriai (žr. Vietas)',
     opponents: { computer: 'Prieš kompiuterį', pass: 'Perduok ir žaisk', online: 'Internetu' },
-    onlineNeedsServer: 'Žaidimui internetu reikia žaidimų serverio, kurio Bronze kol kas neturi',
   },
   friends: {
     title: 'Draugai',
@@ -135,7 +141,7 @@ const lt: Messages = {
     blitz: { name: 'Blicas', description: 'Mažesnis žemėlapis ir trumpesnis laikas. Svarbus kiekvienas sprendimas.' },
     bullet: { name: 'Kulka', description: 'Mažiausias žemėlapis, labai trumpas laikas. Statyk iš nuojautos.' },
     mapSize: { full: 'Visas žemėlapis', reduced: 'Sumažintas žemėlapis', compact: 'Kompaktiškas žemėlapis' },
-    perTurn: (time: string) => `${time} ėjimui`,
+    clock: (minutes: number, seconds: number) => `${minutes} min + ${seconds} s už ėjimą`,
   },
   maps: {
     'wales-and-the-west': {
@@ -149,10 +155,13 @@ const lt: Messages = {
   setup: {
     title: 'Partijos nustatymai',
     rounds: (n: number) => p(n, { one: `${n} raundas`, few: `${n} raundai`, other: `${n} raundų` }),
+    roundsPerEra: (n: number) => p(n, { one: `${n} raundas eroje`, few: `${n} raundai eroje`, other: `${n} raundų eroje` }),
     moneyEach: (n: number) => `po £${n}`,
     railFrom: (round: number) => `geležinkelių era nuo ${round} raundo`,
     map: 'Žemėlapis',
     practiceMap: 'Treniruočių žemėlapis, be erų.',
+    moreMaps: 'Kiti žemėlapiai jau netrukus',
+    moreMapsText: 'Nauji žemėlapiai dar piešiami. Kol kas visos partijos žaidžiamos žemėlapyje „Wales & the West“.',
     players: 'Žaidėjai',
     playersRange: (min: number, max: number) => (min === max ? `${min} žaidėjai` : `${min}–${max} žaidėjai`),
     towns: (n: number) => p(n, { one: `${n} miestas`, few: `${n} miestai`, other: `${n} miestų` }),
@@ -647,6 +656,16 @@ const lt: Messages = {
     'link-invalid': 'Ši nuoroda netinkama arba nebegalioja.',
     cancelled: 'Prisijungimas atšauktas. Bandykite dar kartą arba naudokite vartotojo vardą ar el. paštą.',
     network: 'Nepavyksta pasiekti paskyrų serverio. Patikrinkite ryšį ir bandykite vėl.',
+    'wrong-password': 'Neteisingas dabartinis slaptažodis.',
+    'too-soon': 'Vartotojo vardą galite keisti kartą per 30 dienų.',
+    'same-username': 'Tai jau yra jūsų vartotojo vardas.',
+    'reauth-needed': 'Dėl saugumo prisijunkite iš naujo ir bandykite dar kartą.',
+    'mfa-required': 'Pirmiausia įveskite dviejų veiksnių kodą.',
+    'invalid-code': 'Kodas neteisingas arba nebegalioja. Patikrinkite ir bandykite dar kartą.',
+    unavailable: 'Tai dar neprieinama.',
+    'last-identity': 'Negalite pašalinti vienintelio prisijungimo būdo. Pirmiausia nustatykite slaptažodį arba susiekite kitą paskyrą.',
+    'identity-taken': 'Ši paskyra jau susieta su kitu Bronze žaidėju.',
+    'invalid-input': 'Patikrinkite, ką įvedėte, ir bandykite dar kartą.',
     unknown: 'Kažkas nepavyko. Bandykite dar kartą.',
   },
   validation: {
@@ -659,6 +678,9 @@ const lt: Messages = {
     choosePassword: 'Pasirinkite slaptažodį.',
     typeAgain: 'Įveskite slaptažodį dar kartą.',
     noMatch: 'Slaptažodžiai nesutampa.',
+    sameUsername: 'Tai jau yra jūsų vartotojo vardas.',
+    enterCurrentPassword: 'Įveskite dabartinį slaptažodį.',
+    sameAsCurrent: 'Pasirinkite kitokį nei dabartinis slaptažodį.',
   },
   consents: {
     howOld: 'Kiek jums metų?',
@@ -683,7 +705,7 @@ const lt: Messages = {
     marketingNote: '(nebūtina; atsisakyti galima bet kada)',
   },
   account: {
-    exportNote: 'Viskas, ką Bronze apie jus saugo. Partijos žaidžiamos jūsų naršyklėje, todėl serveryje partijų istorijos nėra.',
+    exportNote: 'Viskas, ką Bronze apie jus saugo: paskyra, profilis, rezultatai, internetinės partijos (su jūsų ėjimais), reitingai, draugai ir kvietimai.',
     downloading: 'Jūsų duomenys atsisiunčiami.',
     loggedInAs: (name: ReactNode, email: string | null): ReactNode => (
       <>
@@ -693,7 +715,7 @@ const lt: Messages = {
     ),
     guest: 'Žaidžiate kaip svečias: mūsų serveriuose apie jus nieko nesaugoma. Jūsų nustatymai, rezultatai ir partija lieka šioje naršyklėje.',
     download: 'Atsisiųsti mano duomenis',
-    downloadAccount: 'Jūsų profilis, rezultatai, sutikimai ir el. laiškų pasirinkimai bei šio įrenginio duomenys, failu.',
+    downloadAccount: 'Jūsų paskyra, profilis, rezultatai, internetinės partijos, reitingai, draugai ir kvietimai bei šio įrenginio duomenys – vienu JSON failu.',
     downloadGuest: 'Ką Bronze saugo šioje naršyklėje, failu.',
     downloadButton: 'Atsisiųsti',
     delete: 'Ištrinti mano paskyrą',
@@ -710,10 +732,11 @@ const lt: Messages = {
       intro: 'Tai iš karto ir visam laikui ištrina:',
       items: [
         'jūsų prisijungimą (el. pašto adresą ir slaptažodį arba „Google“ prisijungimą),',
-        'jūsų vartotojo vardą, avatarą, rezultatus ir pasiekimus,',
+        'jūsų vartotojo vardą, avatarą, rezultatus, pasiekimus ir reitingus,',
+        'jūsų draugus, draugystės kvietimus ir kvietimus į partijas,',
         'jūsų atsakymą apie amžių, sutikimus ir el. laiškų pasirinkimus.',
       ],
-      note: 'Partijos žaidžiamos jūsų naršyklėje, todėl mūsų serveriuose partijų istorija nesaugoma. Jūsų svečio duomenys šioje naršyklėje lieka, kol jų neišvalysite.',
+      note: 'Jūsų sužaistos internetinės partijos lieka kitiems žaidėjams, o jūsų vietoje rodoma „Ištrintas žaidėjas“. Iš neprasidėjusios partijos jūsų vieta pašalinama; vykstančioje partijoje už jus žaidimą baigia robotas. Jūsų svečio duomenys šioje naršyklėje lieka, kol jų neišvalysite.',
       typeToConfirm: (name: ReactNode): ReactNode => <>Norėdami patvirtinti, įveskite savo vartotojo vardą {name}</>,
     },
     notifications: {
@@ -729,9 +752,9 @@ const lt: Messages = {
       nowAdult: 'Man jau 18 ar daugiau',
     },
     privacy: {
-      cookies: 'Slapukų nustatymai',
-      cookiesNote: 'Keiskite, ką Bronze gali saugoti šioje naršyklėje.',
-      open: 'Atverti',
+      cookies: 'Slapukai',
+      cookiesNote: 'Bronze saugo tik tai, ko reikia veikimui. Jokios reklamos, analitikos ar sekimo.',
+      open: 'Skaityti',
     },
   },
   settings: {
@@ -757,22 +780,11 @@ const lt: Messages = {
   },
   cookieBanner: {
     title: 'Slapukai ir saugykla',
-    body: 'Bronze jūsų naršyklėje saugo kelis dalykus. Būtinieji leidžia likti prisijungus ir išsaugo vykstančią partiją. Jums sutikus, Bronze šiame įrenginyje taip pat įsimena jūsų nustatymus ir svečio rezultatus. Jokių reklamų, analitikos ar sekimo įrankių nėra.',
-    accept: 'Priimti visus',
-    reject: 'Atmesti visus',
-    customise: 'Pasirinkti',
-    save: 'Išsaugoti pasirinkimus',
-    close: 'Uždaryti',
-    always: 'Visada įjungti',
+    body: 'Bronze šioje naršyklėje saugo tik tai, ko reikia veikimui: jūsų prisijungimą, vykstančią partiją ir nustatymus. Jokios reklamos, analitikos ar sekimo, todėl nėra ką priimti ar atmesti.',
+    ok: 'Gerai',
     cookiePolicy: 'Slapukų politika',
     privacyPolicy: 'Privatumo politika',
     language: 'Kalba',
-    categories: {
-      essential: { title: 'Būtinieji', description: 'Leidžia likti prisijungus, išsaugo vykstančią partiją ir šiuos pasirinkimus.' },
-      preferences: { title: 'Nuostatos', description: 'Įsimena jūsų nustatymus (taip pat kalbą), paskutinį žaidimo režimą, žemėlapį, vietas ir svečio rezultatus.' },
-      analytics: { title: 'Analitika', description: 'Šiuo metu nenaudojama. Jei Bronze kada nors pridės analitiką, ji veiks tik tai įjungus.' },
-      marketing: { title: 'Rinkodara', description: 'Šiuo metu nenaudojama. Jei Bronze kada nors pridės rinkodaros įrankių, jie veiks tik tai įjungus.' },
-    },
   },
   legal: {
     lastUpdated: 'Atnaujinta:',
@@ -780,7 +792,13 @@ const lt: Messages = {
     draft: (example: ReactNode): ReactNode => <>Juodraštis: dalis duomenų apie tai, kas valdo Bronze, dar neįrašyti (rodoma taip: {example}).</>,
     table: (caption: string) => `${caption} (lentelė)`,
     freeToPlay: 'Bronze žaisti nemokama; niekas neparduodama.',
+    fanMade: 'Bronze – gerbėjų sukurtas žaidimas, įkvėptas „Brass“. Nesusijęs su „Roxley Games“.',
   },
+  ...accountWords,
+  brass: brassWords,
+  welcome: welcomeWords,
+  online: onlineWords,
+  tutorial: tutorialWords,
 }
 
 export default lt

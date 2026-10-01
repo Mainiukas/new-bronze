@@ -10,10 +10,14 @@ import { LegalNotice } from '../pages/legal/LegalNotice'
 import { PrivacyPolicy } from '../pages/legal/PrivacyPolicy'
 import { RefundPolicy } from '../pages/legal/RefundPolicy'
 import { TermsOfService } from '../pages/legal/TermsOfService'
+import { SiteFooter } from '../components/legal/SiteFooter'
+import type { LegalText } from '../pages/legal/text/types'
+import { FEATURES } from '../lib/features'
+import { stripeConfigured } from '../lib/stripe'
 import { STORAGE_KEYS } from '../lib/storageKeys'
 import checklist from '../../CHECKLIST.md?raw'
-import { ALL, CONSENT_MAX_AGE_MS, CONSENT_VERSION, createConsentStore, NONE, parseConsent } from './consent'
-import { AUTH_STORAGE_KEY, categoryOf, STORAGE_ITEMS } from './inventory'
+import { CONSENT_MAX_AGE_MS, CONSENT_VERSION, createConsentStore, parseConsent } from './consent'
+import { ACCOUNT_DATA, AUTH_STORAGE_KEY, RECIPIENTS, STORAGE_ITEMS } from './inventory'
 import { formatLegalDate, LEGAL_LAST_UPDATED, OPERATOR, SERVICES, unfilledPlaceholders } from './operator'
 
 /** A localStorage stand-in for the node test environment. */
@@ -35,10 +39,9 @@ function fakeStorage() {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('storage inventory (the Cookie Policy table)', () => {
-  it('lists every storage key the app writes, with a category, purpose and duration', () => {
+  it('lists every storage key the app writes, with a purpose and duration', () => {
     for (const key of Object.values(STORAGE_KEYS)) expect(STORAGE_ITEMS.some((i) => i.key === key), key).toBe(true)
     for (const item of STORAGE_ITEMS) {
-      expect(['essential', 'preferences', 'analytics', 'marketing']).toContain(item.category)
       expect(item.purpose.length).toBeGreaterThan(10)
       expect(item.duration.length).toBeGreaterThan(3)
     }
@@ -56,69 +59,51 @@ describe('storage inventory (the Cookie Policy table)', () => {
     const missing = [...found].filter((key) => !listed(key))
     expect(missing).toEqual([])
   })
+})
 
-  it('files keys by category: session and match are essential, settings are preferences', () => {
-    expect(categoryOf(AUTH_STORAGE_KEY)).toBe('essential')
-    expect(categoryOf(STORAGE_KEYS.match)).toBe('essential')
-    expect(categoryOf(`${STORAGE_KEYS.stats}.pending.abc`)).toBe('essential')
-    expect(categoryOf(STORAGE_KEYS.settings)).toBe('preferences')
-    expect(categoryOf(STORAGE_KEYS.stats)).toBe('preferences')
-    expect(categoryOf('bronze.something-new')).toBe('preferences')
+describe('switched-off features (VERIFICATION.md)', () => {
+  it('lists Stripe in the policies exactly when card verification is on', () => {
+    expect(STORAGE_ITEMS.some((item) => item.key.startsWith('__stripe'))).toBe(FEATURES.cardVerification)
+    expect(RECIPIENTS.some((r) => r.name.includes('Stripe'))).toBe(FEATURES.cardVerification)
+    expect(ACCOUNT_DATA.some((d) => /card/i.test(d.what))).toBe(FEATURES.cardVerification)
+    if (!FEATURES.cardVerification) expect(stripeConfigured).toBe(false)
+  })
+
+  it('lists the phone number in the policies exactly when phone verification is on', () => {
+    expect(ACCOUNT_DATA.some((d) => /phone number/i.test(d.what))).toBe(FEATURES.phoneVerification)
+    expect('smsProvider' in SERVICES).toBe(FEATURES.phoneVerification)
   })
 })
 
-describe('cookie consent', () => {
-  it('accepts only a current, unexpired choice', () => {
+describe('cookie notice (essential storage only)', () => {
+  it('accepts only a current, unexpired record', () => {
     const now = Date.parse('2026-09-27T12:00:00Z')
-    const good = { version: CONSENT_VERSION, timestamp: '2026-09-01T10:00:00Z', method: 'custom', choices: { preferences: true } }
-    expect(parseConsent(good, now)).toEqual({ ...good, choices: { preferences: true, analytics: false, marketing: false } })
-    expect(parseConsent({ ...good, version: CONSENT_VERSION + 1 }, now)).toBeNull()
+    const good = { version: CONSENT_VERSION, timestamp: '2026-09-01T10:00:00Z', method: 'notice' }
+    expect(parseConsent(good, now)).toEqual(good)
+    expect(parseConsent({ ...good, version: 1, method: 'accept-all' }, now)).toBeNull()
     expect(parseConsent({ ...good, timestamp: new Date(now - CONSENT_MAX_AGE_MS - 1000).toISOString() }, now)).toBeNull()
-    expect(parseConsent({ ...good, method: 'nudged' }, now)).toBeNull()
     expect(parseConsent('yes', now)).toBeNull()
   })
 
-  it('shows the banner until a choice is made, then stores it with its time and version', () => {
+  it('shows the notice until OK, then remembers it with its time and version', () => {
     const storage = fakeStorage()
     vi.stubGlobal('window', { localStorage: storage })
     vi.stubGlobal('localStorage', storage)
     const store = createConsentStore()
     expect(store.getSnapshot().open).toBe(true)
-    expect(store.allows('essential')).toBe(true)
-    expect(store.allows('preferences')).toBe(false)
-    store.save(ALL, 'accept-all', new Date('2026-09-27T09:00:00Z'))
+    store.acknowledge(new Date('2026-09-27T09:00:00Z'))
     expect(store.getSnapshot().open).toBe(false)
-    expect(JSON.parse(storage.getItem('bronze.consent')!)).toEqual({
-      version: CONSENT_VERSION,
-      timestamp: '2026-09-27T09:00:00.000Z',
-      method: 'accept-all',
-      choices: { preferences: true, analytics: true, marketing: true },
-    })
-    expect(store.allows('preferences')).toBe(true)
+    expect(JSON.parse(storage.getItem('bronze.consent')!)).toEqual({ version: CONSENT_VERSION, timestamp: '2026-09-27T09:00:00.000Z', method: 'notice' })
+    expect(createConsentStore().getSnapshot().open).toBe(false)
   })
 
-  it('deletes what a category stored when it is turned off, and keeps the essentials', () => {
+  it('needs no choice: settings are saved before the notice is dismissed', async () => {
     const storage = fakeStorage()
     vi.stubGlobal('window', { localStorage: storage })
     vi.stubGlobal('localStorage', storage)
-    for (const key of [STORAGE_KEYS.settings, STORAGE_KEYS.stats, STORAGE_KEYS.match, AUTH_STORAGE_KEY, 'unrelated.key']) storage.setItem(key, '1')
-    const store = createConsentStore()
-    store.save(NONE, 'reject-all')
-    expect(storage.keys().sort()).toEqual([AUTH_STORAGE_KEY, 'bronze.consent', STORAGE_KEYS.match, 'unrelated.key'].sort())
-  })
-
-  it('reopens from "Cookie settings" and can be closed again once a choice exists', () => {
-    const storage = fakeStorage()
-    vi.stubGlobal('window', { localStorage: storage })
-    vi.stubGlobal('localStorage', storage)
-    const store = createConsentStore()
-    store.dismiss()
-    expect(store.getSnapshot().open).toBe(true)
-    store.save(NONE, 'reject-all')
-    store.reopen()
-    expect(store.getSnapshot()).toMatchObject({ open: true, reopened: 1 })
-    store.dismiss()
-    expect(store.getSnapshot().open).toBe(false)
+    const { writeStorage } = await import('../lib/storage')
+    writeStorage(STORAGE_KEYS.settings, { sound: false })
+    expect(storage.getItem(STORAGE_KEYS.settings)).toBe('{"sound":false}')
   })
 })
 
@@ -164,5 +149,33 @@ describe('legal pages', () => {
     expect(placeholders).toEqual([...Object.values(OPERATOR), ...Object.values(SERVICES)].filter((v) => v.startsWith('{{')))
     for (const p of placeholders) expect(checklist, p).toContain(p)
     expect(render(LegalNotice)).toContain('Draft:')
+  })
+
+  it('puts the fan-made notice in the footer of every page', () => {
+    const html = render(() => <SiteFooter />)
+    expect(html).toContain('Bronze is a fan-made game inspired by Brass. Not affiliated with Roxley Games.')
+    expect(render(() => <SiteFooter compact />)).toContain('Not affiliated with Roxley Games.')
+  })
+
+  it('explains online play, Download my data and “Deleted player” in the Privacy Policy, and the fan-made status in the Terms', () => {
+    const privacy = render(PrivacyPolicy)
+    expect(privacy).toContain('Download my data')
+    expect(privacy).toContain('Deleted player')
+    expect(privacy).toMatch(/last 2 minutes/)
+    expect(render(TermsOfService)).toContain('not affiliated with, or endorsed by, Roxley Games')
+    expect(render(CookiePolicy)).not.toMatch(/Accept all|Reject all|Customise/)
+  })
+
+  it.each(['lt', 'de', 'fr', 'es'])('has the same pages in %s, with every data row and storage item', async (lang) => {
+    const text = (await import(`../pages/legal/text/${lang}.tsx`)).default as LegalText
+    expect(text.inventory.account).toHaveLength(ACCOUNT_DATA.length)
+    expect(text.inventory.recipients).toHaveLength(RECIPIENTS.length)
+    for (const item of STORAGE_ITEMS) expect(text.inventory.storage[item.key], item.key).toBeDefined()
+    const privacy = render(text.PrivacyPolicy)
+    expect(privacy).toContain('vdai.lrv.lt')
+    expect(privacy).toContain('JSON')
+    expect(render(text.TermsOfService)).toContain('Roxley Games')
+    const cookies = render(text.CookiePolicy)
+    for (const item of STORAGE_ITEMS) expect(cookies).toContain(item.key.replace(/</g, '&lt;').replace(/>/g, '&gt;'))
   })
 })

@@ -105,6 +105,16 @@ export interface IllustratedBoardProps {
   recent?: BoardRecent | null
   /** Multiplies the length of board animations (the animation-speed setting); 0 turns the moving dot off. */
   motion?: number
+  /** Hide the empty link spaces (only built links show), as in a match until a link action is chosen. */
+  hideEmptyLinks?: boolean
+  /** Colour of the target glows (the acting player's colour); the brass glow when unset. */
+  targetColor?: string
+  /** Hide the hubs' price badges (the Brass rules have no hub prices). */
+  hidePrices?: boolean
+  /** A line added to the hover card of a slot ("town:index") or link (its id), e.g. why it can't be used now. */
+  notes?: ReadonlyMap<string, string>
+  /** Built pieces that are leaving the board (the end of the canal era): drawn fading out, links as canals. */
+  fading?: { slots: ReadonlySet<string>; links: ReadonlySet<string> } | null
   className?: string
 }
 
@@ -198,6 +208,11 @@ export function IllustratedBoard({
   network = null,
   recent = null,
   motion = 1,
+  hideEmptyLinks = false,
+  targetColor,
+  hidePrices = false,
+  fading = null,
+  notes,
   className = '',
 }: IllustratedBoardProps) {
   const t = useT()
@@ -525,6 +540,7 @@ export function IllustratedBoard({
               const { link, marker } = route
               const owner = built.links[link.id]
               if ((layer === 'tokens') !== (owner !== undefined)) return null
+              if (layer === 'spaces' && hideEmptyLinks) return null
               const shut = routeShut(route)
               // In a match, targets are clicked in the top layer instead.
               const clickable = !editable && !targets && !!onSelectLink && !shut
@@ -534,7 +550,7 @@ export function IllustratedBoard({
                   key={link.id}
                   opacity={shut ? CLOSED_OPACITY.link : 1}
                   pointerEvents={shut ? 'none' : undefined}
-                  className={clickable ? 'cursor-pointer' : undefined}
+                  className={fading?.links.has(link.id) ? 'board-fade-out' : clickable ? 'cursor-pointer' : undefined}
                   {...(clickable ? asButton(linkLabel(route, owner ? t.boardLabels.builtBy(nameOf(owner.player)) : t.boardLabels.notBuilt), () => onSelectLink!(link.id)) : {})}
                   {...(shut ? {} : hoverHandlers({ type: 'link', id: link.id }))}
                 >
@@ -548,8 +564,8 @@ export function IllustratedBoard({
                           x={marker.x}
                           y={marker.y}
                           angle={marker.angle}
-                          era={era}
-                          token={token && TOKEN_URLS[era][token]}
+                          era={fading?.links.has(link.id) ? 'canal' : era}
+                          token={token && TOKEN_URLS[fading?.links.has(link.id) ? 'canal' : era][token]}
                           color={color}
                           mark={playerMark?.(owner.player)}
                         />
@@ -590,7 +606,8 @@ export function IllustratedBoard({
                     return (
                       <g
                         key={key}
-                        className={slotClickable ? 'cursor-pointer' : undefined}
+                        data-slot={key}
+                        className={fading?.slots.has(key) ? 'board-fade-out' : slotClickable ? 'cursor-pointer' : undefined}
                         {...(shut ? {} : hoverHandlers({ type: 'location', id: location.id, slot: index }))}
                         {...(slotClickable ? asButton(labelForSlot(location.id, index), () => onSelectSlot!(location.id, index)) : {})}
                       >
@@ -605,6 +622,9 @@ export function IllustratedBoard({
                                   stars: tile.stars,
                                   goods: tile.industry === 'cotton' ? (tile.goods ?? 0) : undefined,
                                   mark: playerMark?.(tile.player),
+                                  level: tile.level,
+                                  flipped: tile.flipped,
+                                  cubes: tile.cubes,
                                 }
                               : null
                           }
@@ -653,7 +673,7 @@ export function IllustratedBoard({
             const g = groups.get(location.id)!
             return (
               <g key={location.id} opacity={isShut(location.id) ? CLOSED_OPACITY.location : 1} transform={dragShift(location.id)}>
-                {location.type === 'hub' && g.parts.type === 'hub' && (
+                {location.type === 'hub' && g.parts.type === 'hub' && !hidePrices && (
                   <g pointerEvents="none">
                     <PriceBadge rect={g.parts.badge} price={prices?.[location.id] ?? location.price} />
                   </g>
@@ -682,7 +702,16 @@ export function IllustratedBoard({
               const box = inflate(rect, 3)
               return (
                 <g key={`t-${key}`}>
-                  <rect x={box.x} y={box.y} width={box.w} height={box.h} rx={3} className="board-target fill-none stroke-board-glow" strokeWidth={2.5} />
+                  <rect
+                    x={box.x}
+                    y={box.y}
+                    width={box.w}
+                    height={box.h}
+                    rx={3}
+                    className={`board-target fill-none ${targetColor ? '' : 'stroke-board-glow'}`}
+                    style={targetColor ? { stroke: targetColor, filter: `drop-shadow(0 0 4px ${targetColor})` } : undefined}
+                    strokeWidth={2.5}
+                  />
                   {text && <TargetTag x={rect.x + rect.w / 2} y={rect.y - 12} text={text} />}
                 </g>
               )
@@ -797,7 +826,7 @@ export function IllustratedBoard({
               return (
                 <g key={`hit-${id}`} className="cursor-pointer" {...asButton(linkLabel(route, targets.links?.get(id)), () => onSelectLink?.(id))} {...hoverHandlers({ type: 'link', id })}>
                   <circle cx={route.marker.x} cy={route.marker.y} r={24} fill="transparent" />
-                  <LinkBubble x={route.marker.x} y={route.marker.y} angle={route.marker.angle} glow />
+                  <LinkBubble x={route.marker.x} y={route.marker.y} angle={route.marker.angle} glow glowColor={targetColor} />
                   {hovered && (
                     <circle cx={route.marker.x} cy={route.marker.y} r={27} fill="none" className="stroke-brass-200" strokeWidth={2} />
                   )}
@@ -886,7 +915,17 @@ export function IllustratedBoard({
         Tab through the board’s slots, links and locations; arrow keys move to the nearest one in that direction; Enter or Space picks it.
       </p>
       {hover && !editable && !drag && (
-        <BoardTooltip board={board} groups={groups} routes={routesLayout.routes} era={era} built={built} prices={prices} playerName={nameOf} target={hover} />
+        <BoardTooltip
+          board={board}
+          groups={groups}
+          routes={routesLayout.routes}
+          era={era}
+          built={built}
+          prices={prices}
+          playerName={nameOf}
+          target={hover}
+          note={notes?.get(hover.type === 'link' ? hover.id : hover.slot !== undefined ? slotKey(hover.id, hover.slot) : hover.id) ?? null}
+        />
       )}
     </div>
   )

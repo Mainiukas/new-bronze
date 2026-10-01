@@ -22,6 +22,8 @@ interface BoardTooltipProps {
   prices?: Readonly<Record<string, number>>
   playerName: (player: number) => string
   target: TooltipTarget
+  /** An extra line for this target (e.g. why a slot or link can't be used now). */
+  note?: string | null
 }
 
 
@@ -29,7 +31,7 @@ interface BoardTooltipProps {
  * Hover card for a location or link, positioned over the board in % so it
  * follows the board at any size. Flips below the target near the top edge.
  */
-export function BoardTooltip({ board, groups, routes, era, built, prices, playerName, target }: BoardTooltipProps) {
+export function BoardTooltip({ board, groups, routes, era, built, prices, playerName, target, note = null }: BoardTooltipProps) {
   let anchor: { x: number; top: number; bottom: number } | null = null
   let body = null
   if (target.type === 'location') {
@@ -59,12 +61,13 @@ export function BoardTooltip({ board, groups, routes, era, built, prices, player
       className="pointer-events-none absolute z-10 w-max max-w-80 rounded-lg border border-bronze-400/60 bg-soot-950/95 px-3 py-2.5 text-left text-xs text-parchment-200 shadow-[0_10px_30px_-8px_rgb(0_0_0/0.9)]"
       style={style}
     >
+      {note && <p className="mb-1.5 rounded bg-ember-700/70 px-1.5 py-0.5 font-semibold text-parchment-50">{note}</p>}
       {body}
     </div>
   )
 }
 
-type DetailsProps = Omit<BoardTooltipProps, 'target' | 'groups' | 'routes'>
+type DetailsProps = Omit<BoardTooltipProps, 'target' | 'groups' | 'routes' | 'note'>
 
 function Connections({ board, era, location }: { board: BoardData; era: Era; location: BoardLocation }) {
   const tt = useT().tooltip

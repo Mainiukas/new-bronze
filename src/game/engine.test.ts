@@ -464,7 +464,9 @@ describe('eras', () => {
     expect(buildTargets(g, 'shipyard', p)).toEqual([{ townId: 'plymouth', slot: 1 }])
     expect(linkTargets(g, p).some((r) => r.id === 'the_north-stoke')).toBe(true)
     expect(linkTargets(g, p).every((r) => r.kinds.includes('rail'))).toBe(true)
-    expect(linkTargets(g, p)).toHaveLength(33)
+    // Wrexham – Wolverhampton is a canal and a railway: buildable in the rail era too.
+    expect(linkTargets(g, p).some((r) => r.id === 'wrexham-wolverhampton')).toBe(true)
+    expect(linkTargets(g, p)).toHaveLength(34)
   })
 
   it('lets a player whose network was wiped out by the canals closing build anywhere again, and logs it', () => {
@@ -480,7 +482,7 @@ describe('eras', () => {
     expect(networkTowns(g, 0).size).toBe(0)
     expect(buildsAnywhere(g, 0)).toBe(true)
     expect(buildTargets(g, 'cotton', 0).length).toBeGreaterThan(10)
-    expect(linkTargets(g, 0)).toHaveLength(33)
+    expect(linkTargets(g, 0)).toHaveLength(34)
     expect(g.log.filter((e) => e.kind === 'reset').map((e) => e.text)).toEqual(['P1 has no network left and may build anywhere again.'])
     // Player 1 keeps the mine: links must touch Stoke, industries go in Stoke.
     expect(buildsAnywhere(g, 1)).toBe(false)

@@ -5,6 +5,11 @@ import type { Quote } from '../game/engine'
 import type { GameMessage } from '../game/messages'
 import type { RULES } from '../game/rules'
 import type { GoodsKind, IndustryKind, LogEntry, RouteKind } from '../game/types'
+import accountWords from './account/en'
+import brassWords from './brass/en'
+import onlineWords from './online/en'
+import tutorialWords from './tutorial/en'
+import welcomeWords from './welcome/en'
 import game, { renderWith } from './game/en'
 import { pluralizer } from './languages'
 
@@ -77,6 +82,8 @@ const en = {
     locker: 'Locker',
     shop: 'Shop',
     achievements: 'Achievements',
+    online: 'Play online',
+    leaderboard: 'Leaderboard',
     board: 'Map board',
     howToPlay: 'How to Play',
     settings: 'Settings',
@@ -129,7 +136,6 @@ const en = {
     opponentsTitle: 'Opponents',
     mixed: 'Custom: a mix of humans and computers (see Seats)',
     opponents: { computer: 'vs Computer', pass: 'Pass & Play', online: 'Online' },
-    onlineNeedsServer: 'Online play needs a game server, which Bronze doesn’t have yet',
   },
   friends: {
     title: 'Friends',
@@ -147,7 +153,7 @@ const en = {
     blitz: { name: 'Blitz', description: 'Smaller map and shorter timers. Every decision counts.' },
     bullet: { name: 'Bullet', description: 'Smallest map, very short timers. Build on instinct.' },
     mapSize: { full: 'Full map', reduced: 'Reduced map', compact: 'Compact map' },
-    perTurn: (time: string) => `${time} per turn`,
+    clock: (minutes: number, seconds: number) => `${minutes} min + ${seconds} s a turn`,
   },
   maps: {
     'wales-and-the-west': {
@@ -161,10 +167,13 @@ const en = {
   setup: {
     title: 'Match setup',
     rounds: (n: number) => p(n, { one: `${n} round`, other: `${n} rounds` }),
+    roundsPerEra: (n: number) => p(n, { one: `${n} round per era`, other: `${n} rounds per era` }),
     moneyEach: (n: number) => `£${n} each`,
     railFrom: (round: number) => `rail era from round ${round}`,
     map: 'Map',
     practiceMap: 'Practice map, no eras.',
+    moreMaps: 'Other maps are coming',
+    moreMapsText: 'New boards are being drawn. Until then, every match is played on Wales & the West.',
     players: 'Players',
     playersRange: (min: number, max: number) => (min === max ? `${min} players` : `${min}–${max} players`),
     towns: (n: number) => p(n, { one: `${n} town`, other: `${n} towns` }),
@@ -679,7 +688,7 @@ const en = {
     marketingNote: '(optional; unsubscribe any time)',
   },
   account: {
-    exportNote: 'Everything Bronze stores about you. Matches are played in your browser, so there is no match history on the server.',
+    exportNote: 'Everything Bronze stores about you: your account, profile, record, online games (with your own moves), ratings, friends and invites.',
     downloading: 'Your data is downloading.',
     loggedInAs: (name: ReactNode, email: string | null): ReactNode => (
       <>
@@ -689,7 +698,7 @@ const en = {
     ),
     guest: 'You’re playing as a guest: nothing about you is stored on our servers. Your settings, record and match stay in this browser.',
     download: 'Download my data',
-    downloadAccount: 'Your profile, record, consents and email choices, plus this device’s data, as a file.',
+    downloadAccount: 'Your account, profile, record, online games, ratings, friends and invites, plus this device’s data, as one JSON file.',
     downloadGuest: 'What Bronze keeps in this browser, as a file.',
     downloadButton: 'Download',
     delete: 'Delete my account',
@@ -706,10 +715,11 @@ const en = {
       intro: 'This deletes, straight away and for good:',
       items: [
         'your login (email address and password, or your Google sign-in),',
-        'your username, avatar, record and achievements,',
+        'your username, avatar, record, achievements and ratings,',
+        'your friends, friend requests and game invites,',
         'your age answer, consents and email choices.',
       ],
-      note: 'Matches are played in your browser, so no match history is kept on our servers. Your guest data in this browser stays until you clear it.',
+      note: 'Online games you played stay for the other players, with “Deleted player” in your seat. A game that hasn’t started loses your seat; in a game being played, a bot finishes your seat. Your guest data in this browser stays until you clear it.',
       typeToConfirm: (name: ReactNode): ReactNode => <>Type your username, {name}, to confirm</>,
     },
     notifications: {
@@ -725,9 +735,9 @@ const en = {
       nowAdult: 'I’m 18 or over now',
     },
     privacy: {
-      cookies: 'Cookie settings',
-      cookiesNote: 'Change what Bronze may store in this browser.',
-      open: 'Open',
+      cookies: 'Cookies',
+      cookiesNote: 'Bronze stores only what it needs to work. No ads, analytics or tracking.',
+      open: 'Read',
     },
   },
   settings: {
@@ -753,22 +763,11 @@ const en = {
   },
   cookieBanner: {
     title: 'Cookies and storage',
-    body: 'Bronze keeps a few things in your browser. Essential ones keep you logged in and keep your match in progress. With your consent, Bronze also remembers your settings and your guest record on this device. There are no ads, analytics or trackers.',
-    accept: 'Accept all',
-    reject: 'Reject all',
-    customise: 'Customise',
-    save: 'Save my choices',
-    close: 'Close',
-    always: 'Always on',
+    body: 'Bronze stores only what it needs to work in this browser: your log-in, your match in progress and your settings. No ads, no analytics, no tracking, so there’s nothing to accept or reject.',
+    ok: 'OK',
     cookiePolicy: 'Cookie Policy',
     privacyPolicy: 'Privacy Policy',
     language: 'Language',
-    categories: {
-      essential: { title: 'Essential', description: 'Keep you logged in, keep your match in progress and remember these choices.' },
-      preferences: { title: 'Preferences', description: 'Remember your settings (including your language), your last game mode, map and seats, and your guest record.' },
-      analytics: { title: 'Analytics', description: 'Not used today. If Bronze ever adds analytics, it will only run with this on.' },
-      marketing: { title: 'Marketing', description: 'Not used today. If Bronze ever adds marketing tools, they will only run with this on.' },
-    },
   },
   legal: {
     lastUpdated: 'Last updated:',
@@ -776,7 +775,13 @@ const en = {
     draft: (example: ReactNode): ReactNode => <>Draft: some details of who runs Bronze aren’t filled in yet (shown like {example}).</>,
     table: (caption: string) => `${caption} (table)`,
     freeToPlay: 'Bronze is free to play; nothing is sold.',
+    fanMade: 'Bronze is a fan-made game inspired by Brass. Not affiliated with Roxley Games.',
   },
+  ...accountWords,
+  brass: brassWords,
+  welcome: welcomeWords,
+  online: onlineWords,
+  tutorial: tutorialWords,
 }
 
 export default en

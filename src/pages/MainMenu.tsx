@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ComponentType, type Dispatch, type SetStateAction } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { PLAYER_STYLE } from '../components/game/glyphs'
-import { IconComputer, IconGlobe, IconLock, IconPlay, IconUsers, type IconProps } from '../components/icons'
+import { IconBook, IconComputer, IconGlobe, IconLock, IconPlay, IconUsers, type IconProps } from '../components/icons'
 import { FriendsPanel } from '../components/FriendsPanel'
 import { AchievementsCard, TournamentsCard } from '../components/LobbyCards'
 import { MatchSetupPanel, type MatchSetup } from '../components/MatchSetupPanel'
@@ -10,9 +10,10 @@ import type { PlayerStats } from '../data/achievements'
 import type { Era } from '../data/board'
 import { GAME_MODES, type GameModeId } from '../data/gameModes'
 import type { MapId } from '../data/maps'
+import { accountPath, PATHS } from '../data/navigation'
 import { opponentsOf, seatCount, withOpponents, type Opponents, type SavedSetup } from '../data/matchSetup'
 import type { PlayerColor } from '../game/types'
-import { useAuth } from '../hooks/useAuth'
+import { useAccountAccess } from '../hooks/useAccountAccess'
 import { useOpenAuth } from '../hooks/useOpenAuth'
 import { displayName, useT, type Messages } from '../i18n'
 
@@ -133,11 +134,14 @@ export function MainMenu({
                   mode={gameMode}
                   index={index}
                   selected={gameMode.id === modeId}
+                  players={count}
                   onSelect={() => onModeChange(gameMode.id)}
                 />
               ))}
             </div>
           </fieldset>
+
+          <TutorialCard />
 
           <OpponentsControl
             value={opponentsOf(setup.seats, count)}
@@ -232,12 +236,12 @@ const OPPONENT_OPTIONS: { value: keyof Messages['lobby']['opponents']; Icon: Com
 
 /**
  * Who you play: a preset for the seats below (you against computers, or
- * everyone human on this device). Online needs a server Bronze doesn't have,
- * so it is disabled and marked "Coming soon".
+ * everyone human on this device), or Online, which opens online play.
  */
 function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (value: Exclude<Opponents, 'mixed'>) => void }) {
   const t = useT()
-  const { signedIn } = useAuth()
+  const access = useAccountAccess()
+  const navigate = useNavigate()
   const openAuth = useOpenAuth()
   return (
     <fieldset className="@container animate-fade-up [animation-delay:160ms]">
@@ -249,33 +253,33 @@ function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (va
         {OPPONENT_OPTIONS.map(({ value: option, Icon }) => {
           const label = t.lobby.opponents[option]
           const online = option === 'online'
-          const checked = !online && value === option
-          // Guests: Online needs an account first, so it's a lock that opens the log-in screen.
-          if (online && !signedIn) {
+          const checked = value === option
+          // Online opens online play. Guests: a lock that opens the log-in screen;
+          // signed in without a verified email: the lock leads to verifying it.
+          if (online) {
             return (
               <button
                 key={option}
                 type="button"
-                onClick={() => openAuth('login')}
+                onClick={() => (access === 'guest' ? openAuth('login') : access === 'ready' ? navigate(PATHS.online) : navigate(accountPath('security')))}
                 className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-center font-display text-sm font-bold tracking-[0.08em] text-parchment-400 uppercase transition hover:bg-soot-700/60 hover:text-parchment-100 @xl:flex-row @xl:gap-2 @xl:text-base"
               >
                 <Icon className="size-5 shrink-0" />
                 <span className="leading-tight">{label}</span>
-                <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-brass-300/50 bg-soot-950/80 px-2 py-0.5 text-[0.62rem] leading-tight tracking-[0.1em] text-balance text-brass-200">
-                  <IconLock className="size-3" strokeWidth={2.4} />
-                  {t.common.logInToUse}
-                </span>
+                {access !== 'ready' && (
+                  <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-brass-300/50 bg-soot-950/80 px-2 py-0.5 text-[0.62rem] leading-tight tracking-[0.1em] text-balance text-brass-200">
+                    <IconLock className="size-3" strokeWidth={2.4} />
+                    {access === 'guest' ? t.common.logInToUse : t.verifyEmail.needed}
+                  </span>
+                )}
               </button>
             )
           }
           return (
             <label
               key={option}
-              title={online ? t.lobby.onlineNeedsServer : undefined}
               className={`relative flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-center font-display text-sm font-bold tracking-[0.08em] uppercase transition has-focus-visible:outline-2 has-focus-visible:outline-ember-400 @xl:flex-row @xl:gap-2 @xl:text-base ${
-                online
-                  ? 'cursor-not-allowed text-parchment-500'
-                  : checked
+                checked
                     ? 'cursor-pointer bg-linear-to-b from-bronze-400/35 to-bronze-600/25 text-parchment-50 shadow-[inset_0_0_0_1px_rgb(240_215_138/0.55)]'
                     : 'cursor-pointer text-parchment-300 hover:bg-soot-700/60 hover:text-parchment-50'
               }`}
@@ -285,17 +289,37 @@ function OpponentsControl({ value, onChange }: { value: Opponents; onChange: (va
                 name="opponents"
                 value={option}
                 checked={checked}
-                disabled={online}
-                onChange={() => option !== 'online' && onChange(option)}
+                onChange={() => onChange(option)}
                 className="sr-only"
               />
               <Icon className={`size-5 shrink-0 ${checked ? 'text-brass-300' : ''}`} />
               <span className="leading-tight">{label}</span>
-              {online && signedIn && <span className="soon-tag">{t.common.comingSoon}</span>}
             </label>
           )
         })}
       </div>
     </fieldset>
+  )
+}
+
+/** The way into the tutorial: a guided practice game against one Easy bot. */
+function TutorialCard() {
+  const t = useT()
+  const navigate = useNavigate()
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(PATHS.tutorial)}
+      className="plate iron flex animate-fade-up items-center gap-3 rounded-xl px-4 py-3 text-left transition [animation-delay:120ms] hover:border-ember-400/70"
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-full border border-brass-300/60 bg-soot-950/80 text-brass-200" aria-hidden="true">
+        <IconBook className="size-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-display text-base font-extrabold tracking-[0.08em] text-parchment-50 uppercase">{t.tutorial.cta}</span>
+        <span className="block text-sm text-parchment-300">{t.tutorial.ctaText}</span>
+      </span>
+      <IconPlay className="size-4 shrink-0 text-brass-300" aria-hidden="true" />
+    </button>
   )
 }

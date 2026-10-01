@@ -35,7 +35,7 @@ export function LegalPage({
             {t.nav.legal}
           </Link>
         </p>
-        <h1 id="legal-title" className="page-title text-4xl tracking-[0.08em] sm:text-5xl">
+        <h1 id="legal-title" className="page-title text-4xl tracking-[0.08em] break-words hyphens-auto sm:text-5xl">
           {title}
         </h1>
         <p className="mt-2 text-sm text-parchment-300">

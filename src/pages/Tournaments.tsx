@@ -10,6 +10,7 @@ export function Tournaments() {
       empty={t.pages.tournaments.empty}
       icon={<IconBracket />}
       blurb={t.pages.tournaments.blurb}
+      needsVerifiedEmail
       locked={t.pages.tournaments.locked}
     />
   )

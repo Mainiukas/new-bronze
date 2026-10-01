@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 150" role="img" aria-label="A small workshop with a water wheel, smoke starting to rise">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d1822"/>
+      <stop offset="0.65" stop-color="#3b2c2a"/>
+      <stop offset="1" stop-color="#5a3d26"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2d4a4c"/>
+      <stop offset="1" stop-color="#16282a"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="150" fill="url(#sky)"/>
+  <path d="M0 100 Q50 84 110 96 T240 90 V150 H0 Z" fill="#2a2119"/>
+  <path d="M0 114 Q80 100 160 110 T240 106 V150 H0 Z" fill="#221a12" stroke="#0e0a06" stroke-width="2"/>
+  <!-- stream -->
+  <path d="M0 128 Q60 120 120 128 T240 124 V142 Q180 136 120 144 T0 140 Z" fill="url(#water)" stroke="#0e0a06" stroke-width="2"/>
+  <path d="M20 134 h18 M70 131 h14 M150 134 h20 M200 130 h14" stroke="#8fb7b0" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <!-- smoke, starting -->
+  <g fill="#8d857a" opacity="0.4">
+    <circle cx="140" cy="54" r="5"/><circle cx="146" cy="44" r="6.5"/><circle cx="141" cy="33" r="7.5"/>
+  </g>
+  <!-- workshop -->
+  <g stroke="#0e0a06" stroke-width="2.5" stroke-linejoin="round">
+    <rect x="96" y="84" width="62" height="36" fill="#6a4d33"/>
+    <path d="M90 86 L127 64 L164 86 Z" fill="#3e2e22"/>
+    <rect x="136" y="56" width="8" height="22" fill="#5a3a26"/>
+    <rect x="134" y="54" width="12" height="4" fill="#3e2e22"/>
+    <rect x="104" y="94" width="10" height="10" fill="#c98e3a"/>
+    <rect x="140" y="94" width="10" height="10" fill="#c98e3a"/>
+    <rect x="121" y="100" width="12" height="20" fill="#2a1d12"/>
+  </g>
+  <g fill="#f2c043" opacity="0.75"><rect x="106" y="96" width="6" height="6"/><rect x="142" y="96" width="6" height="6"/></g>
+  <!-- water wheel -->
+  <g stroke="#0e0a06" stroke-width="2.5">
+    <circle cx="80" cy="112" r="17" fill="#4a3624"/>
+    <circle cx="80" cy="112" r="11" fill="none" stroke="#b98c48" stroke-width="2"/>
+    <circle cx="80" cy="112" r="3.5" fill="#d9a441"/>
+    <g stroke="#b98c48" stroke-width="2">
+      <line x1="80" y1="95" x2="80" y2="129"/><line x1="63" y1="112" x2="97" y2="112"/>
+      <line x1="68" y1="100" x2="92" y2="124"/><line x1="92" y1="100" x2="68" y2="124"/>
+    </g>
+  </g>
+  <rect x="92" y="104" width="6" height="6" fill="#3e2e22" stroke="#0e0a06" stroke-width="2"/>
+</svg>

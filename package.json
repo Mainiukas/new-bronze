@@ -10,12 +10,15 @@
     "test": "vitest run",
     "lint": "oxlint",
     "preview": "vite preview",
-    "notices": "node scripts/third-party-notices.mjs"
+    "notices": "node scripts/third-party-notices.mjs",
+    "tiles": "node scripts/tiles.mjs",
+    "build:server": "node scripts/build-server.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",
     "@fontsource/barlow-condensed": "^5.3.0",
     "@fontsource/cinzel": "^5.3.0",
+    "@stripe/stripe-js": "^7.10.0",
     "@supabase/supabase-js": "^2.117.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

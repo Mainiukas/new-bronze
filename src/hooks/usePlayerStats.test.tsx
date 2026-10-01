@@ -25,6 +25,7 @@ function server(id: string, failures = 0) {
       setTimeout(() => callback(user, false), 0)
       return () => undefined
     },
+    getMfaState: async () => ({ current: 'aal1', next: 'aal1', factors: [] }),
     getProfile: async () => profile,
     async mergeGuestStats(merge: GuestMerge) {
       merges.push(merge)

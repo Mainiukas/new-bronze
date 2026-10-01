@@ -535,11 +535,6 @@ dialog.bz-dialog--sheet-bottom {
 /* ==========================================================================
    PAINTED PAGE BACKGROUNDS (src/components/theme/PageBackground.tsx)
    ========================================================================== */
-/* Follows the mouse by up to 10 px (desktop only; the variables stay at 0 otherwise). */
-.page-bg-art {
-  transform: translate3d(var(--parallax-x, 0px), var(--parallax-y, 0px), 0);
-  transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
 /* Fades in over the soot ground once loaded, so a page never flashes. */
 .page-bg-img {
   opacity: 0;
@@ -743,5 +738,224 @@ svg [role='button']:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Brass player panel: UPGRADE's border pulses to guide the player; stat values flash when they change. */
+@keyframes pulse-border {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(248 216 132 / 0);
+    border-color: rgb(248 216 132 / 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgb(248 216 132 / 0.55);
+    border-color: rgb(255 240 190);
+  }
+}
+@keyframes stat-up {
+  from {
+    color: #86e08a;
+    text-shadow: 0 0 10px #4fbf55;
+  }
+}
+@keyframes stat-down {
+  from {
+    color: #ff8a73;
+    text-shadow: 0 0 10px #d9482f;
+  }
+}
+[data-animations='off'] .stat-flash {
+  animation: none !important;
+}
+
+/* Brass cards: the hand fan re-centres smoothly; cards flip with a front and a back face. */
+.fan-card {
+  transition: transform calc(0.38s * var(--anim-scale, 1)) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.fan-card-button {
+  transition:
+    translate 0.15s ease-out,
+    box-shadow 0.15s ease-out;
+}
+.card3d {
+  perspective: 900px;
+}
+.card3d-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform calc(0.45s * var(--anim-scale, 1)) ease-in-out;
+}
+.card3d-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+.card3d-back {
+  transform: rotateY(180deg);
+}
+:root[data-animations='off'] .fan-card,
+:root[data-animations='off'] .fan-card-button,
+:root[data-animations='off'] .card3d-inner {
+  transition: none;
+  animation: none !important;
+}
+
+/* End of the canal era: canals and level I tiles fade off the board. */
+@keyframes board-fade-out {
+  0%,
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    filter: grayscale(1);
+  }
+}
+.board-fade-out {
+  animation: board-fade-out calc(1.6s * var(--anim-scale, 1)) ease-in forwards;
+  pointer-events: none;
+}
+:root[data-animations='off'] .board-fade-out {
+  animation: none;
+  opacity: 0;
+}
+
+/* Cards flying in from the deck keep their place in the hand until they land. */
+[data-arriving] {
+  visibility: hidden;
+}
+.card-flight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* The match screen. Desktop: top bar, then a grid, [side strip | markets + board | player panel] with the
+   hand strip under the board. The board is scaled to fit the space left (it is square), so the whole
+   board and frame are always visible; nothing but the confirm dialogs covers it. Narrower screens stack. */
+.brass-board-fit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.brass-board-fit > [data-board] {
+  width: 100%;
+}
+@media (min-width: 64rem) {
+  .brass-screen {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .brass-layout {
+    display: grid;
+    min-height: 0;
+    flex: 1;
+    grid-template-columns: 13rem minmax(0, 1fr) minmax(20rem, 24rem);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'left market panel'
+      'left board panel'
+      'hand hand panel';
+  }
+  .brass-left {
+    grid-area: left;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .brass-market {
+    grid-area: market;
+  }
+  .brass-board-fit {
+    grid-area: board;
+    min-height: 0;
+    container-type: size;
+  }
+  .brass-board-fit > [data-board] {
+    width: min(100cqw, 100cqh);
+  }
+  .brass-hand {
+    grid-area: hand;
+  }
+  .brass-panel {
+    grid-area: panel;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+/* Reduced motion: cards, cubes and tiles don't fly; what changed fades in instead. */
+@keyframes rm-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-animations='off']) .rm-fade {
+    animation: rm-fade 0.3s ease-out both !important;
+  }
+}
+
+/* The welcome slides: each new slide fades in moving 40 px to the left (back: from the left); reduced motion: fade only. */
+@keyframes welcome-in {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+@keyframes welcome-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+}
+@keyframes welcome-fade {
+  from {
+    opacity: 0;
+  }
+}
+.welcome-slide {
+  animation: welcome-in 250ms ease-out both;
+}
+.welcome-slide--back {
+  animation-name: welcome-in-back;
+}
+/* Slide 2's banner: the canal, then the mill town, and back. */
+@keyframes welcome-crossfade {
+  0%,
+  35% {
+    opacity: 0;
+  }
+  50%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.welcome-crossfade {
+  animation: welcome-crossfade 9s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome-slide,
+  .welcome-slide--back {
+    animation-name: welcome-fade;
+  }
+  .welcome-crossfade {
+    animation: none;
+    opacity: 0;
+  }
+}
+:root[data-animations='off'] .welcome-slide,
+:root[data-animations='off'] .welcome-crossfade {
+  animation: none;
+}
+/* On a phone the card fills the screen (16 px from the edges). */
+@media (max-width: 639px) {
+  .welcome-card {
+    height: 100%;
   }
 }

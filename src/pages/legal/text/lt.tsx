@@ -1,8 +1,7 @@
 /* oxlint-disable react/only-export-components -- a lazily loaded bundle of page text, not a component module */
-import { Bullets, DataTable, Email, Fill, LegalPage, Section, Sub, TextLink } from '../../../components/legal/LegalPage'
+import { Bullets, DataTable, Email, Fill, LegalPage, Section, TextLink } from '../../../components/legal/LegalPage'
 import { PATHS } from '../../../data/navigation'
 import { useT } from '../../../i18n'
-import { consentStore } from '../../../legal/consent'
 import { STORAGE_ITEMS, type DataItem } from '../../../legal/inventory'
 import { MIN_ACCOUNT_AGE, OPERATOR, SERVICES } from '../../../legal/operator'
 import { DocumentLinks, fileLink, linkClass as link, strongClass as strong } from './shared'
@@ -18,7 +17,7 @@ const inventory: InventoryText = {
     'bronze.consent': {
       where: 'Vietinė saugykla',
       provider: 'Bronze',
-      purpose: 'Įsimena jūsų slapukų pasirinkimus, jų datą ir politikos versiją, kuriai juos pasirinkote.',
+      purpose: 'Įsimena, kad matėte pranešimą apie slapukus, jo datą ir politikos versiją.',
       duration: '12 mėnesių arba kol pasikeis politika',
     },
     'bronze.auth': {
@@ -75,7 +74,7 @@ const inventory: InventoryText = {
       purpose: 'Jūsų paskyros baigtos partijos (ir svečio rezultatai), kol serveris patvirtins kiekvienos išsaugojimą, kad dingus ryšiui niekas neprarastų.',
       duration: 'Pašalinama išsaugojus',
     },
-    'bronze.boardDraft': {
+    'bronze.boardDraft.v2': {
       where: 'Vietinė saugykla',
       provider: 'Bronze',
       purpose: 'Neišsaugoti žemėlapio redaktoriaus pakeitimai (#/board?edit=1). Sukuriama, tik jei naudojate redaktorių.',
@@ -85,48 +84,54 @@ const inventory: InventoryText = {
       where: 'Vietinė saugykla',
       provider: 'Bronze',
       purpose: 'Jūsų nustatymai: kalba, garsas, garsumas, animacijos ir kompiuterio greitis, ėjimo laikmatis, partijos žurnalas.',
-      duration: 'Kol išvalysite arba atšauksite sutikimą',
+      duration: 'Kol išvalysite',
     },
     'bronze.lobby.gameMode': {
       where: 'Vietinė saugykla',
       provider: 'Bronze',
       purpose: 'Paskutinis jūsų pasirinktas žaidimo režimas.',
-      duration: 'Kol išvalysite arba atšauksite sutikimą',
+      duration: 'Kol išvalysite',
     },
     'bronze.lobby.map': {
       where: 'Vietinė saugykla',
       provider: 'Bronze',
       purpose: 'Paskutinis jūsų pasirinktas žemėlapis.',
-      duration: 'Kol išvalysite arba atšauksite sutikimą',
+      duration: 'Kol išvalysite',
     },
     'bronze.setup': {
       where: 'Vietinė saugykla',
       provider: 'Bronze',
       purpose: 'Paskutinį kartą nustatytos partijos vietos: vardai, spalvos ir kompiuterio lygiai.',
-      duration: 'Kol išvalysite arba atšauksite sutikimą',
+      duration: 'Kol išvalysite',
     },
     'bronze.stats': {
       where: 'Vietinė saugykla',
       provider: 'Bronze',
       purpose: 'Jūsų rezultatai ir pasiekimai žaidžiant kaip svečias (prisijungus perkeliami į paskyrą).',
-      duration: 'Kol išvalysite, atšauksite sutikimą arba prisijungsite',
+      duration: 'Kol išvalysite arba prisijungsite',
     },
   },
-  categories: [
-    { id: 'essential', title: 'Būtinieji', description: 'Leidžia likti prisijungus, išsaugo vykstančią partiją ir įsimena jūsų slapukų pasirinkimus. Visada įjungti.' },
-    { id: 'preferences', title: 'Nuostatos', description: 'Šiame įrenginyje įsimena jūsų nustatymus, paskutinį žaidimo režimą, žemėlapį, vietas ir svečio rezultatus.' },
-    { id: 'analytics', title: 'Analitika', description: 'Šiuo metu Bronze analitikos nenaudoja. Jei kada nors naudos, ji veiks tik tai įjungus.' },
-    { id: 'marketing', title: 'Rinkodara', description: 'Šiuo metu Bronze nenaudoja reklamos ar rinkodaros sekiklių. Jei kada nors naudos, jie veiks tik tai įjungus.' },
-  ],
   account: [
     {
       what: 'El. pašto adresas',
-      why: 'Kad galėtumėte prisijungti, ir paskyros laiškams (adreso patvirtinimui, slaptažodžio atkūrimui).',
+      why: 'Kad galėtumėte prisijungti, ir paskyros laiškams (adreso patvirtinimui, slaptažodžio atkūrimui, saugumo pranešimams, kai pasikeičia jūsų slaptažodis, el. paštas ar dviejų veiksnių nustatymai).',
       basis: CONTRACT,
       retention: UNTIL_DELETED,
     },
     { what: 'Slaptažodis', why: 'Kad galėtumėte prisijungti. „Supabase“ saugo tik vienkryptę maišos reikšmę; niekas negali jo perskaityti.', basis: CONTRACT, retention: UNTIL_DELETED },
-    { what: 'Vartotojo vardas', why: 'Jūsų vardas žaidime. Jį mato kiti žaidėjai.', basis: CONTRACT, retention: UNTIL_DELETED },
+    { what: 'Vartotojo vardas', why: 'Jūsų vardas žaidime. Jį mato visi, kad ir kokie būtų jūsų privatumo nustatymai.', basis: CONTRACT, retention: UNTIL_DELETED },
+    {
+      what: 'Ankstesni vartotojo vardai ir kada juos pakeitėte',
+      why: 'Kad nuorodos į seną vardą 30 dienų vestų į jūsų profilį ir kad per tą laiką niekas kitas negalėtų jo užimti (ir apsimesti jumis).',
+      basis: 'Teisėtas interesas užkirsti kelią apsimetinėjimui (BDAR 6 str. 1 d. f p.)',
+      retention: '30 dienų',
+    },
+    {
+      what: 'Profilio duomenys, kuriuos nusprendžiate pridėti: aprašymas, šalis, avataras (paruoštas arba jūsų įkeltas paveikslėlis); ir jūsų privatumo nustatymai',
+      why: 'Rodomi jūsų profilyje tiems, kam leidžia jūsų privatumo nustatymai.',
+      basis: CONTRACT,
+      retention: 'Kol juos pakeisite arba ištrinsite paskyrą',
+    },
     {
       what: '„Google“ paskyros duomenys (vardas, el. pašto adresas, profilio nuotrauka, „Google“ paskyros ID), tik jei jungiatės per „Google“',
       why: 'Prisijungimui per „Google“. Pagal vardą pasiūlomas vartotojo vardas; nuotrauka rodoma kaip avataras, kurį mato kiti žaidėjai.',
@@ -153,9 +158,63 @@ const inventory: InventoryText = {
     },
     {
       what: 'Žaidimo rezultatai: partijos, pergalės, geriausias rezultatas, išgabentos prekės, žaisti žemėlapiai, pasiekimai ir jų atrakinimo laikas, prisijungimo data; atsitiktinis kiekvieno išsaugoto rezultato ID',
-      why: 'Jūsų profilis ir pasiekimai. Kiti prisijungę žaidėjai mato jūsų rezultatus. ID užtikrina, kad du kartus išsiųstas rezultatas būtų įskaitytas vieną kartą.',
+      why: 'Jūsų profilis ir pasiekimai, rodomi tiems, kam leidžia jūsų privatumo nustatymai. ID užtikrina, kad du kartus išsiųstas rezultatas būtų įskaitytas vieną kartą.',
       basis: CONTRACT,
       retention: UNTIL_DELETED,
+    },
+    {
+      what: 'Partijų istorija: kiekvienos baigtos partijos laikas, žemėlapis ir žaidimo režimas, žaidėjų skaičius, jūsų vieta, rezultatas, išgabentos prekės, nutiestos jungtys ir pastatyti pramonės objektai',
+      why: 'Paskutinės jūsų partijos ir statistika profilyje, rodomos tiems, kam leidžia jūsų privatumo nustatymai.',
+      basis: CONTRACT,
+      retention: UNTIL_DELETED,
+    },
+    {
+      what: 'Internetinės partijos: kokias partijas žaidėte, jūsų vieta, kiekvienas jūsų ėjimas ir jo laikas, rezultatas, jūsų laikrodis ir ryšys partijos metu',
+      why: 'Internetinėms partijoms vykdyti: patikrinti kiekvieną ėjimą, užtikrinti sąžiningumą, rodyti partiją jos žaidėjams (ir viešų partijų stebėtojams) ir leisti ją peržiūrėti.',
+      basis: CONTRACT,
+      retention: 'Kol partija saugoma. Jei ištrinsite paskyrą, jūsų vietoje bus rodoma „Ištrintas žaidėjas“ ir ji nebebus susieta su jumis; ėjimai lieka, kad kiti žaidėjai išsaugotų savo partiją.',
+    },
+    {
+      what: 'Reitingai: jūsų reitingas kiekviename žemėlapyje, jo tikslumas, sužaistų partijų skaičius, geriausias reitingas ir kiekvienas pokytis po reitinguotos partijos',
+      why: 'Kad būtų sudaromos panašaus lygio žaidėjų poros, o reitingai rodomi profiliuose ir lyderių lentelėje.',
+      basis: CONTRACT,
+      retention: UNTIL_DELETED,
+    },
+    {
+      what: 'Draugai: žaidėjai, kuriuos pridėjote, išsiųsti ir gauti draugystės kvietimai bei kvietimai į partijas',
+      why: 'Jūsų draugų sąrašas, kvietimai ir pakvietimai į partijas.',
+      basis: CONTRACT,
+      retention: 'Kol jūs arba jūsų draugas jį pašalinsite arba vienas iš jūsų ištrins paskyrą. Kvietimas į partiją dingsta, kai panaudojamas arba partija prasideda.',
+    },
+    {
+      what: 'Būsena internete: kada jūsų programėlė paskutinį kartą susisiekė su žaidimo serveriu',
+      why: 'Kad draugai matytų, ar esate prisijungę (matyti per paskutines 2 minutes).',
+      basis: CONTRACT,
+      retention: 'Kaskart pakeičiama nauja; ištrinama kartu su paskyra',
+    },
+    {
+      what: 'Greitas žaidimas: jūsų reitingas ir norimos partijos tipas, kol laukiate varžovų',
+      why: 'Kad rastume panašaus lygio žaidėjų.',
+      basis: CONTRACT,
+      retention: 'Kol rasite varžovų arba nustosite laukti',
+    },
+    {
+      what: 'Dviejų veiksnių autentifikavimas, tik jei jį įjungiate: autentifikavimo programėlės raktas (jį saugo „Supabase“) ir atkūrimo kodai (saugomi tik kaip vienkryptės maišos reikšmės)',
+      why: 'Kad jungiantis būtų paprašyta kodo iš jūsų telefono, o jį praradus galėtumėte prisijungti atkūrimo kodu.',
+      basis: CONTRACT,
+      retention: 'Kol jį išjungsite arba ištrinsite paskyrą',
+    },
+    {
+      what: 'Pranešimai apie žaidėjus: kai pranešate apie žaidėją arba žaidėjas praneša apie jus – apie ką, priežastis, pastaba ir kada',
+      why: 'Kad galėtume išnagrinėti sukčiavimą, įžeidžiančius vardus, priekabiavimą ir šlamštą, o žaidimas liktų sąžiningas ir saugus.',
+      basis: 'Teisėtas interesas užtikrinti saugų žaidimą (BDAR 6 str. 1 d. f p.)',
+      retention: '12 mėnesių; anksčiau, jei paskyra, apie kurią pranešta, ištrinama',
+    },
+    {
+      what: 'Piktnaudžiavimo skaitikliai: jūsų paskyros ID (arba, kol neprisijungėte, IP adresas), koks veiksmas ir kiek kartų bandyta',
+      why: 'Kad būtų ribojama, kaip dažnai galima bandyti slaptažodžius, kodus, vartotojo vardų patikras ir pranešimus – apsaugai nuo spėliojimo ir šlamšto.',
+      basis: 'Teisėtas interesas užtikrinti saugumą (BDAR 6 str. 1 d. f p.)',
+      retention: 'Ištrinama po paros',
     },
     {
       what: 'Nesėkmingų prisijungimų skaitiklis: bandytas vartotojo vardas, kiek neteisingų slaptažodžių ir kada',
@@ -165,7 +224,7 @@ const inventory: InventoryText = {
     },
     {
       what: '„Supabase“ saugomi prisijungimo įvykiai (laikas, IP adresas, naršyklė)',
-      why: 'Prisijungimo paslaugos saugumas.',
+      why: 'Prisijungimo paslaugos saugumas ir jūsų paskutinių prisijungimų sąrašas skiltyje Paskyros nustatymai → Saugumas (matote tik jūs).',
       basis: 'Teisėtas interesas užtikrinti saugumą (BDAR 6 str. 1 d. f p.)',
       retention: SERVICES.authLogRetention,
     },
@@ -193,135 +252,163 @@ const inventory: InventoryText = {
     },
     { name: SERVICES.hosting, role: 'Duomenų tvarkytojas: talpina svetainės failus', data: 'Serverio žurnalai (IP adresas, užklausti puslapiai, naršyklė)', location: SERVICES.hosting },
     { name: SERVICES.emailProvider, role: 'Duomenų tvarkytojas: siunčia paskyros laiškus', data: 'El. pašto adresas ir laiško turinys', location: SERVICES.emailProvider },
-    { name: 'Kiti žaidėjai', role: 'Mato jūsų viešą profilį', data: 'Vartotojo vardas, avataras, žaidimo rezultatai, prisijungimo data', location: 'Visur, kur žaidžiama Bronze' },
+    {
+      name: 'Kiti žaidėjai ir lankytojai',
+      role: 'Mato jūsų profilį, kiek leidžia jūsų privatumo nustatymai',
+      data: 'Visada vartotojo vardas ir avataras. Jei profilis viešas (arba matomas draugams – jūsų draugams), taip pat aprašymas, šalis, rezultatai, reitingai, paskutinės partijos ir prisijungimo data. Internetinėse partijose – jūsų vieta, ėjimai ir rezultatas (partijos žaidėjams ir viešų partijų stebėtojams). Draugai mato, kada esate prisijungę. Nusistovėjęs reitingas rodomas lyderių lentelėje.',
+      location: 'Visur, kur žaidžiama Bronze',
+    },
   ],
 }
 
 const HEAD = ['Kas', 'Kodėl', 'Teisinis pagrindas', 'Kiek laiko']
 const dataRows = (items: DataItem[]) => items.map((d) => [d.what, d.why, d.basis, <Fill key="r" value={d.retention} />])
 
+const storageRows = () =>
+  STORAGE_ITEMS.map((item) => {
+    const text = inventory.storage[item.key]
+    return [
+      <code key="k" className="font-mono text-[0.85em] break-all">
+        {item.key}
+      </code>,
+      text?.where ?? item.where,
+      text?.provider ?? item.provider,
+      text?.purpose ?? item.purpose,
+      text?.duration ?? item.duration,
+    ]
+  })
+
 function PrivacyPolicy() {
   return (
     <LegalPage
       title="Privatumo politika"
-      intro={
-        <p>
-          Bronze – strateginis žaidimas, kurį galite žaisti naršyklėje. Žaisti kaip svečias galite nieko apie save nepateikę. Ši politika paaiškina, ką
-          tvarkome, kai susikuriate paskyrą, kodėl, ir kokias teises turite.
-        </p>
-      }
+      intro={<p>Šiame puslapyje paprastais žodžiais paaiškinta, ką Bronze apie jus žino, kodėl, kas dar tai mato ir ką galite dėl to padaryti.</p>}
     >
-      <Section id="controller" title="Kas mes esame">
+      <Section id="short" title="Trumpai">
+        <Bullets>
+          <li>Prieš kompiuterį galite žaisti kaip svečias. Tada mums apie jus nesiunčiama nieko.</li>
+          <li>Paskyrai reikia el. pašto adreso, slaptažodžio (arba „Google“) ir vartotojo vardo. Visa kita – jūsų pasirinkimu.</li>
+          <li>Internetinėse partijose išsaugomas kiekvienas ėjimas, kad žaidimas būtų sąžiningas ir partiją būtų galima peržiūrėti.</li>
+          <li>Jokios reklamos, analitikos ar sekimo. Jūsų duomenų niekada neparduodame.</li>
+          <li>
+            Viską, ką apie jus turime, galite bet kada atsisiųsti arba ištrinti paskyrą skiltyje <strong className={strong}>Nustatymai → Paskyra</strong>.
+          </li>
+        </Bullets>
+      </Section>
+
+      <Section id="controller" title="Kas mes">
         <p>
-          Jūsų asmens duomenų valdytojas yra <Fill value={OPERATOR.name} /> (<Fill value={OPERATOR.legalForm} />), <Fill value={OPERATOR.address} />. Juridinio
-          asmens kodas <Fill value={OPERATOR.companyNumber} />. Visais su duomenimis susijusiais klausimais rašykite <Email value={OPERATOR.email} />. Taip pat
-          žr. mūsų <TextLink to={PATHS.legal}>rekvizitus</TextLink>.
+          Bronze valdo <Fill value={OPERATOR.name} /> (<Fill value={OPERATOR.legalForm} />), <Fill value={OPERATOR.address} />, įmonės kodas{' '}
+          <Fill value={OPERATOR.companyNumber} />. Mes sprendžiame, kaip naudojami jūsų duomenys (esame duomenų valdytojas). Klausimai apie duomenis:{' '}
+          <Email value={OPERATOR.email} />. Daugiau – skiltyje <TextLink to={PATHS.legal}>Rekvizitai</TextLink>.
         </p>
       </Section>
 
-      <Section id="guests" title="Žaidimas kaip svečias">
+      <Section id="guests" title="Žaidimas svečio teisėmis">
         <p>
-          Žaidžiant kaip svečias, mums apie jus nieko neperduodama. Partijos žaidžiamos jūsų naršyklėje, o tai, ką Bronze įsimena (vykstanti partija ir, jei
-          leidžiate, nustatymai bei rezultatai), lieka naršyklės saugykloje. Visas sąrašas pateiktas <TextLink to={PATHS.cookies}>Slapukų politikoje</TextLink>.
-          Mūsų prieglobos paslaugų teikėjas vis tiek mato techninius duomenis, kuriuos gauna kiekviena svetainė:
+          Svečias žaidžia prieš kompiuterį savo naršyklėje. Partija, nustatymai ir rezultatai lieka naršyklės saugykloje (žr.{' '}
+          <TextLink to={PATHS.cookies}>Slapukų politiką</TextLink>). Kaip ir bet kuri svetainė, mūsų prieglobos teikėjas mato kai kuriuos techninius duomenis:
         </p>
-        <DataTable caption="Kiekvieno lankytojo tvarkomi duomenys" head={HEAD} rows={dataRows(inventory.visitor)} />
+        <DataTable caption="Visų lankytojų duomenys" head={HEAD} rows={dataRows(inventory.visitor)} />
       </Section>
 
-      <Section id="account" title="Turint paskyrą">
+      <Section id="account" title="Ką saugome, kai turite paskyrą">
+        <p>Saugome tik tai, ko reikia Bronze. Niekada neklausiame jūsų gimimo datos, adreso ar buvimo vietos. Aprašymas, šalis ir nuotrauka – neprivalomi.</p>
+        <DataTable caption="Paskyrų turėtojų duomenys" head={HEAD} rows={dataRows(inventory.account)} />
         <p>
-          Paskyra nebūtina. Ji leidžia išsaugoti rezultatus ir pasiekimus skirtinguose įrenginiuose, o atsiradus žaidimui internetu jos reikės jam. Renkame tik tai,
-          ko reikia paskyrai: jokio telefono numerio, gimimo datos ar buvimo vietos.
-        </p>
-        <DataTable caption="Paskyrų turėtojų tvarkomi duomenys" head={HEAD} rows={dataRows(inventory.account)} />
-        <p>
-          Ištrynus paskyrą, visa tai iš karto ištrinama. Kopijos gali likti duomenų bazės atsarginėse kopijose iki <Fill value={SERVICES.backupRetention} />, kol
-          bus perrašytos. Jei pradedate jungtis per „Google“, bet paskyros nesukuriate, pasirinkus „Ne dabar“ ji ištrinama iš karto; kitu atveju nebaigta
-          registracija ištrinama po 7 dienų. Taip pat ištrinama ir niekada nepatvirtinta registracija el. paštu.
-        </p>
-        <p>
-          Neparduodame jūsų duomenų, nerodome reklamos, neprofiliuojame jūsų ir nepriimame apie jus automatizuotų sprendimų. Bronze nenaudoja analitikos ar
-          sekimo įrankių.
+          „Teisinis pagrindas“ – BDAR (ES duomenų apsaugos įstatymo) nuostata, leidžianti kiekvieną naudojimą. „Sutartis“ reiškia, kad to reikia, jog
+          gautumėte žaidimą, kuriam užsiregistravote.
         </p>
       </Section>
 
-      <Section id="emails" title="El. laiškai">
-        <p>
-          Siunčiame jums reikalingus paskyros laiškus: adreso patvirtinimo ir slaptažodžio atkūrimo. Juose nieko kito nėra. Naujienas ar kitus nebūtinus laiškus
-          siųstume tik jums juos įjungus ir niekada jaunesniems nei 18 metų. Bronze kol kas nebūtinų laiškų nesiunčia. Kiekviename nebūtiname laiške bus
-          atsisakymo vienu spustelėjimu nuoroda, o pasirinkimus galite bet kada pakeisti skiltyje Nustatymai → Pranešimai.
-        </p>
+      <Section id="online" title="Žaidimas internetu">
+        <Bullets>
+          <li>Kiekvieną internetinės partijos ėjimą patikrina ir išsaugo mūsų serveris. Partijos žaidėjai ir viešų partijų stebėtojai mato lentą, vardus ir ėjimus. Jūsų kortų nemato niekas kitas.</li>
+          <li>Baigtas partijas gali peržiūrėti jų žaidėjai, o viešas – visi.</li>
+          <li>Reitinguotos partijos keičia jūsų reitingą. Jis rodomas jūsų profilyje, o nusistovėjęs (po 10 reitinguotų partijų) – ir lyderių lentelėje.</li>
+          <li>Draugai mato, kada esate prisijungę, t. y. kai jūsų programėlė per paskutines 2 minutes susisiekė su mūsų serveriu.</li>
+          <li>
+            Kas mato jūsų profilį ir partijų istoriją, renkatės skiltyje <strong className={strong}>Paskyros nustatymai → Privatumas</strong>:{' '}
+            <strong className={strong}>Viešas</strong> (visi), <strong className={strong}>Tik draugams</strong> arba <strong className={strong}>Privatus</strong> (tik
+            jūs). Vartotojo vardas ir nuotrauka matomi visada, el. pašto adresas – niekada. Jaunesnių nei 18 metų žaidėjų paskyros iš pradžių matomos tik draugams.
+          </li>
+        </Bullets>
       </Section>
 
-      <Section id="recipients" title="Kas dar tvarko jūsų duomenis">
+      <Section id="recipients" title="Kas dar mato jūsų duomenis">
+        <p>Šios įmonės padeda mums valdyti Bronze. Jūsų duomenis jos gali naudoti tik šiam darbui mums atlikti (jos yra duomenų tvarkytojai), išskyrus „Google“.</p>
         <DataTable
           caption="Asmens duomenų gavėjai"
           head={['Kas', 'Vaidmuo', 'Kokie duomenys', 'Kur']}
           rows={inventory.recipients.map((r) => [<Fill key="n" value={r.name} />, r.role, r.data, <Fill key="l" value={r.location} />])}
         />
-        <Sub title="Perdavimas už EEE ribų">
-          <p>
-            „Supabase, Inc.“ įsikūrusi Jungtinėse Valstijose. Jūsų paskyros duomenys saugomi aukščiau nurodytame projekto regione; jei jie pasiekiami ar
-            perduodami už Europos ekonominės erdvės ribų, juos saugo <Fill value={SERVICES.transferSafeguards} />. Galite paprašyti šių apsaugos priemonių
-            kopijos.
-          </p>
-        </Sub>
+        <p>
+          „Supabase“ – JAV įmonė. Kai jūsų duomenys perduodami už Europos ekonominės erdvės ribų, juos saugo <Fill value={SERVICES.transferSafeguards} />. Galite
+          paprašyti mūsų kopijos.
+        </p>
       </Section>
 
       <Section id="rights" title="Jūsų teisės">
-        <p>Pagal BDAR jūs galite:</p>
         <Bullets>
           <li>
-            <strong className={strong}>susipažinti</strong> su savo duomenimis ir <strong className={strong}>juos perkelti</strong>: Nustatymai → Paskyra →
-            Atsisiųsti mano duomenis pateikia jų kopiją failu;
+            <strong className={strong}>Matyti ir pasiimti savo duomenis</strong>: <strong className={strong}>Nustatymai → Paskyra → Atsisiųsti mano duomenis</strong> duoda
+            failą (JSON) su viskuo, kas išvardyta: paskyra, profiliu, rezultatais, internetinėmis partijomis su jūsų ėjimais, reitingais, draugais ir kvietimais.
           </li>
           <li>
-            <strong className={strong}>juos ištaisyti</strong>: parašykite mums arba pakeiskite nustatymus žaidime;
+            <strong className={strong}>Ištrinti juos</strong>: <strong className={strong}>Nustatymai → Paskyra → Ištrinti mano paskyrą</strong>. Patvirtinate įvesdami
+            savo vartotojo vardą, ir viskas iš karto ištrinama. Sužaistos internetinės partijos lieka kitiems žaidėjams: jūsų vietoje rodoma „Ištrintas žaidėjas“, be
+            jokio ryšio su jumis. Atsarginės kopijos perrašomos per <Fill value={SERVICES.backupRetention} />.
           </li>
           <li>
-            <strong className={strong}>juos ištrinti</strong>: Nustatymai → Paskyra → Ištrinti mano paskyrą;
+            <strong className={strong}>Ištaisyti juos</strong>: paskyros nustatymuose arba paprašę mūsų.
           </li>
           <li>
-            <strong className={strong}>nesutikti</strong> su tvarkymu teisėto intereso pagrindu arba prašyti jį <strong className={strong}>apriboti</strong>;
+            <strong className={strong}>Prieštarauti arba prašyti apriboti</strong> tai, ką su jais darome, kai remiamės „teisėtu interesu“.
           </li>
           <li>
-            bet kada <strong className={strong}>atšaukti sutikimą</strong>, nepaveikdami ankstesnio tvarkymo: Slapukų nustatymai (poraštėje) ir Nustatymai →
-            Pranešimai;
+            <strong className={strong}>Atšaukti sutikimą</strong> (pvz., neprivalomiems laiškams) skiltyje <strong className={strong}>Nustatymai → Pranešimai</strong>.
           </li>
           <li>
-            <strong className={strong}>pateikti skundą</strong> Valstybinei duomenų apsaugos inspekcijai (L. Sapiegos g. 17, LT-10312 Vilnius, ada@ada.lt,{' '}
+            <strong className={strong}>Pateikti skundą</strong> Valstybinei duomenų apsaugos inspekcijai (L. Sapiegos g. 17, LT-10312 Vilnius, ada@ada.lt,{' '}
             <a href="https://vdai.lrv.lt" className={link} rel="noopener">
               vdai.lrv.lt
             </a>
-            ) arba savo gyvenamosios vietos priežiūros institucijai.
+            ) arba savo šalies institucijai.
           </li>
         </Bullets>
         <p>
-          Jei negalite prisijungti, naudokitės <TextLink to={PATHS.dataRequest}>duomenų užklausų puslapiu</TextLink> arba rašykite <Email value={OPERATOR.email} />.
-          Atsakome per 30 dienų (vieną mėnesį). Sudėtingų prašymų atveju šį terminą galime pratęsti dar iki dviejų mėnesių ir per pirmąjį mėnesį nurodysime
-          priežastį. Galime paprašyti patvirtinti prašymą iš paskyros el. pašto adreso, kad niekas kitas negautų jūsų duomenų.
+          Negalite prisijungti? Naudokite <TextLink to={PATHS.dataRequest}>duomenų užklausų puslapį</TextLink> arba rašykite <Email value={OPERATOR.email} />.
+          Atsakome per 30 dienų. Sudėtinga užklausa gali užtrukti iki dviejų mėnesių ilgiau; tada per pirmą mėnesį pasakysime kodėl. Galime paprašyti patvirtinti
+          užklausą iš paskyros el. pašto adreso, kad jūsų duomenų negautų kas nors kitas.
+        </p>
+      </Section>
+
+      <Section id="emails" title="Laiškai">
+        <p>
+          Siunčiame laiškus, kurių reikia paskyrai: adreso patvirtinimo, slaptažodžio atkūrimo ir pranešimus, kai pasikeičia slaptažodis, el. paštas ar dviejų
+          veiksnių nustatymai. Visa kita (pvz., naujienas) – tik jei įjungsite, ir niekada jaunesniems nei 18 metų. Kiekviename neprivalomame laiške yra
+          atsisakymo nuoroda.
         </p>
       </Section>
 
       <Section id="children" title="Vaikai">
         <p>
-          Paskyros skirtos tik {MIN_ACCOUNT_AGE} metų ir vyresniems asmenims ({MIN_ACCOUNT_AGE} metų – amžius, nuo kurio Lietuvoje asmuo pagal BDAR 8 straipsnį
-          gali pats sutikti su informacinės visuomenės paslaugomis). Jaunesni žaidėjai gali žaisti kaip svečiai – tuomet apie juos pas mus nieko nesaugoma.
-          Registruojantis klausiame, ar jums 14–17, ar 18 ir daugiau metų; gimimo datos neklausiame. Jaunesniems nei 18 metų rinkodaros niekada nesiunčiame, o
-          bet kokiam pirkiniui jiems reikia tėvų ar globėjų leidimo (šiuo metu Bronze nieko neparduoda). Sužinoję, kad paskyra priklauso jaunesniam nei{' '}
+          Paskyros skirtos {MIN_ACCOUNT_AGE} metų ir vyresniems ({MIN_ACCOUNT_AGE} metų – amžius, nuo kurio Lietuvoje galima pačiam sutikti naudotis internetinėmis
+          paslaugomis). Jaunesni gali žaisti kaip svečiai. Klausiame, ar jums 14–17, ar 18+ metų, o ne gimimo datos. Sužinoję, kad paskyra priklauso jaunesniam nei{' '}
           {MIN_ACCOUNT_AGE} metų asmeniui, ją ištriname.
         </p>
       </Section>
 
       <Section id="security" title="Saugumas">
         <p>
-          Ryšiai šifruojami (HTTPS). Slaptažodžiai saugomi tik kaip maišos reikšmės. Kiekvienas žaidėjas gali skaityti ir keisti tik savo privačius duomenis; po 5
-          neteisingų slaptažodžių to vartotojo vardo prisijungimai sustabdomi 30 sekundžių.
+          Ryšys šifruojamas (HTTPS). Slaptažodžiai ir atkūrimo kodai saugomi tik kaip maišos reikšmės, kurių niekas negali perskaityti. Kiekvienas žaidėjas mato tik
+          savo privačius duomenis. Po 5 neteisingų slaptažodžių prisijungimai sustabdomi. Skiltyje <strong className={strong}>Paskyros nustatymai → Saugumas</strong>{' '}
+          galite įjungti dviejų veiksnių prisijungimą, matyti paskutinius prisijungimus ir atjungti kitus įrenginius.
         </p>
       </Section>
 
-      <Section id="changes" title="Šios politikos pakeitimai">
-        <p>Pakeitę šią politiką, atnaujiname viršuje nurodytą datą. Apie svarbius pakeitimus pranešime prieš jiems įsigaliojant – žaidime arba el. paštu.</p>
+      <Section id="changes" title="Pakeitimai">
+        <p>Kai ši politika pasikeičia, pasikeičia data viršuje. Apie svarbius pakeitimus pranešame iš anksto žaidime arba el. paštu.</p>
       </Section>
     </LegalPage>
   )
@@ -333,98 +420,96 @@ function TermsOfService() {
       title="Paslaugų teikimo sąlygos"
       intro={
         <p>
-          Šios sąlygos yra jūsų ir <Fill value={OPERATOR.name} /> („mes“) susitarimas dėl naudojimosi Bronze. Susikurdami paskyrą, jas priimate. Žaidžiant kaip
-          svečias taikomos tik dalys apie sąžiningą žaidimą ir apie tai, kad žaidimas teikiamas toks, koks yra.
+          Tai Bronze naudojimosi taisyklės – susitarimas tarp jūsų ir <Fill value={OPERATOR.name} /> („mes“). Susikurdami paskyrą jas priimate. Svečiams taikomos tik
+          dalys apie sąžiningą žaidimą ir tai, kad žaidimas teikiamas „toks, koks yra“.
         </p>
       }
     >
-      <Section id="eligibility" title="Kas gali žaisti">
+      <Section id="fan-made" title="Gerbėjų sukurtas žaidimas">
         <p>
-          Kaip svečias gali žaisti bet kas. Paskyrai susikurti turite būti ne jaunesni nei {MIN_ACCOUNT_AGE} metų. Jei jums nėra 18 metų, prieš ką nors
-          perkant turi sutikti tėvai ar globėjai (šiuo metu Bronze nieko neparduoda).
+          Bronze – gerbėjų sukurtas žaidimas, įkvėptas „Brass“. Jis nesusijęs su „Roxley Games“ ar „Brass“ autoriais ir jų nepatvirtintas. Bronze nemokamas: nėra ką
+          pirkti ir nėra žaidimo pinigų.
         </p>
+      </Section>
+
+      <Section id="eligibility" title="Kas gali žaisti">
+        <p>Prieš kompiuterį svečio teisėmis gali žaisti visi. Paskyrai ir žaidimui internetu jums turi būti bent {MIN_ACCOUNT_AGE} metų.</p>
       </Section>
 
       <Section id="accounts" title="Jūsų paskyra">
         <Bullets>
-          <li>Vienas asmuo – viena paskyra. Nurodykite tikrą el. pašto adresą, kurį pasiekiate, ir niekam neatskleiskite slaptažodžio.</li>
+          <li>Vienas žmogus – viena paskyra. Naudokite el. pašto adresą, kurį skaitote, ir niekam nesakykite slaptažodžio.</li>
           <li>Atsakote už tai, kas vyksta jūsų paskyroje, nebent kas nors į ją pateko ne dėl jūsų kaltės.</li>
-          <li>Paskyrą galite ištrinti bet kada: Nustatymai → Paskyra.</li>
+          <li>Paskyrą galite bet kada ištrinti skiltyje Nustatymai → Paskyra.</li>
         </Bullets>
       </Section>
 
       <Section id="usernames" title="Vartotojo vardai">
         <p>
-          Vartotojo vardą sudaro 3–20 raidžių, skaičių ir pabraukimo ženklų, ir jį mato kiti žaidėjai. Nesirinkite vardo, kuriuo apsimetama kitu asmeniu,
-          įžeidžiama ar priekabiaujama, kuris kursto neapykantą, yra seksualinio pobūdžio ar ką nors reklamuoja. Galime paprašyti pakeisti šias taisykles
-          pažeidžiantį vardą arba, jei to nepadarysite, pakeisti jį patys.
+          Vartotojo vardą sudaro 3–20 raidžių, skaičių ir pabraukimų, ir jį mato visi. Nesirinkite vardo, kuriuo apsimetate kitu, ką nors įžeidžiate, kuris skleidžia
+          neapykantą, yra seksualinio pobūdžio ar ką nors reklamuoja. Jei jūsų vardas pažeidžia šias taisykles, galime paprašyti jį pakeisti arba pakeisti patys.
         </p>
       </Section>
 
       <Section id="fair-play" title="Sąžiningas žaidimas">
-        <p>Žaiskite taip, kaip žaidimas sumanytas. Draudžiama:</p>
+        <p>Žaiskite sąžiningai ir būkite malonūs. Draudžiama:</p>
         <Bullets>
-          <li>sukčiauti, naudoti už jus žaidžiančius robotus ar scenarijus arba išnaudoti klaidas (verčiau praneškite apie jas mums);</li>
-          <li>trukdyti paslaugai, kitų žaidėjų paskyroms ar serveriams;</li>
-          <li>priekabiauti, grasinti ar įžeidinėti kitus žaidėjus arba platinti ką nors neteisėto.</li>
+          <li>sukčiauti, leisti programai žaisti už jus internetinėse partijose ar laimėti pasinaudojant klaidomis (verčiau praneškite apie jas mums);</li>
+          <li>tyčia palikti partijas, kad nepralaimėtumėte, arba žaisti keliomis paskyromis toje pačioje partijoje;</li>
+          <li>kenkti paslaugai, kitų žaidėjų paskyroms ar mūsų serveriams;</li>
+          <li>priekabiauti, grasinti ar įžeidinėti kitus žaidėjus, dalytis kuo nors neteisėtu.</li>
         </Bullets>
+        <p>Žaidėjas, palikęs prasidėjusią internetinę partiją, ją pralaimi: jo vietą baigia žaisti robotas, o jis lieka paskutinis. Apie žaidėją galite pranešti jo profilyje.</p>
       </Section>
 
-      <Section id="virtual-items" title="Virtualūs daiktai ir valiuta">
+      <Section id="content" title="Žaidimas">
         <p>
-          Šiuo metu Bronze neturi virtualių daiktų ar žaidimo valiutos. Jei vėliau jų atsirastų: tai licencija juos naudoti Bronze, o ne nuosavybė; jie neturi
-          realios vertės, jų negalima iškeisti į pinigus, parduoti ar perduoti kitai paskyrai. Tai neturi įtakos jūsų, kaip vartotojo, teisėms į tai, už ką
-          sumokėjote (žr. <TextLink to={PATHS.refunds}>Pinigų grąžinimo politiką</TextLink>).
+          Bronze programėlė, jos piešiniai, žemėlapiai ir kodas priklauso <Fill value={OPERATOR.name} /> arba juos sukūrusiems žmonėms (žr.{' '}
+          <TextLink to={PATHS.credits}>Autoriai</TextLink>). Galite žaisti savo, nekomerciniam malonumui.
         </p>
       </Section>
 
-      <Section id="content" title="Žaidimas ir jo turinys">
+      <Section id="termination" title="Jei pažeidžiate taisykles">
         <p>
-          Bronze, jo iliustracijos, žemėlapiai ir kodas priklauso <Fill value={OPERATOR.name} /> arba jo licencijų davėjams (žr.{' '}
-          <TextLink to={PATHS.credits}>Autorius</TextLink>). Galite jį žaisti savo asmeniniam, nekomerciniam naudojimui.
+          Jei taisykles pažeidžiate šiurkščiai ar pakartotinai, galime sustabdyti arba uždaryti jūsų paskyrą. Jei tai nebūtų nesaugu ar neteisėta, pirmiausia
+          pasakysime kodėl ir leisime atsakyti.
         </p>
       </Section>
 
-      <Section id="termination" title="Paskyrų sustabdymas ir uždarymas">
+      <Section id="disclaimers" title="Žaidimas „toks, koks yra“">
         <p>
-          Jei šias sąlygas pažeidžiate šiurkščiai ar pakartotinai, galime sustabdyti ar uždaryti jūsų paskyrą. Nebent tai būtų nesaugu ar neteisėta, pirma
-          pranešime priežastį ir suteiksime galimybę atsakyti. Savo paskyrą galite uždaryti bet kada.
-        </p>
-      </Section>
-
-      <Section id="disclaimers" title="Prieinamumas">
-        <p>
-          Bronze – ankstyva versija. Stengiamės, kad jis veiktų, o jūsų duomenys būtų saugūs, tačiau funkcijos gali keistis, paslauga gali būti nepasiekiama
-          ar turėti klaidų. Svečio pažanga saugoma tik jūsų naršyklėje: išvalius naršyklės duomenis, ji dingsta.
+          Bronze – ankstyva versija. Stengiamės, kad jis veiktų, o jūsų duomenys būtų saugūs, tačiau funkcijos gali keistis, žaidimas gali neveikti ar turėti klaidų.
+          Reitingai ir rezultatai gali būti pataisyti, jei juos paveikė klaida ar sukčiavimas. Svečio pažanga saugoma tik jūsų naršyklėje: išvalius naršyklės
+          duomenis, ji dingsta.
         </p>
       </Section>
 
       <Section id="liability" title="Atsakomybė">
         <p>
-          Bronze yra nemokamas. Neatsakome už netiesioginius nuostolius ar nuostolius, kurių galėjote išvengti. Niekas šiose sąlygose neriboja atsakomybės už
-          dėl neatsargumo sukeltą mirtį ar sveikatos sužalojimą, už sukčiavimą, už tyčia ar dėl didelio neatsargumo padarytą žalą ar jokios kitos atsakomybės,
-          kurios įstatymas neleidžia riboti. Jūsų, kaip vartotojo, įstatyminės teisės nepaveikiamos.
+          Bronze nemokamas. Neatsakome už netiesioginius nuostolius ar nuostolius, kurių galėjote išvengti. Tai niekada neriboja mūsų atsakomybės už mirtį ar
+          sužalojimą dėl neatsargumo, sukčiavimą, tyčia ar dėl didelio neatsargumo padarytą žalą ar kitką, ko įstatymas neleidžia riboti. Jūsų, kaip vartotojo,
+          teisės nesikeičia.
         </p>
       </Section>
 
-      <Section id="law" title="Taikytina teisė ir ginčai">
+      <Section id="law" title="Teisė ir ginčai">
         <p>
-          Šioms sąlygoms taikoma Lietuvos Respublikos teisė. Jei esate ES gyvenantis vartotojas, jums taip pat išlieka savo gyvenamosios šalies imperatyviųjų
-          vartotojų apsaugos normų apsauga ir galite kreiptis į tos šalies teismus.
+          Šioms sąlygoms taikoma Lietuvos teisė. Jei esate ES gyvenantis vartotojas, jus vis tiek saugo jūsų šalies vartotojų teisės aktai ir galite kreiptis į
+          savo šalies teismą.
         </p>
         <p>
-          Pirmiausia kreipkitės į mus adresu <Email value={OPERATOR.email} />. Vartotojai taip pat gali kreiptis į Valstybinę vartotojų teisių apsaugos tarnybą (
+          Pirmiausia kreipkitės į mus: <Email value={OPERATOR.email} />. Vartotojai taip pat gali kreiptis į Valstybinę vartotojų teisių apsaugos tarnybą (
           <a href="https://vvtat.lrv.lt" className={link} rel="noopener">
             vvtat.lrv.lt
           </a>
-          ), kuri vartotojų ginčus sprendžia ne teismo tvarka.
+          ), kuri padeda ginčus išspręsti ne teisme.
         </p>
       </Section>
 
-      <Section id="changes" title="Šių sąlygų pakeitimai">
+      <Section id="changes" title="Pakeitimai">
         <p>
-          Šias sąlygas galime atnaujinti, pavyzdžiui, atsiradus naujoms funkcijoms. Apie svarbius pakeitimus pranešime prieš jiems įsigaliojant – žaidime arba el.
-          paštu. Jei nesutinkate, galite ištrinti paskyrą; kitu atveju naujos sąlygos taikomos nuo jų datos.
+          Šias sąlygas galime atnaujinti, pvz., atsiradus naujoms funkcijoms. Apie svarbius pakeitimus pranešame iš anksto žaidime arba el. paštu. Jei nesutinkate,
+          galite ištrinti paskyrą.
         </p>
       </Section>
 
@@ -464,59 +549,35 @@ function RefundPolicy() {
 }
 
 function CookiePolicy() {
-  const title = (id: string) => inventory.categories.find((c) => c.id === id)!.title
   return (
     <LegalPage
       title="Slapukų politika"
       intro={
         <p>
-          Bronze naudoja vieną slapuką ir kelis įrašus jūsų naršyklės vietinėje ir sesijos saugykloje. Visi jie – pačios Bronze: niekas nėra dalijamasi su kitomis
-          svetainėmis, nėra reklamos, analitikos ar socialinių tinklų sekiklių.
+          Bronze naudoja vieną slapuką ir kelis įrašus jūsų naršyklės saugykloje – tik tam, ko reikia Bronze veikimui. Visi jie – pačios Bronze: niekuo
+          nesidalijama su kitomis svetainėmis, nėra reklamos, analitikos ar socialinių tinklų sekiklių.
         </p>
       }
     >
-      <Section id="categories" title="Kategorijos">
-        <Bullets>
-          {inventory.categories.map((c) => (
-            <li key={c.id}>
-              <strong className={strong}>{c.title}.</strong> {c.description}
-            </li>
-          ))}
-        </Bullets>
+      <Section id="essential" title="Tik tai, ko reikia">
         <p>
-          Būtinoji saugykla reikalinga tam, ko prašote Bronze, todėl jūsų sutikimo jai nereikia. Visa kita laukia jūsų sutikimo: kol neleisite Nuostatų, jūsų
-          nustatymai galios tik iki puslapio uždarymo.
+          Viskas, kas išvardyta žemiau, yra būtina: leidžia likti prisijungus, išsaugo vykstančią partiją ir įsimena jūsų nustatymus bei pasirinkimus. Tokiai
+          saugyklai įstatymas jūsų sutikimo nereikalauja, todėl Bronze vieną kartą parodo pranešimą, o ne prašo sutikti ar atsisakyti.
         </p>
       </Section>
 
       <Section id="list" title="Viskas, ką saugo Bronze">
         <DataTable
           caption="Bronze naudojami slapukai ir saugykla"
-          head={['Pavadinimas', 'Tipas', 'Teikėjas', 'Paskirtis', 'Kategorija', 'Trukmė']}
-          rows={STORAGE_ITEMS.map((item) => {
-            const text = inventory.storage[item.key]
-            return [
-              <code key="k" className="font-mono text-[0.85em] break-all">
-                {item.key}
-              </code>,
-              text?.where ?? item.where,
-              text?.provider ?? item.provider,
-              text?.purpose ?? item.purpose,
-              title(item.category),
-              text?.duration ?? item.duration,
-            ]
-          })}
+          head={['Pavadinimas', 'Tipas', 'Teikėjas', 'Paskirtis', 'Trukmė']}
+          rows={storageRows()}
         />
       </Section>
 
-      <Section id="choices" title="Jūsų pasirinkimai">
+      <Section id="choices" title="Kaip tai pašalinti">
         <p>
-          Pasirinkimus galite bet kada pakeisti per{' '}
-          <button type="button" onClick={() => consentStore.reopen()} className={link}>
-            Slapukų nustatymus
-          </button>{' '}
-          (jie yra ir kiekvieno puslapio poraštėje). Išjungus kategoriją, ištrinama tai, ką ji išsaugojo. Viską, ką Bronze išsaugojo, taip pat galite išvalyti
-          skiltyje Nustatymai → Paskyra arba naršyklėje. Vėl klausiame po 12 mėnesių arba anksčiau, jei ši politika pasikeičia.
+          Viską, ką Bronze išsaugojo šioje naršyklėje, galite pašalinti skiltyje Nustatymai → Paskyra → Išvalyti šį įrenginį arba naršyklės nustatymuose. Būsite
+          atjungti, o svečio pažanga dings.
         </p>
         <p>
           Daugiau apie jūsų duomenis: <TextLink to={PATHS.privacy}>Privatumo politika</TextLink>.

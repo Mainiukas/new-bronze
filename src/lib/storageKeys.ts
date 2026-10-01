@@ -8,5 +8,5 @@ export const STORAGE_KEYS = {
   /** Seats, names, colours and AI levels from the last new-game setup. */
   setup: 'bronze.setup',
   /** Unsaved calibration from the map board editor. */
-  boardDraft: 'bronze.boardDraft',
+  boardDraft: 'bronze.boardDraft.v2',
 } as const

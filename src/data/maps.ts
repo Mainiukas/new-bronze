@@ -283,6 +283,13 @@ export function isMapId(value: unknown): value is MapId {
   return MAPS.some((map) => map.id === value)
 }
 
+/** Maps that can be picked now: only the painted board plays the Brass rules. The others wait for their boards. */
+export const PLAYABLE_MAP_IDS: readonly MapId[] = [DEFAULT_MAP_ID]
+
+export function isPlayableMapId(value: unknown): value is MapId {
+  return PLAYABLE_MAP_IDS.includes(value as MapId)
+}
+
 /** Look up a map by id, falling back to the default map. */
 export function getMap(id: MapId): GameMap {
   return MAPS.find((map) => map.id === id) ?? MAPS[0]

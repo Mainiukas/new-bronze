@@ -6,6 +6,11 @@ import type { GoodsKind, IndustryKind, LogEntry, RouteKind } from '../game/types
 import { renderWith } from './game/en'
 import game from './game/es'
 import { pluralizer } from './languages'
+import accountWords from './account/es'
+import brassWords from './brass/es'
+import onlineWords from './online/es'
+import tutorialWords from './tutorial/es'
+import welcomeWords from './welcome/es'
 import type { Messages } from './messages'
 
 /* Todas las palabras de la pantalla en español (traducidas de en.tsx). */
@@ -65,6 +70,8 @@ const es: Messages = {
     locker: 'Taquilla',
     shop: 'Tienda',
     achievements: 'Logros',
+    online: 'Jugar en línea',
+    leaderboard: 'Clasificación',
     board: 'Tablero',
     howToPlay: 'Cómo jugar',
     settings: 'Ajustes',
@@ -116,7 +123,6 @@ const es: Messages = {
     opponentsTitle: 'Rivales',
     mixed: 'Personalizado: humanos y ordenadores mezclados (ver Asientos)',
     opponents: { computer: 'Contra el ordenador', pass: 'Por turnos', online: 'En línea' },
-    onlineNeedsServer: 'Jugar en línea requiere un servidor de juego, que Bronze aún no tiene',
   },
   friends: {
     title: 'Amigos',
@@ -134,7 +140,7 @@ const es: Messages = {
     blitz: { name: 'Blitz', description: 'Mapa más pequeño y menos tiempo. Cada decisión cuenta.' },
     bullet: { name: 'Bullet', description: 'El mapa más pequeño, muy poco tiempo. Construye por instinto.' },
     mapSize: { full: 'Mapa completo', reduced: 'Mapa reducido', compact: 'Mapa compacto' },
-    perTurn: (time: string) => `${time} por turno`,
+    clock: (minutes: number, seconds: number) => `${minutes} min + ${seconds} s por turno`,
   },
   maps: {
     'wales-and-the-west': {
@@ -148,10 +154,13 @@ const es: Messages = {
   setup: {
     title: 'Preparar la partida',
     rounds: (n: number) => p(n, { one: `${n} ronda`, other: `${n} rondas` }),
+    roundsPerEra: (n: number) => p(n, { one: `${n} ronda por era`, other: `${n} rondas por era` }),
     moneyEach: (n: number) => `£${n} cada uno`,
     railFrom: (round: number) => `era del ferrocarril desde la ronda ${round}`,
     map: 'Mapa',
     practiceMap: 'Mapa de práctica, sin eras.',
+    moreMaps: 'Pronto habrá más mapas',
+    moreMapsText: 'Se están dibujando nuevos tableros. Por ahora todas las partidas se juegan en Wales & the West.',
     players: 'Jugadores',
     playersRange: (min: number, max: number) => (min === max ? `${min} jugadores` : `${min}–${max} jugadores`),
     towns: (n: number) => p(n, { one: `${n} ciudad`, other: `${n} ciudades` }),
@@ -645,6 +654,16 @@ const es: Messages = {
     'link-invalid': 'Este enlace no es válido o ha caducado.',
     cancelled: 'Se canceló el inicio de sesión. Vuelve a intentarlo o usa tu nombre de usuario o correo.',
     network: 'No se puede contactar con el servidor de cuentas. Revisa tu conexión y vuelve a intentarlo.',
+    'wrong-password': 'Tu contraseña actual no es correcta.',
+    'too-soon': 'Puedes cambiar tu nombre de usuario una vez cada 30 días.',
+    'same-username': 'Ese ya es tu nombre de usuario.',
+    'reauth-needed': 'Por seguridad, vuelve a iniciar sesión y prueba otra vez.',
+    'mfa-required': 'Primero introduce tu código de verificación en dos pasos.',
+    'invalid-code': 'Ese código es incorrecto o ha caducado. Revísalo y vuelve a probar.',
+    unavailable: 'Esto aún no está disponible.',
+    'last-identity': 'No puedes quitar tu único método de inicio de sesión. Primero crea una contraseña o vincula otra cuenta.',
+    'identity-taken': 'Esa cuenta ya está vinculada a otro jugador de Bronze.',
+    'invalid-input': 'Revisa lo que has escrito y vuelve a probar.',
     unknown: 'Algo ha fallado. Inténtalo de nuevo.',
   },
   validation: {
@@ -657,6 +676,9 @@ const es: Messages = {
     choosePassword: 'Elige una contraseña.',
     typeAgain: 'Vuelve a escribir la contraseña.',
     noMatch: 'Las contraseñas no coinciden.',
+    sameUsername: 'Ese ya es tu nombre de usuario.',
+    enterCurrentPassword: 'Escribe tu contraseña actual.',
+    sameAsCurrent: 'Elige una contraseña distinta de la actual.',
   },
   consents: {
     howOld: '¿Cuántos años tienes?',
@@ -681,7 +703,7 @@ const es: Messages = {
     marketingNote: '(opcional; puedes darte de baja cuando quieras)',
   },
   account: {
-    exportNote: 'Todo lo que Bronze guarda sobre ti. Las partidas se juegan en tu navegador, así que no hay historial de partidas en el servidor.',
+    exportNote: 'Todo lo que Bronze guarda sobre ti: cuenta, perfil, historial, partidas en línea (con tus propias jugadas), puntuaciones, amigos e invitaciones.',
     downloading: 'Se están descargando tus datos.',
     loggedInAs: (name: ReactNode, email: string | null): ReactNode => (
       <>
@@ -691,7 +713,7 @@ const es: Messages = {
     ),
     guest: 'Juegas como invitado: no se guarda nada sobre ti en nuestros servidores. Tus ajustes, historial y partida se quedan en este navegador.',
     download: 'Descargar mis datos',
-    downloadAccount: 'Tu perfil, historial, consentimientos y preferencias de correo, más los datos de este dispositivo, en un archivo.',
+    downloadAccount: 'Tu cuenta, perfil, historial, partidas en línea, puntuaciones, amigos e invitaciones, más los datos de este dispositivo, en un solo archivo JSON.',
     downloadGuest: 'Lo que Bronze guarda en este navegador, en un archivo.',
     downloadButton: 'Descargar',
     delete: 'Eliminar mi cuenta',
@@ -708,10 +730,11 @@ const es: Messages = {
       intro: 'Esto elimina, de inmediato y para siempre:',
       items: [
         'tu acceso (correo y contraseña, o tu inicio de sesión con Google),',
-        'tu nombre de usuario, avatar, historial y logros,',
+        'tu nombre de usuario, avatar, historial, logros y puntuaciones,',
+        'tus amigos, solicitudes de amistad e invitaciones a partidas,',
         'tu respuesta sobre la edad, tus consentimientos y tus preferencias de correo.',
       ],
-      note: 'Las partidas se juegan en tu navegador, así que no se guarda historial de partidas en nuestros servidores. Tus datos de invitado en este navegador se conservan hasta que los borres.',
+      note: 'Las partidas en línea que jugaste se conservan para los demás jugadores, con «Jugador eliminado» en tu puesto. En una partida que no ha empezado se quita tu puesto; en una partida en curso, un bot termina tu puesto. Tus datos de invitado en este navegador se conservan hasta que los borres.',
       typeToConfirm: (name: ReactNode): ReactNode => <>Escribe tu nombre de usuario, {name}, para confirmar</>,
     },
     notifications: {
@@ -727,9 +750,9 @@ const es: Messages = {
       nowAdult: 'Ya tengo 18 años o más',
     },
     privacy: {
-      cookies: 'Ajustes de cookies',
-      cookiesNote: 'Cambia lo que Bronze puede guardar en este navegador.',
-      open: 'Abrir',
+      cookies: 'Cookies',
+      cookiesNote: 'Bronze solo guarda lo que necesita para funcionar. Sin anuncios, analítica ni rastreo.',
+      open: 'Leer',
     },
   },
   settings: {
@@ -755,22 +778,11 @@ const es: Messages = {
   },
   cookieBanner: {
     title: 'Cookies y almacenamiento',
-    body: 'Bronze guarda algunas cosas en tu navegador. Las esenciales mantienen tu sesión iniciada y conservan tu partida en curso. Con tu consentimiento, Bronze también recuerda tus ajustes y tu historial de invitado en este dispositivo. No hay anuncios, analítica ni rastreadores.',
-    accept: 'Aceptar todo',
-    reject: 'Rechazar todo',
-    customise: 'Personalizar',
-    save: 'Guardar mis opciones',
-    close: 'Cerrar',
-    always: 'Siempre activas',
+    body: 'Bronze solo guarda en este navegador lo que necesita para funcionar: tu sesión, tu partida en curso y tus ajustes. Sin anuncios, sin analítica, sin rastreo, así que no hay nada que aceptar ni rechazar.',
+    ok: 'Vale',
     cookiePolicy: 'Política de cookies',
     privacyPolicy: 'Política de privacidad',
     language: 'Idioma',
-    categories: {
-      essential: { title: 'Esenciales', description: 'Mantienen tu sesión iniciada, conservan tu partida en curso y recuerdan estas opciones.' },
-      preferences: { title: 'Preferencias', description: 'Recuerdan tus ajustes (incluido el idioma), tu último modo de juego, mapa y asientos, y tu historial de invitado.' },
-      analytics: { title: 'Analítica', description: 'Hoy no se usa. Si Bronze añade analítica algún día, solo funcionará con esto activado.' },
-      marketing: { title: 'Marketing', description: 'Hoy no se usa. Si Bronze añade herramientas de marketing algún día, solo funcionarán con esto activado.' },
-    },
   },
   legal: {
     lastUpdated: 'Última actualización:',
@@ -778,7 +790,13 @@ const es: Messages = {
     draft: (example: ReactNode): ReactNode => <>Borrador: faltan algunos datos de quién gestiona Bronze (se muestran así: {example}).</>,
     table: (caption: string) => `${caption} (tabla)`,
     freeToPlay: 'Bronze es gratuito; no se vende nada.',
+    fanMade: 'Bronze es un juego hecho por fans inspirado en Brass. No está afiliado a Roxley Games.',
   },
+  ...accountWords,
+  brass: brassWords,
+  welcome: welcomeWords,
+  online: onlineWords,
+  tutorial: tutorialWords,
 }
 
 export default es

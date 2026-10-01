@@ -18,6 +18,9 @@ export type PlayerColor = 'purple' | 'red' | 'yellow' | 'blue' | 'white'
 export const PLAYER_COLORS: readonly PlayerColor[] = ['yellow', 'blue', 'purple', 'red', 'white']
 export const AI_LEVELS: readonly AILevel[] = ['easy', 'normal', 'hard']
 
+/** The levels offered for computer players in Brass matches: Easy and Normal (an old save's Hard plays as Normal). */
+export const OFFERED_AI_LEVELS: readonly AILevel[] = ['easy', 'normal']
+
 /** A place that buys goods (a trade hub, or a market town on a practice map). */
 export interface Market {
   /** Starting (and highest) price per unit (£). */

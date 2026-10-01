@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router'
-import { PATHS, type MenuAction } from '../data/navigation'
+import { accountPath, PATHS, type MenuAction } from '../data/navigation'
 import { useLogOut } from '../hooks/useLogOut'
 import { useOpenAuth, type AuthMode } from '../hooks/useOpenAuth'
 import { useT, type Messages } from '../i18n'
@@ -9,12 +9,15 @@ import {
   IconBracket,
   IconClose,
   IconCrate,
+  IconGlobe,
   IconLogin,
   IconMore,
   IconPlay,
   IconTopHat,
   IconTrophy,
   IconUserPlus,
+  IconShield,
+  IconPodium,
   IconUsers,
   type IconProps,
 } from './icons'
@@ -56,8 +59,8 @@ export function MobileTopBar({ profile }: { profile: LobbyProfile | null }) {
 
 const TABS: { path: string; key: keyof Messages['nav']; Icon: ComponentType<IconProps> }[] = [
   { path: PATHS.mainMenu, key: 'play', Icon: IconPlay },
+  { path: PATHS.online, key: 'online', Icon: IconGlobe },
   { path: PATHS.tournaments, key: 'tournaments', Icon: IconBracket },
-  { path: PATHS.locker, key: 'locker', Icon: IconTopHat },
   { path: PATHS.shop, key: 'shop', Icon: IconCrate },
 ]
 
@@ -145,9 +148,16 @@ export function MoreSheet({ open, onClose, onMenuAction, profile }: MoreSheetPro
   }
 
   const links: { path: string; label: string; Icon: ComponentType<IconProps> }[] = [
+    { path: PATHS.leaderboard, label: t.nav.leaderboard, Icon: IconPodium },
+    { path: PATHS.locker, label: t.nav.locker, Icon: IconTopHat },
     { path: PATHS.achievements, label: t.nav.achievements, Icon: IconTrophy },
     { path: BOARD_ITEM.path, label: t.nav.board, Icon: BOARD_ITEM.Icon },
-    ...(profile ? [{ path: PATHS.profile, label: t.nav.profile, Icon: IconUsers }] : []),
+    ...(profile
+      ? [
+          { path: PATHS.profile, label: t.nav.profile, Icon: IconUsers },
+          { path: accountPath('profile'), label: t.accountPage.menu, Icon: IconShield },
+        ]
+      : []),
     { path: CREDITS_ITEM.path, label: t.nav.credits, Icon: CREDITS_ITEM.Icon },
     { path: LEGAL_ITEM.path, label: t.nav.legal, Icon: LEGAL_ITEM.Icon },
   ]

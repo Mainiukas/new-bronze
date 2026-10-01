@@ -51,6 +51,8 @@ export function GameLog({ state, ctx }: { state: GameState; ctx: RulesContext })
         return b.moves.loan(name(e.player), e.amount)
       case 'pass':
         return b.moves.pass(name(e.player))
+      case 'out-of-time':
+        return b.log.outOfTime(name(e.player))
       case 'income':
         return b.log.income(name(e.player), e.amount)
       case 'shortfall':

@@ -662,6 +662,12 @@ function takeCubes(state: GameState, ctx: RulesContext, kind: 'coal' | 'iron', t
 export function applyAction(state: GameState, ctx: RulesContext, playerId: number, action: Action): GameState {
   if (state.finished) throw new RuleError('game-over', 'The game is over')
   if (playerId !== currentPlayerId(state)) throw new RuleError('not-your-turn', "It isn't your turn")
+  if (action.type === 'out-of-time') {
+    // Only a note: the server then passes the turn's remaining actions and a bot takes the seat.
+    const next = clone(state)
+    next.log.push({ kind: 'out-of-time', player: playerId })
+    return next
+  }
   if (state.selling && action.type !== 'sell-more' && action.type !== 'sell-stop') throw new RuleError('selling', 'Finish selling first: sell another mill or stop')
   if (!state.selling && (action.type === 'sell-more' || action.type === 'sell-stop')) throw new RuleError('not-selling', "You aren't selling")
 

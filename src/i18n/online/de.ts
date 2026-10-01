@@ -15,7 +15,7 @@ const onlineWords: OnlineWords = {
     title: 'Spiel erstellen',
     players: 'Spieler',
     mode: 'Modus',
-    timeouts: (n) => `${n} Zeitüberschreitungen = Aufgabe`,
+    flagged: 'Läuft deine Zeit ab, spielt ein Bot deinen Platz zu Ende (letzter Platz)',
     visibility: 'Wer beitreten kann',
     public: 'Öffentlich',
     private: 'Privat',

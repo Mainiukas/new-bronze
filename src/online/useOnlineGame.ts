@@ -25,6 +25,11 @@ export interface OnlineGame {
   refresh: () => void
 }
 
+/** The same game state (compared by content: every reply is a fresh copy). */
+export function sameState(a: GameView['state'], b: GameView['state']): boolean {
+  return a === b || (!!a && !!b && JSON.stringify(a) === JSON.stringify(b))
+}
+
 export function useOnlineGame(gameId: string): OnlineGame {
   const [view, setView] = useState<GameView | null>(null)
   const [error, setError] = useState<OnlineError | null>(null)
@@ -33,9 +38,15 @@ export function useOnlineGame(gameId: string): OnlineGame {
   const [clockOffset, setClockOffset] = useState(0)
   const latest = useRef<GameView | null>(null)
 
-  /** Keep a view unless an older one arrives after a newer one. */
-  const accept = useCallback((next: GameView) => {
-    if (latest.current && latest.current.id === next.id && next.version < latest.current.version) return latest.current
+  /**
+   * Keep a view unless an older one arrives after a newer one. A view whose
+   * game state hasn't changed (a heartbeat, someone reconnecting) keeps the
+   * same state object, so a turn being played (not yet confirmed) stays.
+   */
+  const accept = useCallback((incoming: GameView) => {
+    const prev = latest.current
+    if (prev && prev.id === incoming.id && incoming.version < prev.version) return prev
+    const next = prev && prev.id === incoming.id && prev.state && sameState(prev.state, incoming.state) ? { ...incoming, state: prev.state } : incoming
     latest.current = next
     setView(next)
     setClockOffset(next.serverNow - Date.now())

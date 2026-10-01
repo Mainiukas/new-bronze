@@ -9,7 +9,8 @@
 
 import { Link } from 'react-router'
 import { PATHS } from '../data/navigation'
-import { useEffect, useEffectEvent, useId, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { HAND_SIZE } from '../rules/config/game'
 import { IllustratedBoard, type BoardRecent, type BoardTargets } from '../components/board/IllustratedBoard'
 import { IndustryRow } from '../components/brass/IndustryRow'
 import { deckMode } from '../components/brass/cardArt'
@@ -21,7 +22,7 @@ import { GameLog } from '../components/brass/GameLog'
 import { MarketStrip } from '../components/brass/Markets'
 import { TurnOrder } from '../components/brass/TurnOrder'
 import { EraScoring, FinalScreen, type RatingChange } from '../components/brass/Scoring'
-import type { SeatClock } from '../components/brass/clock'
+import { clockLevel, formatClock, type SeatClock } from '../components/brass/clock'
 import { useCardFlights } from '../components/brass/useCardFlights'
 import { ActionButtons, StatsBar, UpgradeBar, type ActionState } from '../components/brass/Panel'
 import { rowInfo } from '../components/brass/rowInfo'
@@ -145,6 +146,50 @@ function useViewportHeight(): number {
   )
 }
 
+/** The window's width (gaps between cards: 12 px from tablets up, 6 px on phones). */
+function useViewportWidth(): number {
+  return useSyncExternalStore(
+    (onChange) => {
+      window.addEventListener('resize', onChange)
+      return () => window.removeEventListener('resize', onChange)
+    },
+    () => window.innerWidth,
+    () => 1440,
+  )
+}
+
+/**
+ * Where the hand goes: centred on the map frame's vertical centre line (not
+ * the strip's, which also spans the side column), as wide as fits evenly on
+ * both sides of it. Measured from the elements, so it follows the panels.
+ */
+function useHandAxis(strip: React.RefObject<HTMLElement | null>, board: React.RefObject<HTMLElement | null>) {
+  const [axis, setAxis] = useState({ left: 0, width: 0 })
+  useLayoutEffect(() => {
+    const a = strip.current
+    const m = board.current
+    if (!a || !m) return
+    const measure = () => {
+      const r = a.getBoundingClientRect()
+      const f = m.getBoundingClientRect()
+      const centre = f.left + f.width / 2 - r.left
+      const half = Math.max(0, Math.min(centre, r.width - centre))
+      const next = { left: Math.round(centre - half), width: Math.round(half * 2) }
+      setAxis((prev) => (prev.left === next.left && prev.width === next.width ? prev : next))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(a)
+    observer.observe(m)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [strip, board])
+  return axis
+}
+
 export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRematch, settings, onOpenRules, onOpenSettings, overlayOpen, localAvatarUrl = null, online, banner }: BrassGameProps) {
   const t = useT()
   const b = t.brass
@@ -195,14 +240,24 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   const hand = turnDone ? state.players[me].hand.filter((c) => livePending.base.players[me].hand.some((h) => h.id === c.id)) : state.players[me].hand
   const cardName = (card: Card) => (card.kind === 'location' ? townName(card.town) : b.industry[card.industry])
   const cardKind = (card: Card) => (card.kind === 'location' ? b.locationCard : b.industryCard)
+  const cardAllows = (card: Card) => (card.kind === 'location' ? b.allowsLocation(townName(card.town)) : b.allowsIndustry(b.industry[card.industry]))
   // Avatars on the turn order track: the signed-in player's own, else an illustrated one per seat.
   const avatarOf = (p: number) => {
     if (p === (online ? online.seat : 0) && !online?.spectating && !state.players[p].isAI && localAvatarUrl) return localAvatarUrl
     return `${PRESET_PREFIX}${PRESET_AVATARS[(Math.abs(state.seed) + p) % PRESET_AVATARS.length].id}`
   }
-  // The hand's cards: 72 px wide at least, bigger on taller screens; the board gets the rest.
+  // The hand's cards: sized from the screen's height (86–142 px wide), but never so wide that a full hand
+  // would overlap where it fits side by side; the board, which always fits whole, gets the rest.
   const viewportHeight = useViewportHeight()
-  const cardWidth = Math.round(Math.min(118, Math.max(72, viewportHeight * 0.1)))
+  const viewportWidth = useViewportWidth()
+  const handStrip = useRef<HTMLDivElement>(null)
+  const boardFrame = useRef<HTMLElement>(null)
+  const axis = useHandAxis(handStrip, boardFrame)
+  const cardGap = viewportWidth >= 768 ? 12 : 6
+  const wanted = Math.min(142, Math.max(86, viewportHeight * 0.12))
+  const fitsFullHand = axis.width ? (axis.width - (HAND_SIZE - 1) * cardGap) / HAND_SIZE : wanted
+  // (Phones: at least 84 px, overlapping; a long press shows any card large.)
+  const cardWidth = Math.round(Math.max(Math.min(wanted, fitsFullHand), Math.min(wanted, viewportWidth >= 768 ? 72 : 84)))
   const nameOf = (id: string) => {
     const card = hand.find((c) => c.id === id)
     return card ? cardName(card) : ''
@@ -659,12 +714,23 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
           ? [autoCard]
           : []
 
+  // Online: this player's own clock, while it runs (shown beside "Your turn").
+  const myClock = online && !online.spectating && online.clocks?.[online.seat]?.running ? online.clocks[online.seat] : null
   const status: ReactNode = state.finished
     ? b.gameOver
     : turnDone
       ? b.turnReady
       : myTurn
-        ? b.yourTurn(state.actionsLeft)
+        ? myClock
+          ? (
+              <>
+                {b.yourTurn(state.actionsLeft)} ·{' '}
+                <span data-testid="turn-clock" data-level={clockLevel(myClock.ms)} className={`tabular-nums ${clockLevel(myClock.ms) === 'critical' ? 'clock-critical text-rust-300' : clockLevel(myClock.ms) === 'low' ? 'text-ember-300' : ''}`}>
+                  {formatClock(myClock.ms)}
+                </span>
+              </>
+            )
+          : b.yourTurn(state.actionsLeft)
         : state.players[current].isAI
           ? b.thinking(state.players[current].name)
           : b.theirTurn(state.players[current].name)
@@ -892,7 +958,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         </div>
 
         <div className="brass-board-fit">
-          <section data-board className="plate relative aspect-square overflow-hidden p-1" aria-label={t.nav.board}>
+          <section ref={boardFrame} data-board className="plate relative aspect-square overflow-hidden p-1" aria-label={t.nav.board}>
             <ZoomPan>
               <BrassBoard
                 state={state}
@@ -927,9 +993,14 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
           </section>
         </div>
 
-        <div className="brass-hand flex flex-col items-center">
-          <div className="flex min-h-9 w-full items-center justify-center">{handBar}</div>
-          {!online?.spectating && <HandRow cards={hand} selected={fanSelected} interactive={myTurn && !state.selling} cardWidth={cardWidth} name={cardName} kind={cardKind} label={b.handTitle} onSelect={onCard} onZoom={setZoom} />}
+        <div ref={handStrip} className="brass-hand">
+          {/* Centred on the map frame's centre line. */}
+          <div data-testid="hand-axis" className="flex flex-col items-center" style={axis.width ? { marginLeft: axis.left, width: axis.width } : undefined}>
+            <div className="flex min-h-9 w-full items-center justify-center text-center">{handBar}</div>
+            {!online?.spectating && (
+              <HandRow cards={hand} selected={fanSelected} interactive={myTurn && !state.selling} cardWidth={cardWidth} gap={cardGap} name={cardName} kind={cardKind} allows={cardAllows} label={b.handTitle} onSelect={onCard} onZoom={setZoom} />
+            )}
+          </div>
         </div>
 
         <div className="brass-left flex flex-wrap items-start gap-2 lg:flex-col lg:flex-nowrap">

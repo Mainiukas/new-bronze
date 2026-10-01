@@ -15,7 +15,7 @@ const onlineWords: OnlineWords = {
     title: 'Sukurti žaidimą',
     players: 'Žaidėjai',
     mode: 'Režimas',
-    timeouts: (n) => `Po ${n} laiko pabaigų žaidimas pralaimimas`,
+    flagged: 'Pasibaigus laikui, jūsų vietoje žaidžia robotas (paskutinė vieta)',
     visibility: 'Kas gali prisijungti',
     public: 'Viešas',
     private: 'Privatus',

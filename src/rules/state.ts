@@ -63,6 +63,7 @@ export type LogEntry =
   | { kind: 'sell-failed'; player: number; mill: string; move: number }
   | { kind: 'loan'; player: number; amount: number }
   | { kind: 'pass'; player: number }
+  | { kind: 'out-of-time'; player: number }
   | { kind: 'flip'; player: number; slot: string; income: number }
   /** A new mine or iron works sold cubes to its market (the owner got `money`). */
   | { kind: 'market-sale'; player: number; slot: string; industry: 'coal' | 'iron'; cubes: number; money: number }
@@ -126,6 +127,8 @@ export type Action =
   | { type: 'sell-stop' }
   | { type: 'loan'; cards: string[]; amount: 10 | 20 | 30 }
   | { type: 'pass'; cards: string[] }
+  /** The player's clock ran out (online; only the game server sends it): logged, and a bot takes the seat. */
+  | { type: 'out-of-time' }
 
 /** Why an action is illegal: a code for the UI (translated) and a message for developers and tests. */
 export class RuleError extends Error {

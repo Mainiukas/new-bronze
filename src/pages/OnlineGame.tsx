@@ -19,7 +19,8 @@ import { displayName, gameRequest, OnlineError, withNames, type GameView } from 
 import type { FriendsView } from '../server/types'
 import { useOnlineGame, type OnlineGame as Online } from '../online/useOnlineGame'
 import type { BrassMatch } from '../rules/match'
-import type { SeatClock } from '../components/brass/clock'
+import { clockNow, type SeatClock } from '../components/brass/clock'
+import { TIME_CONTROL } from '../rules/config/game'
 import { useOnlineErrors } from '../online/useOnlineErrors'
 import { RatingBadge } from '../components/RatingBadge'
 
@@ -320,8 +321,8 @@ function OnlineMatch({ game, view, settings, onOpenRules, onOpenSettings, overla
   // Chess clocks: the player to move counts down from when their turn started.
   const clocks: Record<number, SeatClock> = {}
   for (const s of view.seats) {
-    const running = view.status === 'playing' && view.turn?.seat === s.seat
-    clocks[s.seat] = { ms: running ? s.clockMs - (now - view.turn!.startedAt) : s.clockMs, running, timeouts: s.timeouts }
+    const running = view.status === 'playing' && view.turn?.seat === s.seat && !s.forfeited
+    clocks[s.seat] = { ms: clockNow(s.clockMs, running, view.turn?.startedAt ?? 0, now), total: TIME_CONTROL[view.mode].baseMs, running, timeouts: s.timeouts }
   }
 
   const notes: string[] = []

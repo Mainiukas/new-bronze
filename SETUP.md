@@ -596,3 +596,20 @@ What changes:
 Check it: with a test account that has played an online game, delete the
 account; open the game from the other player's profile (Last 20 games): the
 seat reads "Deleted player".
+
+## 17. After an update to the game server (paste the `game` function again)
+
+Whenever the online rules or clocks change, the `game` Edge Function has to be
+updated. Without the command line:
+
+1. Run `npm run build:function` in this folder (or ask for the file): it
+   writes `dist-function/game-index.ts`, the whole server in one file.
+2. Supabase → **Edge Functions** → `game` → **Code**: select all, paste the
+   new file, **Deploy**. Keep **Verify JWT** off.
+
+The chess clock (Normal): 20 minutes per player for the whole game, +20
+seconds once each turn is confirmed, running only on the player's own turn
+(and paused while an era's scoring shows). Running out of time passes the rest
+of that turn with random cards, notes it in the log, and a bot plays the seat
+from then on (last place). The server keeps the clocks; a browser's clock
+doesn't matter.

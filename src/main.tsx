@@ -20,6 +20,9 @@ import { readStorage, removeStorage, STORAGE_KEYS } from './lib/storage'
 import { whenFirstPageSettled } from './components/theme/firstPaint'
 import './index.css'
 
+// Development only: warn about pictures shown larger than their real pixel size.
+if (import.meta.env.DEV) void import('./lib/imageSizeCheck').then(({ watchImageSizes }) => watchImageSizes())
+
 // A map-editor draft saved before the towns moved would hide the new board: drop it.
 removeStorage(STORAGE_KEYS.boardDraft.replace(/\.v2$/, ''))
 

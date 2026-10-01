@@ -17,7 +17,7 @@
 import { DEFAULT_MAP_ID } from '../data/maps'
 import { MATCHMAKING, PROVISIONAL_GAMES, START_RATING, START_RD, START_VOLATILITY } from '../rating/config'
 import { rateGame, ratingNow } from '../rating/glicko2'
-import { CONNECTION_LOST_MS, DISCONNECT_GRACE_MS, MAX_PLAYERS, MAX_TIMEOUTS, MIN_PLAYERS, TIME_CONTROL } from '../rules/config/game'
+import { CONNECTION_LOST_MS, DISCONNECT_GRACE_MS, MAX_PLAYERS, MIN_PLAYERS, SCORING_PAUSE_MS, TIME_CONTROL } from '../rules/config/game'
 import { applyAction, createGame, currentPlayerId, type RulesContext } from '../rules/engine'
 import { RuleError, type Action, type GameState } from '../rules/state'
 import { botAction, timeoutAction } from '../rules/bots'
@@ -118,31 +118,44 @@ export function createGameServer(deps: ServerDeps) {
 
   /* ---- Moves, clocks and bots ---- */
 
-  /** Apply one move for a seat; the clock charges the turn's time when the turn passes on. */
+  /** A turn ends when the turn order moves on (or a round or era ends), even if the same player is next. */
+  const turnKey = (state: GameState) => `${state.era}/${state.round}/${state.turn}`
+
+  /**
+   * Apply one move for a seat. The chess clock: a turn (all its actions) is
+   * charged once, when it ends, and gets the increment once; it runs only
+   * during the player's own turn, and is frozen while an era's scoring shows.
+   */
   function apply(record: GameRecord, seat: number, action: Action, by: ActionRow['by'], now: number, log: ActionRow[]) {
     const state = record.state!
     const before = currentPlayerId(state)
+    const beforeKey = turnKey(state)
     const next = applyAction(state, ctx, seat, action)
     record.state = next
     record.moves += 1
     log.push({ seq: record.moves, seat, action, by, at: now })
-    const after = next.finished ? null : currentPlayerId(next)
-    if (after !== before || next.finished) {
+    if (next.finished || turnKey(next) !== beforeKey) {
       const prev = record.seats[before]
       const turn = record.turn
       if (turn && turn.seat === before && !botPlays(prev)) {
-        const increment = TIME_CONTROL[record.mode].incrementMs
-        prev.clockMs = by === 'clock' ? increment : Math.max(0, prev.clockMs - (now - turn.startedAt)) + increment
+        const used = Math.max(0, now - turn.startedAt)
+        prev.clockMs = Math.max(0, prev.clockMs - used) + TIME_CONTROL[record.mode].incrementMs
       }
-      record.turn = after === null ? null : { seat: after, startedAt: now }
+      const scoring = next.era !== state.era
+      record.turn = next.finished ? null : { seat: currentPlayerId(next), startedAt: now + (scoring ? SCORING_PAUSE_MS : 0) }
     }
     if (next.finished) finish(record, now)
   }
 
+  /** The time a seat has left right now (its clock runs only on its own turn). */
+  const clockLeft = (record: GameRecord, seat: Seat, now: number) =>
+    record.turn?.seat === seat.seat ? seat.clockMs - Math.max(0, now - record.turn.startedAt) : seat.clockMs
+
   /**
    * Bring a game up to now: disconnected players past their grace get a
-   * stand-in, a clock that ran out passes the turn (3 times forfeits), and bots
-   * play until it's a human's turn.
+   * stand-in, a player whose clock ran out has the rest of their turn passed
+   * with random cards and a bot plays their seat from then on (last place),
+   * and bots play until it's a human's turn.
    */
   function advance(record: GameRecord, now: number, log: ActionRow[]): boolean {
     let changed = false
@@ -161,18 +174,17 @@ export function createGameServer(deps: ServerDeps) {
         changed = true
         continue
       }
-      const turn = record.turn
-      if (turn && turn.seat === seatId && now - turn.startedAt > seat.clockMs) {
-        // Out of time: the turn passes with random cards.
+      if (record.turn?.seat === seatId && clockLeft(record, seat, now) <= 0) {
+        // Flagged: noted in the log, the turn's remaining actions pass with random cards, and a bot takes over.
         seat.timeouts += 1
-        seat.clockMs = 0
-        if (seat.timeouts >= MAX_TIMEOUTS) {
-          seat.forfeited = true
-          seat.botPlaying = true
-        }
-        while (record.status === 'playing' && record.state && currentPlayerId(record.state) === seatId && !seat.forfeited) {
+        apply(record, seatId, { type: 'out-of-time' }, 'clock', now, log)
+        const key = turnKey(record.state!)
+        while (record.status === 'playing' && record.state && turnKey(record.state) === key) {
           apply(record, seatId, timeoutAction(record.state, seatId, record.moves), 'clock', now, log)
         }
+        seat.clockMs = 0
+        seat.forfeited = true
+        seat.botPlaying = true
         changed = true
         continue
       }
@@ -650,7 +662,7 @@ export function createGameServer(deps: ServerDeps) {
         if (record.status !== 'playing' || currentPlayerId(record.state!) !== seat!.seat) fail(403, 'not-your-turn', 'It’s not your turn')
         if (seat!.forfeited) fail(403, 'forfeited', 'You’ve forfeited this game')
         const action = req.action as Action
-        if (!action || typeof action !== 'object' || typeof (action as { type?: unknown }).type !== 'string') fail(400, 'bad-request', 'That isn’t a move')
+        if (!action || typeof action !== 'object' || typeof (action as { type?: unknown }).type !== 'string' || action.type === 'out-of-time') fail(400, 'bad-request', 'That isn’t a move')
         try {
           apply(record, seat!.seat, structuredClone(action), 'player', now, log)
         } catch (error) {

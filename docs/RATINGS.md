@@ -23,7 +23,7 @@ chess.com uses, adapted to games of 2–4 players. Every number below lives in
 - Every pair of players in a finished game counts as a head-to-head result by
   finishing place: the higher place wins, the same place is a draw. Each
   player gets one Glicko-2 update from all their pairs.
-- A forfeit (3 timeouts, or leaving after the first round) finishes last.
+- A forfeit (running out of time on the chess clock, or leaving after the first round) finishes last.
 - The change is scaled by the mode: Normal 1.0, Blitz 0.7, Bullet 0.4.
 
 ## Which games are rated

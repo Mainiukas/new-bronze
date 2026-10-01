@@ -1,7 +1,7 @@
 import { replayStates, type ReplayData } from '../online/replay'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { START_RATING, START_RD } from '../rating/config'
-import { CONNECTION_LOST_MS, DISCONNECT_GRACE_MS, MAX_TIMEOUTS, TIME_CONTROL } from '../rules/config/game'
+import { CLOCK, CONNECTION_LOST_MS, DISCONNECT_GRACE_MS, TIME_CONTROL } from '../rules/config/game'
 import { currentPlayerId, type RulesContext } from '../rules/engine'
 import { BRASS_MAP } from '../rules/map'
 import { RULES_DATA } from '../rules/rulesData'
@@ -241,36 +241,89 @@ describe('online games: clocks, disconnections and bots', () => {
     t = setup()
   })
 
-  it('charges a turn to the player’s clock and adds 30 s after it', async () => {
+  it('uses a 20 min clock with 20 s added per turn', () => {
+    expect(CLOCK).toEqual({ clockSeconds: 1200, incrementSeconds: 20 })
+    expect(TIME_CONTROL.normal).toEqual({ baseMs: 1_200_000, incrementMs: 20_000 })
+  })
+
+  it('charges a turn to the player’s clock and adds 20 s after it', async () => {
     const { id } = await started(t, 2)
     const { caller, view, seat } = await whoseTurn(t, id)
     t.tick(60_000)
-    let v = view
     // Play the whole turn (1 action in round 1).
-    v = await t.must(caller, { op: 'act', gameId: id, version: v.version, action: { type: 'pass', cards: [v.state!.players[seat].hand[0].id] } })
+    const v = await t.must(caller, { op: 'act', gameId: id, version: view.version, action: { type: 'pass', cards: [view.state!.players[seat].hand[0].id] } })
     expect(v.seats[seat].clockMs).toBe(TIME_CONTROL.normal.baseMs - 60_000 + TIME_CONTROL.normal.incrementMs)
   })
 
-  it('passes the turn when the clock runs out; three times forfeits (a bot takes over, last place)', async () => {
+  it('runs one clock through both actions of a turn, adds the increment once, and is frozen on the other player’s turn', async () => {
+    const { id } = await started(t, 2)
+    // Round 1: one action each.
+    for (let i = 0; i < 2; i++) {
+      const turn = await whoseTurn(t, id)
+      await t.must(turn.caller, { op: 'act', gameId: id, version: turn.view.version, action: turn.pass })
+    }
+    const first = await whoseTurn(t, id)
+    expect(first.view.state!.actionsLeft).toBe(2)
+    const other = 1 - first.seat
+    const before = first.view.seats.map((s) => s.clockMs)
+    // First action after 30 s: nothing is charged yet, the clock keeps running.
+    t.tick(30_000)
+    let v = await t.must(first.caller, { op: 'act', gameId: id, version: first.view.version, action: first.pass })
+    expect(currentPlayerId(v.state!)).toBe(first.seat)
+    expect(v.seats[first.seat].clockMs).toBe(before[first.seat])
+    // Second action 20 s later: 50 s charged, +20 s once.
+    t.tick(20_000)
+    const mine = await t.must(first.caller, { op: 'view', gameId: id })
+    v = await t.must(first.caller, { op: 'act', gameId: id, version: mine.version, action: { type: 'pass', cards: [mine.state!.players[first.seat].hand[0].id] } })
+    expect(v.seats[first.seat].clockMs).toBe(before[first.seat] - 50_000 + 20_000)
+    // The other player's turn: 3 minutes pass; only their clock runs.
+    expect(currentPlayerId(v.state!)).toBe(other)
+    v = await t.wait(180_000, id, [ada, bob])
+    expect(v.seats[first.seat].clockMs).toBe(before[first.seat] - 30_000)
+    expect(v.seats[other].clockMs).toBe(before[other])
+    expect(v.turn).toMatchObject({ seat: other })
+  })
+
+  it('flags a player whose clock runs out: the log says so, the turn’s remaining actions pass, and a bot takes the seat (last place)', async () => {
+    const { id } = await started(t, 2)
+    for (let i = 0; i < 2; i++) {
+      const turn = await whoseTurn(t, id)
+      await t.must(turn.caller, { op: 'act', gameId: id, version: turn.view.version, action: turn.pass })
+    }
+    // Round 2 (2 actions): the player to move plays one action, then their clock runs out.
+    const turn = await whoseTurn(t, id)
+    const flagged = turn.seat
+    await t.must(turn.caller, { op: 'act', gameId: id, version: turn.view.version, action: turn.pass })
+    const handBefore = (await t.must(turn.caller, { op: 'view', gameId: id })).state!.players[flagged].hand.length
+    const v = await t.wait(turn.view.seats[flagged].clockMs + 15_000, id, [ada, bob])
+    expect(v.seats[flagged]).toMatchObject({ forfeited: true, botPlaying: true, timeouts: 1, clockMs: 0 })
+    const rows = await t.store.loadActions(id)
+    const at = rows.findIndex((r) => r.action.type === 'out-of-time')
+    expect(rows[at]).toMatchObject({ seat: flagged, by: 'clock' })
+    // The one remaining action was passed with a card from their hand.
+    expect(rows[at + 1]).toMatchObject({ seat: flagged, by: 'clock', action: { type: 'pass' } })
+    expect(rows.slice(at + 1).filter((r) => r.seat === flagged && r.by === 'clock')).toHaveLength(1)
+    expect(v.state!.log.some((e) => e.kind === 'out-of-time' && e.player === flagged)).toBe(true)
+    // From then on, the bot plays the seat.
+    expect(rows.slice(at + 2).some((r) => r.seat === flagged && r.by === 'bot') || currentPlayerId(v.state!) !== flagged).toBe(true)
+    expect(handBefore).toBeGreaterThan(0)
+    // Players can't send "out of time" themselves.
+    const other = callers.find((c) => c.username === v.seats[1 - flagged].username)!
+    const now = await t.must(other, { op: 'view', gameId: id })
+    expect((await t.call(other, { op: 'act', gameId: id, version: now.version, action: { type: 'out-of-time' } })).status).toBe(400)
+  })
+
+  it('finishes a flagged player last', async () => {
     const { id } = await started(t, 2)
     const first = await whoseTurn(t, id)
-    const timedOut = first.seat
-    // Both tabs open; the whole clock runs down on their turn.
     let v = await t.wait(TIME_CONTROL.normal.baseMs + 15_000, id, [ada, bob])
-    expect(v.seats[timedOut].timeouts).toBe(1)
-    const rows = await t.store.loadActions(id)
-    expect(rows.at(-1)).toMatchObject({ seat: timedOut, by: 'clock', action: { type: 'pass' } })
-    // Keep timing out on each of their turns (the other player passes quickly).
-    for (let guard = 0; guard < 40 && v.seats[timedOut].timeouts < MAX_TIMEOUTS; guard++) {
+    expect(v.seats[first.seat].forfeited).toBe(true)
+    for (let guard = 0; guard < 400 && v.status === 'playing'; guard++) {
       const turn = await whoseTurn(t, id)
-      if (turn.seat === timedOut) {
-        v = await t.wait(v.seats[timedOut].clockMs + 15_000, id, [ada, bob])
-      } else {
-        v = await t.must(turn.caller, { op: 'act', gameId: id, version: turn.view.version, action: turn.pass })
-      }
+      v = await t.must(turn.caller, { op: 'act', gameId: id, version: turn.view.version, action: turn.pass })
     }
-    expect(v.seats[timedOut].timeouts).toBe(MAX_TIMEOUTS)
-    expect(v.seats[timedOut]).toMatchObject({ forfeited: true, botPlaying: true })
+    expect(v.status).toBe('finished')
+    expect(v.result!.places[first.seat]).toBe(2)
   })
 
   it('shows a 2-minute grace timer when a player disconnects, then a bot plays their seat until they come back', async () => {

@@ -11,7 +11,7 @@ import { IconGlobe, IconLock, IconPlay, IconUsers } from '../components/icons'
 import { LockedMapCard, MapCard } from '../components/MapCard'
 import { GAME_MODES } from '../data/gameModes'
 import { DEFAULT_MAP_ID, getMap } from '../data/maps'
-import { MAX_TIMEOUTS, TIME_CONTROL } from '../rules/config/game'
+import { TIME_CONTROL } from '../rules/config/game'
 import { accountPath, onlineGamePath } from '../data/navigation'
 import { useAccountAccess } from '../hooks/useAccountAccess'
 import { useOpenAuth } from '../hooks/useOpenAuth'
@@ -198,7 +198,7 @@ function CreateGame() {
           onChange={() => {}}
           options={GAME_MODES.map((mode) => ({ value: mode.id, label: t.modes[mode.id].name, soon: mode.playable ? undefined : t.common.comingSoon }))}
         />
-        <p className="-mt-1 text-xs text-parchment-400">{t.modes.clock(TIME_CONTROL.normal.baseMs / 60_000, TIME_CONTROL.normal.incrementMs / 1000)} · {o.create.timeouts(MAX_TIMEOUTS)}</p>
+        <p className="-mt-1 text-xs text-parchment-400">{t.modes.clock(TIME_CONTROL.normal.baseMs / 60_000, TIME_CONTROL.normal.incrementMs / 1000)} · {o.create.flagged}</p>
         <div className="flex flex-col gap-1.5">
           <span className="eyebrow">{t.setup.map}</span>
           <div className="grid gap-2">

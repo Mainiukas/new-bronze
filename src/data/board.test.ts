@@ -509,11 +509,14 @@ describe('Wales: Brecon, Wrexham and the Wrexham – Wolverhampton link', () => 
     expect(route('rail', link.id).era).toBe('rail')
   })
 
-  it('Brecon sits inland: north of Merthyr Tydfil, south-east of Caernarfon; Wrexham east of where it was', () => {
+  it('Brecon sits inland: north of Merthyr Tydfil, south-east of Caernarfon; Wrexham east of where it was, clear of Stoke-on-Trent', () => {
     expect(at('brecon').y).toBeLessThan(at('merthyr').y)
     expect(at('brecon').x).toBeGreaterThan(at('caernarfon').x)
     expect(at('brecon').y).toBeGreaterThan(at('caernarfon').y)
-    expect(at('wrexham').x).toBeGreaterThan(36)
+    // Wrexham was at x 32.1, on the coast.
+    expect(at('wrexham').x).toBeGreaterThan(34)
+    // ...and keeps clear of Stoke-on-Trent's banner.
+    expect(rectGap(layout.groups.get('wrexham')!.bounds, layout.groups.get('stoke')!.bounds)).toBeGreaterThan(40)
   })
 
   it('Brecon – Wrexham and Wrexham – Wolverhampton are one gentle arc each (no S, at most 8 % of the length)', () => {

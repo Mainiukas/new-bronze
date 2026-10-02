@@ -106,7 +106,7 @@ export function IndustryRow({ info, color, readOnly = false, selected = false, b
 
   return (
     <div
-      className={`relative flex gap-3 rounded-lg border bg-soot-900/80 p-2.5 transition-[border-color,box-shadow] ${
+      className={`industry-row relative flex gap-3 rounded-lg border bg-soot-900/80 p-2.5 transition-[border-color,box-shadow] ${
         selected ? 'border-transparent' : 'border-bronze-500/35'
       }`}
       style={selected ? { boxShadow: `0 0 0 2px ${color}, 0 0 16px ${color}88` } : undefined}
@@ -122,7 +122,7 @@ export function IndustryRow({ info, color, readOnly = false, selected = false, b
           aria-pressed={clickable ? selected : undefined}
           className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass-200 enabled:cursor-pointer"
         >
-          <IndustryIconBox industry={info.industry} color={color} dim={!tile || info.locked} />
+          <IndustryIconBox industry={info.industry} color={color} dim={!tile || info.locked} className="industry-row-icon size-16" />
         </button>
         {!readOnly && (
           <button

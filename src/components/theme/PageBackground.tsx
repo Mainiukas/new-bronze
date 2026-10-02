@@ -60,3 +60,21 @@ export function Painting({ webp, jpg, src, focus, priority }: { webp: string; jp
     </picture>
   )
 }
+
+/**
+ * The match screen's background: the blurred factory city at night, fixed
+ * and covering the screen under a dark overlay and the soot vignette. Unlike
+ * a lobby page's painting it leaves the panels solid (they keep their own
+ * textures and float on a drop shadow).
+ */
+export function GameBackground() {
+  const painted = useFirstPaintDone()
+  const name = 'game_city'
+  const src = backgroundUrl(name, 1920, 'jpg') ?? backgroundUrl(name, 1280, 'jpg') ?? backgroundUrl(name, 1280, 'webp')
+  return (
+    <div aria-hidden="true" data-background={name} className="game-bg pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-soot-950">
+      {src && painted && <Painting webp={backgroundSrcSet(name, 'webp')} jpg={backgroundSrcSet(name, 'jpg')} src={src} focus={BACKGROUND_FOCUS[name]} priority="high" />}
+      <div className="absolute inset-0" style={{ background: BACKGROUND_OVERLAY[name] }} />
+    </div>
+  )
+}

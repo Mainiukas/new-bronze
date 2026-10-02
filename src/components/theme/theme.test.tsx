@@ -32,7 +32,10 @@ describe('painted backgrounds', () => {
       achievements: '40% 60%',
       tournaments: '50% 45%',
       splash: '40% 55%',
+      game_city: '50% 50%',
     })
+    // The match screen's city: an even rgba(10,7,5,.35) over it, under the vignette.
+    expect(BACKGROUND_OVERLAY.game_city).toContain('linear-gradient(rgb(10 7 5 / 0.35), rgb(10 7 5 / 0.35))')
     for (const name of BACKGROUND_NAMES) {
       // Vignette to rgba(8,5,3,.75) in the corners, plus a linear gradient darkest where the page's panels sit.
       expect(BACKGROUND_OVERLAY[name]).toMatch(/^radial-gradient\(ellipse .*transparent 35%, rgb\(8 5 3 \/ 0\.75\) 100%\), linear-gradient\(/)

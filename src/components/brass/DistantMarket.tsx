@@ -198,7 +198,7 @@ export function DistantMarketPanel({ state, ctx, me, speed }: { state: GameState
   const xRow = rowY(4)
 
   return (
-    <section aria-label={closed ? `${b.distantTitle}: ${b.distantClosed}` : b.distantTitle} className="flex h-[27rem] w-full flex-col gap-1.5 rounded-lg border border-bronze-500/40 bg-soot-950/80 p-2 lg:h-auto lg:min-h-[21rem] lg:flex-1">
+    <section aria-label={closed ? `${b.distantTitle}: ${b.distantClosed}` : b.distantTitle} className="brass-float flex h-[27rem] w-full flex-col gap-1.5 rounded-lg border border-bronze-500/40 bg-soot-950/90 p-2 lg:h-auto lg:min-h-[20rem] lg:flex-1">
       <h2 className="font-display text-[0.65rem] font-bold tracking-[0.12em] text-parchment-300 uppercase">{b.distantTitle}</h2>
       <div className="flex min-h-0 flex-1 gap-1.5">
         <div ref={box} className="relative min-h-0 min-w-0 flex-1">

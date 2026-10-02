@@ -286,20 +286,25 @@ export interface BoardDesign {
   tiles: Record<number, number>
   /** Towns of the canal era that no canal reaches on purpose (they join the network in the rail era). */
   noCanal?: readonly string[]
+  /** Places no railway reaches on purpose (out of reach in the rail era). */
+  noRail?: readonly string[]
 }
 
 export const BOARD_DESIGN: BoardDesign = {
   start: 'birmingham',
-  links: { both: 15, canal: 6, rail: 19 },
+  links: { both: 15, canal: 6, rail: 17 },
   tiles: { 4: 2, 3: 4, 2: 10, 1: 3 },
   // Carmarthen's links are all railways: no canal reaches it.
   noCanal: ['carmarthen'],
+  // West Wales's only link is the canal from Merthyr Tydfil: no railway reaches it.
+  noRail: ['west_wales'],
 }
 
 /**
  * Everything about the network that breaks its design, as readable messages:
  * 1. from `start`, canal and "both" links reach every location except the
- *    rail-era ones (and the towns the design keeps off the canals); 2. rail and "both" links reach every location; 3. degrees
+ *    rail-era ones (and the towns the design keeps off the canals); 2. rail and "both" links reach every location
+ *    but the ones the design keeps off the railways; 3. degrees
  *    add up to twice the link count, with the right number of each type;
  *    4. the right number of cities of each tile count.
  */
@@ -314,7 +319,8 @@ export function designProblems(board: BoardData, design: BoardDesign): string[] 
   }
   const rail = reachable(board, design.start, 'rail')
   const railMissing = board.locations.filter((l) => !rail.has(l.id)).map((l) => l.id)
-  if (railMissing.length) problems.push(`Rail era: can't reach ${list(railMissing)}`)
+  const noRail = board.locations.filter((l) => design.noRail?.includes(l.id)).map((l) => l.id)
+  if (railMissing.join() !== noRail.join()) problems.push(`Rail era: everything but ${list(noRail)} should be reachable; can't reach ${list(railMissing)}`)
   const expectedLinks = design.links.both + design.links.canal + design.links.rail
   const total = [...degrees(board).values()].reduce((a, b) => a + b, 0)
   if (total !== expectedLinks * 2) problems.push(`Location degrees add up to ${total}, expected ${expectedLinks * 2} (${expectedLinks} links)`)

@@ -543,6 +543,10 @@ dialog.bz-dialog--sheet-bottom {
 .page-bg-img[data-loaded] {
   opacity: 1;
 }
+/* The match screen's city is a very dark painting: lifted a little so it reads behind the panels. */
+.game-bg .page-bg-img {
+  filter: brightness(1.3);
+}
 
 /* ==========================================================================
    BACKGROUND SCENE: furnace glow, drifting smoke, rising embers

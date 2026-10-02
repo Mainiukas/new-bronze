@@ -292,12 +292,10 @@ export interface BoardDesign {
 
 export const BOARD_DESIGN: BoardDesign = {
   start: 'birmingham',
-  links: { both: 15, canal: 6, rail: 17 },
+  links: { both: 16, canal: 5, rail: 18 },
   tiles: { 4: 2, 3: 4, 2: 10, 1: 3 },
   // Carmarthen's links are all railways: no canal reaches it.
   noCanal: ['carmarthen'],
-  // West Wales's only link is the canal from Merthyr Tydfil: no railway reaches it.
-  noRail: ['west_wales'],
 }
 
 /**

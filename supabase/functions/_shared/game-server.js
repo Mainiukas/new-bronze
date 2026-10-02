@@ -56,7 +56,7 @@ var board_default = {
 			"name": "West Wales",
 			"type": "hub",
 			"x": 15.7,
-			"y": 51,
+			"y": 51.3,
 			"ring": 2,
 			"price": 5,
 			"buys": ["cotton", "coal"]
@@ -65,8 +65,8 @@ var board_default = {
 			"id": "brecon",
 			"name": "Brecon",
 			"type": "stop",
-			"x": 26.9,
-			"y": 41.1,
+			"x": 27.2,
+			"y": 40.8,
 			"ring": 2
 		},
 		{
@@ -337,13 +337,6 @@ var board_default = {
 			"type": "both"
 		},
 		{
-			"id": "carmarthen-merthyr",
-			"from": "carmarthen",
-			"to": "merthyr",
-			"type": "rail",
-			"points": [[24, 47]]
-		},
-		{
 			"id": "derby-nottingham",
 			"from": "derby",
 			"to": "nottingham",
@@ -401,7 +394,7 @@ var board_default = {
 			"id": "brecon-merthyr",
 			"from": "brecon",
 			"to": "merthyr",
-			"type": "canal"
+			"type": "both"
 		},
 		{
 			"id": "wrexham-wolverhampton",
@@ -456,6 +449,18 @@ var board_default = {
 			"id": "brecon-carmarthen",
 			"from": "brecon",
 			"to": "carmarthen",
+			"type": "rail"
+		},
+		{
+			"id": "carmarthen-west_wales",
+			"from": "carmarthen",
+			"to": "west_wales",
+			"type": "rail"
+		},
+		{
+			"id": "brecon-west_wales",
+			"from": "brecon",
+			"to": "west_wales",
 			"type": "rail"
 		},
 		{

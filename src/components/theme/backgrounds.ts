@@ -82,7 +82,7 @@ export const BACKGROUND_OVERLAY: Record<BackgroundName, string> = {
   // Logo, title and loader in a band across the middle, over the molten metal. Keep in step with .splash-shade in index.html.
   splash: `${VIGNETTE}, linear-gradient(180deg, ${soot(0.4)}, ${soot(0.66)} 30%, ${soot(0.66)} 72%, ${soot(0.45)})`,
   // Behind the play screen: the blurred factory city at night, darkened evenly; the panels carry the text.
-  game_city: `${VIGNETTE}, linear-gradient(rgb(10 7 5 / 0.35), rgb(10 7 5 / 0.35))`,
+  game_city: `${VIGNETTE}, linear-gradient(rgb(10 7 5 / 0.2), rgb(10 7 5 / 0.2))`,
 }
 
 /** Lobby pages with their own painting; every other lobby page shows the lobby's. */

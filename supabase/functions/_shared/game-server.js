@@ -318,12 +318,6 @@ var board_default = {
 			"type": "both"
 		},
 		{
-			"id": "west_wales-carmarthen",
-			"from": "west_wales",
-			"to": "carmarthen",
-			"type": "rail"
-		},
-		{
 			"id": "brecon-wrexham",
 			"from": "brecon",
 			"to": "wrexham",
@@ -346,7 +340,8 @@ var board_default = {
 			"id": "carmarthen-merthyr",
 			"from": "carmarthen",
 			"to": "merthyr",
-			"type": "rail"
+			"type": "rail",
+			"points": [[24, 47]]
 		},
 		{
 			"id": "derby-nottingham",
@@ -455,12 +450,6 @@ var board_default = {
 			"id": "the_north-derby",
 			"from": "the_north",
 			"to": "derby",
-			"type": "rail"
-		},
-		{
-			"id": "brecon-caernarfon",
-			"from": "brecon",
-			"to": "caernarfon",
 			"type": "rail"
 		},
 		{

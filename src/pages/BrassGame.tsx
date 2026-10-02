@@ -9,7 +9,7 @@
 
 import { Link } from 'react-router'
 import { PATHS } from '../data/navigation'
-import { useEffect, useEffectEvent, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { HAND_SIZE } from '../rules/config/game'
 import { IllustratedBoard, type BoardRecent, type BoardTargets } from '../components/board/IllustratedBoard'
 import { IndustryRow } from '../components/brass/IndustryRow'
@@ -18,7 +18,8 @@ import { CardActionBar, CardZoom, HandRow, JokerPrompt } from '../components/bra
 import { DeckIndicator, DiscardPile } from '../components/brass/Deck'
 import { DistantMarketPanel } from '../components/brass/DistantMarket'
 import { motionOff } from '../components/brass/flights'
-import { GameLog } from '../components/brass/GameLog'
+import { GameLog, GameLogModal, RecentLog } from '../components/brass/GameLog'
+import { GameBackground } from '../components/theme/PageBackground'
 import { MarketStrip } from '../components/brass/Markets'
 import { TurnOrder } from '../components/brass/TurnOrder'
 import { EraScoring, FinalScreen, type RatingChange } from '../components/brass/Scoring'
@@ -759,11 +760,9 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
                 : b.sellPickBuyer
               : null
 
-  /** "Game log ↓": scroll down to the log below the play area. */
-  const jumpToLog = (event: React.MouseEvent) => {
-    event.preventDefault()
-    document.getElementById('game-log')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+  /** The whole game log, over the screen ("More" under the latest events). */
+  const [logOpen, setLogOpen] = useState(false)
+  const closeLog = useCallback(() => setLogOpen(false), [])
 
   const panel = (
     <div className="flex flex-col gap-2">
@@ -775,7 +774,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
           </button>
         </div>
       )}
-      <div className="flex flex-col gap-1.5">
+      <div className="industry-row-list flex flex-col gap-1.5">
         {INDUSTRY_ORDER.map((industry) => {
           const info = rowInfo(state, ctx, shownPlayer, industry)
           const devCode = readOnly || !myTurn ? 'not-your-turn' : developBlocker(state, ctx, me, industry, actionCard ?? undefined)
@@ -937,6 +936,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
   return (
     <div className="brass-screen flex min-h-dvh flex-col overflow-x-clip">
+      <GameBackground />
       <div className="brass-play flex flex-col">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-bronze-500/30 bg-soot-950/90 px-3 py-1">
         <GameMenuButton onRules={onOpenRules} onSettings={onOpenSettings} onLeave={onLeave} />
@@ -961,19 +961,24 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
       </header>
 
       <main id="main-content" tabIndex={-1} className="brass-layout flex flex-col gap-2 p-2 pb-14 outline-none lg:pb-2">
-        {/* Desktop: [coal/iron market + deck | map | distant market], the map centred between equal sides. Narrower: one column. */}
-        <div className="brass-stage">
-        <div className="brass-side">
-          <div className="brass-market order-1 lg:order-none">
+        {/* Desktop: the coal/iron market with the distant market under it on the left; the map (centred, the deck and
+            discard pile beside its top-left corner) with the hand under it; the player panel and the latest events on
+            the right. Narrower screens: one column. */}
+        <div className="brass-left">
+          <div className="brass-market brass-float order-1 lg:order-none">
             <MarketStrip state={state} ctx={ctx} />
           </div>
-          <div className="order-4 flex items-end gap-3 self-start rounded-lg border border-bronze-500/40 bg-soot-950/80 p-2 lg:order-none">
-            <DeckIndicator state={state} />
-            <DiscardPile state={state} cardName={cardName} />
+          <div className="brass-distant order-5 flex min-h-0 w-full lg:order-none">
+            <DistantMarketPanel state={state} ctx={ctx} me={me} speed={ANIMATION_SCALE[settings.animationSpeed]} />
           </div>
         </div>
 
-        <div className="brass-board-fit order-2 lg:order-none">
+        <div className="brass-centre">
+          <div className="brass-deck brass-float order-4 flex items-end gap-3 self-start rounded-lg border border-bronze-500/40 bg-soot-950/90 p-2 lg:order-none">
+            <DeckIndicator state={state} />
+            <DiscardPile state={state} cardName={cardName} />
+          </div>
+          <div className="brass-board-fit order-2 lg:order-none">
           <section ref={boardFrame} data-board className="plate relative aspect-square overflow-hidden p-1" aria-label={t.nav.board}>
             <ZoomPan>
               <BrassBoard
@@ -1007,13 +1012,7 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
               </div>
             )}
           </section>
-        </div>
-
-        <div className="brass-side">
-          <div className="order-5 flex min-h-0 w-full lg:order-none lg:flex-1">
-            <DistantMarketPanel state={state} ctx={ctx} me={me} speed={ANIMATION_SCALE[settings.animationSpeed]} />
           </div>
-        </div>
         </div>
 
         <div ref={handStrip} className="brass-hand order-3 lg:order-none">
@@ -1026,22 +1025,16 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
           </div>
         </div>
 
-        {/* The player panel: one plate the full height of the play area, scrolling inside when it's taller. */}
-        <aside className="brass-panel plate rivets iron hidden lg:flex" aria-label={b.showPanel}>
+        {/* The player panel: one plate the full height of the play area; the latest events fill the space under the stats. */}
+        <aside className="brass-panel brass-float plate rivets iron hidden lg:flex" aria-label={b.showPanel}>
           <div className="brass-panel-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5" data-testid="player-panel-scroll">
             {panel}
+            <RecentLog state={state} ctx={ctx} colorOf={colorOf} onMore={() => setLogOpen(true)} />
           </div>
-          <a href="#game-log" className="brass-log-hint" aria-label={b.log.jumpLabel} onClick={jumpToLog}>
-            {b.log.jump}
-          </a>
         </aside>
       </main>
       </div>
-
-      {/* Desktop: the game log, full width below the play area (scroll down to it); newest first. */}
-      <section id="game-log" className="hidden border-t border-bronze-500/30 bg-soot-950/60 px-4 py-4 lg:block">
-        <GameLog state={state} ctx={ctx} page />
-      </section>
+      {logOpen && <GameLogModal state={state} ctx={ctx} colorOf={colorOf} onClose={closeLog} />}
 
       {/* Narrow screens: the panel is a bottom sheet. */}
       <div className="fixed inset-x-0 bottom-0 z-30 lg:hidden">

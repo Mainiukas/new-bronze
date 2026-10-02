@@ -124,8 +124,8 @@ const brassWords: BrassWords = {
   },
   log: {
     title: 'Spielprotokoll',
-    jump: 'Spielprotokoll ↓',
-    jumpLabel: 'Nach unten zum Spielprotokoll',
+    more: 'Mehr',
+    empty: 'Noch nichts',
     links: (name, era, routes) => `${name} baute ${era === 'canal' ? 'einen Kanal' : 'eine Bahn'}: ${routes}`,
     developed: (name, what) => `${name} entwickelte ${what}`,
     flip: (name, what, town, income) => `${name}s ${what} in ${town} umgedreht: +${income} Einkommen`,

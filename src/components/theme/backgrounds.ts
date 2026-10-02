@@ -7,7 +7,7 @@ import { PATHS } from '../../data/navigation'
  * is simply left out: the page shows on the plain dark ground instead.
  */
 
-export const BACKGROUND_NAMES = ['lobby', 'auth', 'auth_study', 'shop', 'locker', 'achievements', 'tournaments', 'splash'] as const
+export const BACKGROUND_NAMES = ['lobby', 'auth', 'auth_study', 'shop', 'locker', 'achievements', 'tournaments', 'splash', 'game_city'] as const
 export type BackgroundName = (typeof BACKGROUND_NAMES)[number]
 
 export const BACKGROUND_WIDTHS = [1280, 1920, 2560] as const
@@ -54,6 +54,7 @@ export const BACKGROUND_FOCUS: Record<BackgroundName, string> = {
   achievements: '40% 60%',
   tournaments: '50% 45%',
   splash: '40% 55%',
+  game_city: '50% 50%',
 }
 
 /** Soot, the page ground, at an alpha: rgba(8,5,3,a). */
@@ -80,6 +81,8 @@ export const BACKGROUND_OVERLAY: Record<BackgroundName, string> = {
   tournaments: `${VIGNETTE}, linear-gradient(90deg, ${soot(0.5)}, ${soot(0.72)} 30%, ${soot(0.72)} 70%, ${soot(0.5)})`,
   // Logo, title and loader in a band across the middle, over the molten metal. Keep in step with .splash-shade in index.html.
   splash: `${VIGNETTE}, linear-gradient(180deg, ${soot(0.4)}, ${soot(0.66)} 30%, ${soot(0.66)} 72%, ${soot(0.45)})`,
+  // Behind the play screen: the blurred factory city at night, darkened evenly; the panels carry the text.
+  game_city: `${VIGNETTE}, linear-gradient(rgb(10 7 5 / 0.35), rgb(10 7 5 / 0.35))`,
 }
 
 /** Lobby pages with their own painting; every other lobby page shows the lobby's. */

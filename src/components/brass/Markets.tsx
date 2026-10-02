@@ -53,7 +53,7 @@ function MarketRow({ kind, state, ctx }: { kind: 'coal' | 'iron'; state: GameSta
   const label = kind === 'coal' ? b.coalMarket : b.ironMarket
   const rows = rowsOf(market.spaces)
   // A cell is 26 px of cube plus its border: the columns are as wide as their price.
-  const column = 'flex min-w-[2.6rem] flex-col items-center gap-1 rounded-md border px-1 py-1'
+  const column = 'flex min-w-[2.4rem] flex-col items-center gap-1 rounded-md border px-1 py-1'
   return (
     <div id={`market-${kind}`} role="group" aria-label={b.marketLabel(label, cubes, marketBuyPrice(ctx, kind, cubes))} className="flex flex-col gap-1">
       <span className="flex items-center gap-1.5 font-display text-sm font-extrabold tracking-[0.12em] text-parchment-100 uppercase" aria-hidden="true">
@@ -92,7 +92,7 @@ function MarketRow({ kind, state, ctx }: { kind: 'coal' | 'iron'; state: GameSta
 
 export function MarketStrip({ state, ctx }: { state: GameState; ctx: RulesContext }) {
   return (
-    <div className="flex flex-col gap-2.5 rounded-lg border border-bronze-500/40 bg-soot-950/80 p-2.5">
+    <div className="flex flex-col gap-2.5 rounded-lg border border-bronze-500/40 bg-soot-950/90 p-2.5">
       <MarketRow kind="coal" state={state} ctx={ctx} />
       <MarketRow kind="iron" state={state} ctx={ctx} />
     </div>

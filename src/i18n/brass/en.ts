@@ -133,9 +133,9 @@ const brassWords = {
   },
   log: {
     title: 'Game log',
-    /** The hint at the bottom of the play area: the log is below it. */
-    jump: 'Game log ↓',
-    jumpLabel: 'Scroll down to the game log',
+    /** Under the latest events in the player panel: opens the whole log. */
+    more: 'More',
+    empty: 'Nothing yet',
     links: (name: string, era: string, routes: string) => `${name} built ${era === 'canal' ? 'a canal' : 'rail'}: ${routes}`,
     developed: (name: string, what: string) => `${name} developed ${what}`,
     flip: (name: string, what: string, town: string, income: number) => `${name}’s ${what} in ${town} flipped: +${income} income`,
@@ -200,7 +200,7 @@ const brassWords = {
   leaveMatch: 'Leave the match (it’s saved)',
   lastMove: (name: string) => `${name}’s last move`,
   moves: {
-    build: (name: string, what: string, town: string) => `${name} built a ${what} in ${town}`,
+    build: (name: string, what: string, town: string) => `${name} built ${what} in ${town}`,
     network: (name: string, n: number) => `${name} built ${n === 1 ? 'a link' : `${n} links`}`,
     develop: (name: string) => `${name} developed`,
     sell: (name: string) => `${name} sold cotton`,

@@ -42,7 +42,7 @@ function ActionButton({ icon, label, title, cost, disabled = null, active = fals
       aria-disabled={disabled ? true : undefined}
       aria-pressed={active}
       title={disabled ?? title ?? label}
-      className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg border-2 px-2 py-1.5 text-center transition ${
+      className={`action-btn flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg border-2 px-2 py-1.5 text-center transition ${
         disabled
           ? 'cursor-not-allowed border-bronze-500/25 bg-soot-900/60 opacity-50'
           : active
@@ -127,7 +127,7 @@ export function ActionButtons({
   )
   if (state.era === 'canal') {
     return (
-      <div className="flex flex-col gap-2">
+      <div className="action-buttons-canal flex flex-col gap-2">
         <div className="flex justify-center">
           <ActionButton icon={actCanalUrl} label={a.canal} cost={money(CANAL_COST)} disabled={disabled.canal} active={active === 'canal'} onClick={() => onNetwork(1)} className="w-1/2" />
         </div>
@@ -266,7 +266,7 @@ export function StatsBar({ player, ctx }: { player: PlayerState; ctx: RulesConte
   const t = useT()
   const income = incomeOf(ctx, player)
   return (
-    <div className="grid grid-cols-3 items-center rounded-lg border-2 border-bronze-400/50 bg-soot-950/90 px-2 py-2.5">
+    <div className="stats-bar grid grid-cols-3 items-center rounded-lg border-2 border-bronze-400/50 bg-soot-950/90 px-2 py-2.5">
       <span className="flex items-center justify-center gap-2" role="img" aria-label={`${t.brass.money}: £${player.money}`}>
         <Coin className="size-11" />
         <Animated value={player.money} render={(v) => <span className="font-display text-3xl font-bold text-parchment-50 tabular-nums">£{v}</span>} />

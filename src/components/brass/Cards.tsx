@@ -73,6 +73,8 @@ function nameWidth(name: string): number {
 interface NameLayout {
   lines: string[]
   size: number
+  /** Letter spacing (em): NAME_TRACKING, or none when that's what keeps a long name at the minimum size. */
+  tracking: number
   top: number
   /** px from the card's left edge, and the width the lines are centred in. */
   left: number
@@ -94,10 +96,16 @@ function layoutName(name: string, cardWidth: number, visible: number): NameLayou
   const lines = nameLines(name)
   const min = NAME_MIN_PX * Math.max(1, cardWidth / 130)
   const max = Math.max(min, Math.min((NAME_MAX_PX * cardWidth) / 130, (RIBBON_MIN_H - 2 * RIBBON_PAD) * scale * 0.95))
-  const fit = fitName(Math.max(...lines.map(nameWidth)), space, max, min)
+  let fit = fitName(Math.max(...lines.map(nameWidth)), space, max, min)
+  let tracking = NAME_TRACKING
+  if (fit.belowMin) {
+    // Too long at the minimum: without the letter spacing first, before going any smaller.
+    fit = fitName(Math.max(...lines.map((line) => nameWidth(line) - line.length * NAME_TRACKING)), space, max, min)
+    tracking = 0
+  }
   // A mostly hidden card whose name would have to go below the minimum keeps just its ribbon.
   if (fit.belowMin && shown < 0.95) return null
-  return { lines, size: fit.size, top: ribbonTop(lines.length, fit.size, cardWidth), left, width: space + 4 }
+  return { lines, size: fit.size, tracking, top: ribbonTop(lines.length, fit.size, cardWidth), left, width: space + 4 }
 }
 
 /**
@@ -173,9 +181,9 @@ function CardName({ layout, cardWidth }: { layout: NameLayout; cardWidth: number
             fontWeight: 700,
             fontSize: `${layout.size.toFixed(2)}px`,
             lineHeight: 1,
-            letterSpacing: `${NAME_TRACKING}em`,
+            letterSpacing: `${layout.tracking}em`,
             // The spacing after the last letter, taken back so the line is truly centred.
-            marginRight: `-${NAME_TRACKING}em`,
+            marginRight: `-${layout.tracking}em`,
             color: CARD_TEXT,
             textShadow: '1px 0 0 #120c08, -1px 0 0 #120c08, 0 1px 0 #120c08, 0 -1px 0 #120c08, 0 2px 4px rgb(0 0 0 / 0.6)',
           }}

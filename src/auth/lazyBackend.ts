@@ -40,7 +40,8 @@ export function createLazyBackend(load: () => Promise<AuthBackend | null>): Auth
   return new Proxy(special as AuthBackend, {
     get(target, name: string | symbol) {
       if (name in target) return target[name as keyof typeof target]
-      if (typeof name !== 'string' || name === 'then') return undefined
+      // Not methods: `then` (it isn't a promise) and `toJSON` (so serialising it doesn't call the backend).
+      if (typeof name !== 'string' || name === 'then' || name === 'toJSON') return undefined
       return async (...args: unknown[]) => {
         const backend = await real()
         const method = backend[name as keyof AuthBackend] as unknown as ((...params: unknown[]) => unknown) | undefined

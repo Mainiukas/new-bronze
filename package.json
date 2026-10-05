@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/onboarding-images.mjs && tsc -b && vite build",
+    "build": "node scripts/onboarding-images.mjs && tsc -b && vite build && rolldown supabase/functions/game/index.ts --format esm --platform neutral -o dist/edge/game.js",
     "build:single": "node scripts/onboarding-images.mjs && tsc -b && vite build --mode single",
     "test": "vitest run",
     "lint": "oxlint",

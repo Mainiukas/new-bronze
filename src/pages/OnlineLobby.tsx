@@ -406,7 +406,8 @@ function MyRatingPanel() {
   const [ratings, setRatings] = useState<MyRating[] | null>(null)
   useEffect(() => {
     let stopped = false
-    Promise.all(RATED_PLAYER_COUNTS.map((players) => gameRequest<MyRating>({ op: 'my-rating', players })))
+    // Each card is labelled with the count it asked for (a server from before the split doesn't say).
+    Promise.all(RATED_PLAYER_COUNTS.map((players) => gameRequest<MyRating>({ op: 'my-rating', players }).then((r) => ({ ...r, players }))))
       .then((values) => !stopped && setRatings(values))
       .catch(() => {})
     return () => {

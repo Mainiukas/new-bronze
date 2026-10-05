@@ -193,7 +193,7 @@ describe('building links', () => {
     let g = newGame()
     const kinds = new Set(linkTargets(g).map((r) => r.kinds.join('+')))
     expect(kinds).toEqual(new Set(['canal', 'canal+rail']))
-    expect(linkTargets(g)).toHaveLength(22)
+    expect(linkTargets(g)).toHaveLength(23)
     g = applyAction(g, { type: 'build', kind: 'coal', townId: 'lichfield', slot: 0 })
     expect(linkTargets(g).map((r) => r.id).sort()).toEqual(['lichfield-birmingham', 'stoke-lichfield'])
     expectIllegal(() => applyAction(g, { type: 'link', routeId: 'derby-lichfield' }), /doesn’t exist in the canal era/)
@@ -469,7 +469,7 @@ describe('eras', () => {
     expect(linkTargets(g, p).every((r) => r.kinds.includes('rail'))).toBe(true)
     // Wrexham – Wolverhampton is a canal and a railway: buildable in the rail era too.
     expect(linkTargets(g, p).some((r) => r.id === 'wrexham-wolverhampton')).toBe(true)
-    expect(linkTargets(g, p)).toHaveLength(34)
+    expect(linkTargets(g, p)).toHaveLength(35)
   })
 
   it('lets a player whose network was wiped out by the canals closing build anywhere again, and logs it', () => {
@@ -485,11 +485,11 @@ describe('eras', () => {
     expect(networkTowns(g, 0).size).toBe(0)
     expect(buildsAnywhere(g, 0)).toBe(true)
     expect(buildTargets(g, 'cotton', 0).length).toBeGreaterThan(10)
-    expect(linkTargets(g, 0)).toHaveLength(34)
+    expect(linkTargets(g, 0)).toHaveLength(35)
     expect(g.log.filter((e) => e.kind === 'reset').map((e) => e.text)).toEqual(['P1 has no network left and may build anywhere again.'])
     // Player 1 keeps the mine: links must touch Stoke, industries go in Stoke.
     expect(buildsAnywhere(g, 1)).toBe(false)
-    expect(linkTargets(g, 1).map((r) => r.id).sort()).toEqual(['stoke-wolverhampton', 'the_north-stoke'])
+    expect(linkTargets(g, 1).map((r) => r.id).sort()).toEqual(['stoke-wolverhampton', 'the_north-stoke', 'wrexham-stoke'])
     expect(new Set(buildTargets(g, 'coal', 1).map((p) => p.townId))).toEqual(new Set(['stoke']))
   })
 

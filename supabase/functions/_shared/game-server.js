@@ -30,7 +30,7 @@ var board_default = {
 			"id": "the_north",
 			"name": "The North",
 			"type": "hub",
-			"x": 60.5,
+			"x": 62,
 			"y": 11.9,
 			"ring": 1,
 			"era": "rail",
@@ -100,8 +100,8 @@ var board_default = {
 			"id": "wrexham",
 			"name": "Wrexham",
 			"type": "city",
-			"x": 33.9,
-			"y": 24.5,
+			"x": 32.3,
+			"y": 26.8,
 			"region": "wales",
 			"ring": 2,
 			"slots": [["coal"], ["iron"]]
@@ -134,8 +134,8 @@ var board_default = {
 			"id": "stoke",
 			"name": "Stoke-on-Trent",
 			"type": "city",
-			"x": 38.6,
-			"y": 12.9,
+			"x": 40.3,
+			"y": 12.7,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [
@@ -148,8 +148,8 @@ var board_default = {
 			"id": "derby",
 			"name": "Derby",
 			"type": "city",
-			"x": 70.8,
-			"y": 29,
+			"x": 70.6,
+			"y": 29.1,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [["cotton"], ["cotton", "iron"]]
@@ -158,7 +158,7 @@ var board_default = {
 			"id": "nottingham",
 			"name": "Nottingham",
 			"type": "city",
-			"x": 74.4,
+			"x": 75.9,
 			"y": 10.9,
 			"region": "midlands",
 			"ring": 2,
@@ -169,7 +169,7 @@ var board_default = {
 			"name": "Lichfield",
 			"type": "city",
 			"x": 54.8,
-			"y": 25.2,
+			"y": 25.9,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [["coal"]]
@@ -178,8 +178,8 @@ var board_default = {
 			"id": "wolverhampton",
 			"name": "Wolverhampton",
 			"type": "city",
-			"x": 51.8,
-			"y": 35.9,
+			"x": 52.2,
+			"y": 36,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [
@@ -192,8 +192,8 @@ var board_default = {
 			"id": "birmingham",
 			"name": "Birmingham",
 			"type": "city",
-			"x": 79.6,
-			"y": 37.3,
+			"x": 79.7,
+			"y": 37.5,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [
@@ -208,7 +208,7 @@ var board_default = {
 			"name": "Leicester",
 			"type": "city",
 			"x": 85.9,
-			"y": 21.4,
+			"y": 23,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [["cotton", "coal"], ["cotton", "coal"]]
@@ -217,8 +217,8 @@ var board_default = {
 			"id": "gloucester",
 			"name": "Gloucester",
 			"type": "city",
-			"x": 65.3,
-			"y": 49.6,
+			"x": 65.2,
+			"y": 49.7,
 			"region": "thames",
 			"ring": 1,
 			"slots": [["port"], ["cotton", "port"]]
@@ -394,6 +394,12 @@ var board_default = {
 			"id": "brecon-merthyr",
 			"from": "brecon",
 			"to": "merthyr",
+			"type": "both"
+		},
+		{
+			"id": "wrexham-stoke",
+			"from": "wrexham",
+			"to": "stoke",
 			"type": "both"
 		},
 		{

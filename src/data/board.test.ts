@@ -60,13 +60,13 @@ import boardFile from './board.json?raw'
 import { BRASS_MAP } from '../rules/map'
 
 describe('board.json', () => {
-  it('is valid and complete: 25 locations and 40 links', () => {
+  it('is valid and complete: 25 locations and 41 links', () => {
     expect(validateBoardData(BOARD)).toEqual([])
     const byType = (t: string) => BOARD.locations.filter((l) => l.type === t).map((l) => l.id)
     expect(byType('hub')).toEqual(['the_north', 'london', 'west_wales'])
     expect(byType('stop')).toEqual(['brecon', 'reading', 'taunton'])
     expect(byType('city')).toHaveLength(19)
-    expect(BOARD.links).toHaveLength(40)
+    expect(BOARD.links).toHaveLength(41)
   })
 
   it('uses only the five industries, and hubs buy only cotton, coal and iron', () => {
@@ -86,7 +86,7 @@ describe('board.json', () => {
       }
     }
     const pairs = BOARD.links.map((l) => [l.from, l.to].sort().join('|'))
-    expect(new Set(pairs).size).toBe(40)
+    expect(new Set(pairs).size).toBe(41)
   })
 
   it('matches the design for a few spot checks', () => {
@@ -161,10 +161,10 @@ describe('design checks', () => {
     expect(reachable(BOARD, 'birmingham', 'rail').size).toBe(25)
   })
 
-  it('3. degrees add up to 80, with 16 both, 6 canal and 18 rail links', () => {
-    expect([...degrees(BOARD).values()].reduce((a, b) => a + b, 0)).toBe(80)
+  it('3. degrees add up to 82, with 17 both, 6 canal and 18 rail links', () => {
+    expect([...degrees(BOARD).values()].reduce((a, b) => a + b, 0)).toBe(82)
     const count = (t: string) => BOARD.links.filter((l) => l.type === t).length
-    expect([count('both'), count('canal'), count('rail')]).toEqual([16, 6, 18])
+    expect([count('both'), count('canal'), count('rail')]).toEqual([17, 6, 18])
   })
 
   it('4. tile distribution: 2 cities with 4 slots, 4 with 3, 10 with 2, 3 with 1', () => {
@@ -181,7 +181,7 @@ describe('design checks', () => {
     const cut: BoardData = { ...BOARD, links: BOARD.links.filter((l) => l.id !== 'barnstaple-exeter') }
     const problems = designProblems(cut, BOARD_DESIGN).join('\n')
     expect(problems).toMatch(/unreachable: the_north, taunton, carmarthen, exeter, plymouth/)
-    expect(problems).toMatch(/add up to 78, expected 80/)
+    expect(problems).toMatch(/add up to 80, expected 82/)
     expect(problems).toMatch(/5 canal links, expected 6/)
   })
 
@@ -347,8 +347,8 @@ describe('board layout', () => {
   })
 
   it('draws only the era’s links: canal and both in the canal era, rail and both in the rail era', () => {
-    expect(routes('canal').map((r) => r.link.type).sort()).toEqual([...Array(16).fill('both'), ...Array(6).fill('canal')])
-    expect(routes('rail').map((r) => r.link.type).sort()).toEqual([...Array(16).fill('both'), ...Array(18).fill('rail')])
+    expect(routes('canal').map((r) => r.link.type).sort()).toEqual([...Array(17).fill('both'), ...Array(6).fill('canal')])
+    expect(routes('rail').map((r) => r.link.type).sort()).toEqual([...Array(17).fill('both'), ...Array(18).fill('rail')])
   })
 
   it('runs every route from the centre of one group to the centre of the other, so its ends stay under the art', () => {
@@ -513,8 +513,8 @@ describe('Wales: Brecon, Wrexham and the Wrexham – Wolverhampton link', () => 
     expect(at('brecon').y).toBeLessThan(at('merthyr').y)
     expect(at('brecon').x).toBeGreaterThan(at('caernarfon').x)
     expect(at('brecon').y).toBeGreaterThan(at('caernarfon').y)
-    // Wrexham was at x 32.1, on the coast.
-    expect(at('wrexham').x).toBeGreaterThan(33.5)
+    // Wrexham was at x 32.1, on the coast (it makes room for its link space to Stoke-on-Trent).
+    expect(at('wrexham').x).toBeGreaterThan(32.1)
     // ...and keeps clear of Stoke-on-Trent's banner.
     expect(rectGap(layout.groups.get('wrexham')!.bounds, layout.groups.get('stoke')!.bounds)).toBeGreaterThan(40)
   })
@@ -615,5 +615,13 @@ describe('Derby – Leicester', () => {
     const link = BOARD.links.find((l) => [l.from, l.to].sort().join('|') === 'derby|leicester')
     expect(link?.type).toBe('canal')
     expect(Object.values(BRASS_MAP.links).find((l) => [l.from, l.to].sort().join('|') === 'derby|leicester')).toMatchObject({ canal: true, rail: false })
+  })
+})
+
+describe('Wrexham – Stoke-on-Trent', () => {
+  it('is a canal and a railway', () => {
+    const link = BOARD.links.find((l) => [l.from, l.to].sort().join('|') === 'stoke|wrexham')
+    expect(link?.type).toBe('both')
+    expect(Object.values(BRASS_MAP.links).find((l) => [l.from, l.to].sort().join('|') === 'stoke|wrexham')).toMatchObject({ canal: true, rail: true })
   })
 })

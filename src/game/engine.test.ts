@@ -193,7 +193,7 @@ describe('building links', () => {
     let g = newGame()
     const kinds = new Set(linkTargets(g).map((r) => r.kinds.join('+')))
     expect(kinds).toEqual(new Set(['canal', 'canal+rail']))
-    expect(linkTargets(g)).toHaveLength(21)
+    expect(linkTargets(g)).toHaveLength(22)
     g = applyAction(g, { type: 'build', kind: 'coal', townId: 'lichfield', slot: 0 })
     expect(linkTargets(g).map((r) => r.id).sort()).toEqual(['lichfield-birmingham', 'stoke-lichfield'])
     expectIllegal(() => applyAction(g, { type: 'link', routeId: 'derby-lichfield' }), /doesn’t exist in the canal era/)

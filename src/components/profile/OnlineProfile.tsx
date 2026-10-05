@@ -88,7 +88,8 @@ export function OnlineProfile({ username }: { username: string }) {
             {profile.ratings.map((r) => (
               <div key={`${r.mapId}@${r.players}`} className="plate flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3" data-players={r.players}>
                 <span className="w-full text-xs font-semibold tracking-[0.14em] text-parchment-400 uppercase">
-                  {mapName(r.mapId)} · {o.rating.players(r.players)}
+                  {mapName(r.mapId)}
+                  {r.players ? ` · ${o.rating.players(r.players)}` : ''}
                 </span>
                 <RatingBadge rating={r.rating} provisional={r.provisional} rd={r.rd} games={r.gamesPlayed} className="text-3xl text-brass-100" />
                 <span className="text-sm text-parchment-300">
@@ -105,7 +106,8 @@ export function OnlineProfile({ username }: { username: string }) {
             <>
               <div className="plate flex flex-col gap-2 px-4 py-3">
                 <h3 className="font-display text-sm font-bold tracking-[0.12em] text-parchment-200 uppercase">{pr.graphTitle}</h3>
-                <RatingGraphs graphs={profile.graphs} />
+                {/* (A server from before the split sends one `graph` instead.) */}
+                <RatingGraphs graphs={profile.graphs ?? {}} legacy={(profile as { graph?: GraphPoints }).graph} />
               </div>
 
               <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -199,13 +201,16 @@ function FriendButton({ status, onAdd, onRemove, onRespond }: { status: FriendSt
 }
 
 /** The rating graph, one per player count played (a tab for each when there are several). */
-function RatingGraphs({ graphs }: { graphs: Profile['graphs'] }) {
+type GraphPoints = NonNullable<Profile['graphs'][RatedPlayers]>
+
+function RatingGraphs({ graphs, legacy }: { graphs: Profile['graphs']; legacy?: GraphPoints }) {
   const t = useT()
   const o = t.online
   const pr = o.profile
   const counts = RATED_PLAYER_COUNTS.filter((n) => graphs[n]?.length)
   const [chosen, setChosen] = useState<RatedPlayers | null>(null)
   const shown = chosen && counts.includes(chosen) ? chosen : counts[0]
+  if (!shown && legacy?.length) return <RatingGraph points={legacy} label={pr.graphLabel(legacy.length)} />
   if (!shown) return <p className="text-sm text-parchment-400">{pr.graphEmpty}</p>
   const points = graphs[shown]!
   return (

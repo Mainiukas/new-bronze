@@ -292,7 +292,7 @@ export interface BoardDesign {
 
 export const BOARD_DESIGN: BoardDesign = {
   start: 'birmingham',
-  links: { both: 16, canal: 6, rail: 18 },
+  links: { both: 17, canal: 6, rail: 18 },
   tiles: { 4: 2, 3: 4, 2: 10, 1: 3 },
   // Carmarthen's links are all railways: no canal reaches it.
   noCanal: ['carmarthen'],

@@ -78,6 +78,8 @@ export interface GameRecord {
   seed: number | null
   /** Whose turn the clock is timing, since when. */
   turn: { seat: number; startedAt: number } | null
+  /** When a bot (or a stand-in) makes its next move: they think for a moment between moves. */
+  botNextAt?: number | null
   result: GameResult | null
   /** Moves made so far (the action log's length). */
   moves: number
@@ -140,6 +142,8 @@ export interface GameView {
   /** The game as this viewer may see it (other hands, the deck and the distant-market order hidden). */
   state: GameState | null
   turn: { seat: number; startedAt: number } | null
+  /** When the bot to move makes its move (server time): screens ask again then. Null when a person is to move. */
+  botDueAt: number | null
   result: GameResult | null
   rematchId: string | null
   /** The server's clock, for showing timers. */

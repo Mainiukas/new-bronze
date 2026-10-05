@@ -102,6 +102,16 @@ export function useOnlineGame(gameId: string): OnlineGame {
     return () => window.clearTimeout(timer)
   }, [dueAt, clockOffset, load])
 
+  // A bot's next move falls due (bots think between moves): ask for it then. A little jitter, so several
+  // players' screens don't all ask at the same instant.
+  const botDueAt = view?.status === 'playing' ? (view.botDueAt ?? null) : null
+  useEffect(() => {
+    if (botDueAt === null || !seated) return
+    const wait = Math.max(100, botDueAt - (Date.now() + clockOffset) + 60 + Math.random() * 240)
+    const timer = window.setTimeout(() => void load('ping'), Math.min(wait, 2 ** 31 - 1))
+    return () => window.clearTimeout(timer)
+  }, [botDueAt, seated, clockOffset, load])
+
   const send = useCallback(
     async (body: Request) => {
       setBusy(true)

@@ -12,7 +12,7 @@
 // it's deployed with --no-verify-jwt (see SETUP.md):
 //   supabase functions deploy game --no-verify-jwt
 
-import { createGameServer, RULES_CONTEXT } from '../_shared/game-server.js'
+import { botThinkTime, createGameServer, RULES_CONTEXT } from '../_shared/game-server.js'
 import { supabaseGameStore } from '../_shared/supabaseGameStore.ts'
 
 declare const Deno: {
@@ -71,6 +71,8 @@ Deno.serve(async (request) => {
     now: () => Date.now(),
     random,
     newId: () => crypto.randomUUID(),
+    // Bots move one at a time after a moment's thought, like a person.
+    botThinkMs: (firstOfTurn: boolean) => botThinkTime(firstOfTurn),
   })
 
   let reply

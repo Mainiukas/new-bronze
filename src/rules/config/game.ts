@@ -72,3 +72,23 @@ export const CLOCK_CRITICAL_MS = 30_000
 export const CONNECTION_LOST_MS = 30_000
 /** …and after this grace time a bot plays their seat until they come back. */
 export const DISCONNECT_GRACE_MS = 120_000
+
+/**
+ * How long a bot "thinks" before a move (ms), so it plays like a person rather than all at once: a
+ * longer look at the start of its turn, a shorter one for its second action, and now and then a longer
+ * pause. `random` is a number in [0, 1) each time.
+ */
+export const BOT_THINK = {
+  firstOfTurn: [1600, 3400],
+  later: [900, 1900],
+  /** Sometimes it hesitates: this share of moves gets the extra pause. */
+  pauseChance: 0.12,
+  pause: [1200, 2800],
+} as const
+
+export function botThinkTime(firstOfTurn: boolean, random: () => number = Math.random): number {
+  const [lo, hi] = firstOfTurn ? BOT_THINK.firstOfTurn : BOT_THINK.later
+  let ms = lo + (hi - lo) * random()
+  if (random() < BOT_THINK.pauseChance) ms += BOT_THINK.pause[0] + (BOT_THINK.pause[1] - BOT_THINK.pause[0]) * random()
+  return Math.round(ms)
+}

@@ -10,7 +10,8 @@
 import { Link } from 'react-router'
 import { PATHS } from '../data/navigation'
 import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { HAND_SIZE } from '../rules/config/game'
+import { flushSync } from 'react-dom'
+import { botThinkTime, HAND_SIZE } from '../rules/config/game'
 import { IllustratedBoard, type BoardRecent, type BoardTargets } from '../components/board/IllustratedBoard'
 import { IndustryRow } from '../components/brass/IndustryRow'
 import { deckMode } from '../components/brass/cardArt'
@@ -273,12 +274,27 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
 
   const flights = useCardFlights(state, ctx, me, ANIMATION_SCALE[settings.animationSpeed])
 
-  const cancel = () => setFlow({ kind: 'idle' })
-  const cancelAll = () => {
-    setFlow({ kind: 'idle' })
-    setSelected([])
-    setJokerOffer(null)
+  /**
+   * Cancel answers on the next frame: the strip above the hand clears at once (a tiny change), and the
+   * board's highlights come off just after (on a phone that repaint is the slow part).
+   */
+  const [cancelling, setCancelling] = useState(false)
+  const soon = (finish: () => void) => {
+    flushSync(() => setCancelling(true))
+    requestAnimationFrame(() =>
+      setTimeout(() => {
+        finish()
+        setCancelling(false)
+      }, 0),
+    )
   }
+  const cancel = () => soon(() => setFlow({ kind: 'idle' }))
+  const cancelAll = () =>
+    soon(() => {
+      setFlow({ kind: 'idle' })
+      setSelected([])
+      setJokerOffer(null)
+    })
 
   /**
    * Apply an action for a player; errors become toasts (and change nothing). The player at this device moves
@@ -429,7 +445,10 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
   })
   useEffect(() => {
     if (online || state.finished || !state.players[current].isAI || paused) return
-    const delay = (mode?.aiDelayMs ?? 800) * AI_DELAY_SCALE[settings.aiSpeed]
+    // Like a person: a longer look at the start of its turn, a shorter one for the second action, now and
+    // then a pause (scaled by the mode and the "computer speed" setting).
+    const firstOfTurn = state.actionsLeft >= (state.era === 'canal' && state.round === 1 ? 1 : 2)
+    const delay = botThinkTime(firstOfTurn) * ((mode?.aiDelayMs ?? 900) / 900) * AI_DELAY_SCALE[settings.aiSpeed]
     const timer = window.setTimeout(playComputer, delay)
     return () => window.clearTimeout(timer)
   }, [online, state, current, paused, mode?.aiDelayMs, settings.aiSpeed])
@@ -1018,7 +1037,9 @@ export function BrassGame({ match, onMatchChange, onMatchFinished, onLeave, onRe
         <div ref={handStrip} className="brass-hand order-3 lg:order-none">
           {/* Centred on the map frame's centre line. */}
           <div data-testid="hand-axis" className="flex flex-col items-center" style={axis.width ? { marginLeft: axis.left, width: axis.width } : undefined}>
-            <div className="flex min-h-8 w-full items-center justify-center text-center">{handBar}</div>
+            <div className="flex min-h-8 w-full items-center justify-center text-center" style={cancelling ? { visibility: 'hidden' } : undefined}>
+              {handBar}
+            </div>
             {!online?.spectating && (
               <HandRow cards={hand} selected={fanSelected} interactive={myTurn && !state.selling} cardWidth={cardWidth} gap={cardGap} name={cardName} kind={cardKind} allows={cardAllows} label={b.handTitle} onSelect={onCard} onZoom={setZoom} />
             )}

@@ -505,19 +505,17 @@ export function IllustratedBoard({
         <g aria-hidden="true" pointerEvents="none">
           <g filter={`url(#${DEF.routeShadow})`}>{routeLayers?.shadows}</g>
           {routes.map((route) => {
-            const targeted = targets?.links?.has(route.link.id) ?? false
-            if (!glow.has(route.link.id) && !targeted) return null
-            return (
-              <path
-                key={route.link.id}
-                d={polylinePath(route.line)}
-                className={`fill-none stroke-board-glow ${targeted ? 'board-target' : ''}`}
-                strokeWidth={30}
-                strokeLinecap="round"
-                opacity={targeted || glow.get(route.link.id) ? 0.5 : 0.3}
-              />
-            )
+            if (!glow.has(route.link.id) || targets?.links?.has(route.link.id)) return null
+            return <path key={route.link.id} d={polylinePath(route.line)} className="fill-none stroke-board-glow" strokeWidth={30} strokeLinecap="round" opacity={glow.get(route.link.id) ? 0.5 : 0.3} />
           })}
+          {/* The routes you can pick pulse together: one animated group (cheap to show, pulse and remove). */}
+          {targets?.links?.size ? (
+            <g className="board-target" opacity={0.5}>
+              {routes.map((route) =>
+                targets.links!.has(route.link.id) ? <path key={route.link.id} d={polylinePath(route.line)} className="fill-none stroke-board-glow" strokeWidth={30} strokeLinecap="round" /> : null,
+              )}
+            </g>
+          ) : null}
         </g>
 
         {/* 2. Route textures */}
@@ -534,13 +532,14 @@ export function IllustratedBoard({
         </g>
 
         {/* 3. Link spaces (empty) and 4. link tokens (built) */}
+        {/* The empty link spaces stay drawn and are only hidden when not needed, so showing or hiding them
+            (picking a link, then Cancel) is one style change instead of re-creating every space. */}
         {(['spaces', 'tokens'] as const).map((layer) => (
-          <g key={layer}>
+          <g key={layer} display={layer === 'spaces' && hideEmptyLinks ? 'none' : undefined}>
             {routes.map((route) => {
               const { link, marker } = route
               const owner = built.links[link.id]
               if ((layer === 'tokens') !== (owner !== undefined)) return null
-              if (layer === 'spaces' && hideEmptyLinks) return null
               const shut = routeShut(route)
               // In a match, targets are clicked in the top layer instead.
               const clickable = !editable && !targets && !!onSelectLink && !shut
@@ -695,38 +694,49 @@ export function IllustratedBoard({
                 <rect key={`net-${id}`} x={box.x} y={box.y} width={box.w} height={box.h} rx={10} fill="none" stroke={network.color} strokeWidth={2.2} strokeDasharray="6 4" />
               )
             })}
-          {targets?.slots &&
-            [...targets.slots].map(([key, text]) => {
-              const rect = slotRect(key)
-              if (!rect) return null
-              const box = inflate(rect, 3)
-              return (
-                <g key={`t-${key}`}>
+          {/* Targets pulse together: one animated group (and one glow filter) for all their outlines, so
+              showing and clearing them is cheap; their labels sit outside it and stay still. */}
+          {targets?.slots && (
+            <g className="board-target" style={targetColor ? { filter: `drop-shadow(0 0 4px ${targetColor})` } : undefined}>
+              {[...targets.slots].map(([key]) => {
+                const rect = slotRect(key)
+                if (!rect) return null
+                const box = inflate(rect, 3)
+                return (
                   <rect
+                    key={`t-${key}`}
                     x={box.x}
                     y={box.y}
                     width={box.w}
                     height={box.h}
                     rx={3}
-                    className={`board-target fill-none ${targetColor ? '' : 'stroke-board-glow'}`}
-                    style={targetColor ? { stroke: targetColor, filter: `drop-shadow(0 0 4px ${targetColor})` } : undefined}
+                    className={`fill-none ${targetColor ? '' : 'stroke-board-glow'}`}
+                    style={targetColor ? { stroke: targetColor } : undefined}
                     strokeWidth={2.5}
                   />
-                  {text && <TargetTag x={rect.x + rect.w / 2} y={rect.y - 12} text={text} />}
-                </g>
-              )
+                )
+              })}
+            </g>
+          )}
+          {targets?.locations && (
+            <g className="board-target">
+              {[...targets.locations].map(([id]) => {
+                const g = groups.get(id)
+                if (!g) return null
+                const box = inflate(g.bounds, 5)
+                return <rect key={`t-${id}`} x={box.x} y={box.y} width={box.w} height={box.h} rx={8} className="fill-none stroke-board-glow" strokeWidth={3} />
+              })}
+            </g>
+          )}
+          {targets?.slots &&
+            [...targets.slots].map(([key, text]) => {
+              const rect = slotRect(key)
+              return rect && text ? <TargetTag key={`tag-${key}`} x={rect.x + rect.w / 2} y={rect.y - 12} text={text} /> : null
             })}
           {targets?.locations &&
             [...targets.locations].map(([id, text]) => {
               const g = groups.get(id)
-              if (!g) return null
-              const box = inflate(g.bounds, 5)
-              return (
-                <g key={`t-${id}`}>
-                  <rect x={box.x} y={box.y} width={box.w} height={box.h} rx={8} className="board-target fill-none stroke-board-glow" strokeWidth={3} />
-                  {text && <TargetTag x={g.center.x} y={box.y - 12} text={text} />}
-                </g>
-              )
+              return g && text ? <TargetTag key={`tag-${id}`} x={g.center.x} y={inflate(g.bounds, 5).y - 12} text={text} /> : null
             })}
           {targets?.links &&
             [...targets.links].map(([id, text]) => {

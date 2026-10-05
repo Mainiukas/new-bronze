@@ -46,6 +46,12 @@ export interface ServerDeps {
   /** A random number in [0, 1) (seeds, codes, ids): crypto-strong on the server. */
   random: () => number
   newId: () => string
+  /**
+   * How long a bot "thinks" before a move (ms), so its moves come one at a time like a person's instead
+   * of all at once. `firstOfTurn`: the first action of its turn (it looks at the board first). Without
+   * it bots move at once (the tests).
+   */
+  botThinkMs?: (firstOfTurn: boolean) => number
 }
 
 export interface Reply {
@@ -170,10 +176,22 @@ export function createGameServer(deps: ServerDeps) {
       const seatId = currentPlayerId(record.state)
       const seat = record.seats[seatId]
       if (botPlays(seat)) {
+        // One move at a time, after a moment's thought: the next is due at botNextAt (the players' screens ask then).
+        if (deps.botThinkMs) {
+          if (record.botNextAt == null) {
+            const state = record.state
+            const firstOfTurn = record.turn?.seat === seatId && state.actionsLeft >= (state.era === 'canal' && state.round === 1 ? 1 : 2)
+            record.botNextAt = Math.max(now, record.turn?.startedAt ?? now) + deps.botThinkMs(firstOfTurn)
+            changed = true
+          }
+          if (now < record.botNextAt) break
+        }
+        record.botNextAt = null
         apply(record, seatId, botAction(record.state, ctx, seatId, seat.bot ?? 'normal', record.moves), 'bot', now, log)
         changed = true
         continue
       }
+      record.botNextAt = null
       if (record.turn?.seat === seatId && clockLeft(record, seat, now) <= 0) {
         // Flagged: noted in the log, the turn's remaining actions pass with random cards, and a bot takes over.
         seat.timeouts += 1
@@ -319,6 +337,7 @@ export function createGameServer(deps: ServerDeps) {
       isHost: !!caller && caller.userId === record.hostId,
       state: record.state ? redactState(record.state, mine ? mine.seat : null) : null,
       turn: record.turn,
+      botDueAt: record.status === 'playing' ? (record.botNextAt ?? null) : null,
       result: record.result,
       rematchId: record.rematchId,
       serverNow: now,
@@ -733,7 +752,12 @@ export function createGameServer(deps: ServerDeps) {
         if (advance(record, now, log)) changed = true
         if (changed) record.version += 1
         // A heartbeat alone is saved without a new version (nobody needs to redraw for it).
-        if (seat || changed) await save(record, expected, log)
+        if ((seat || changed) && !(await store.saveGame(record, expected, log))) {
+          // Another player's screen asked at the same moment (a bot's move falling due) and got there first: show theirs.
+          const fresh = await load(req.gameId)
+          if (!mayView(fresh, me, false)) fail(403, 'private', 'That game is private')
+          return ok(await view(fresh, me, false))
+        }
         if (changed) {
           await rate(record)
           if (record.result?.ratings.length) await save(record, record.version)

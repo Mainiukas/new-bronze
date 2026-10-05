@@ -16,7 +16,7 @@ const ada: Caller = { userId: 'u-ada', username: 'Ada' }
 const bob: Caller = { userId: 'u-bob', username: 'Bob' }
 const cy: Caller = { userId: 'u-cy', username: 'Cy' }
 
-function setup() {
+function setup(extra: { botThinkMs?: (firstOfTurn: boolean) => number } = {}) {
   let clock = Date.UTC(2026, 8, 30, 12)
   let n = 0
   let r = 0x2545f491
@@ -33,6 +33,7 @@ function setup() {
       return ((x ^ (x >>> 14)) >>> 0) / 4294967296
     },
     newId: () => `g-${++n}`,
+    ...extra,
   })
   const call = async (caller: Caller | null, body: unknown) => server.request(caller, body)
   const must = async (caller: Caller, body: unknown) => {
@@ -366,6 +367,48 @@ describe('online games: clocks, disconnections and bots', () => {
     expect(states).toHaveLength(replay.actions.length + 1)
     expect(states.at(-1)!.finished).toBe(true)
     expect(states.at(-1)!.players.map((p) => p.vp)).toEqual((await t.store.loadGame(lobby.id))!.state!.players.map((p) => p.vp))
+  })
+})
+
+describe('online games: bots take their time', () => {
+  it('moves one bot action at a time, after its thinking time (first of a turn longer), when a screen asks', async () => {
+    const t = setup({ botThinkMs: (first) => (first ? 3000 : 1000) })
+    const lobby = await t.must(ada, { op: 'create', players: 3, visibility: 'private' })
+    await t.must(ada, { op: 'add-bot', gameId: lobby.id, level: 'easy' })
+    await t.must(ada, { op: 'add-bot', gameId: lobby.id, level: 'normal' })
+    let v = await t.must(ada, { op: 'start', gameId: lobby.id })
+    const moves = async () => (await t.store.loadGame(lobby.id))!.moves
+    let botMovesSeen = 0
+    for (let guard = 0; guard < 60 && botMovesSeen < 6; guard++) {
+      if (v.turn?.seat === v.mySeat) {
+        expect(v.botDueAt).toBeNull()
+        v = await t.must(ada, { op: 'act', gameId: lobby.id, version: v.version, action: { type: 'pass', cards: [v.state!.players[v.mySeat!].hand[0].id] } })
+        continue
+      }
+      // A bot is to move: nothing happens before it's due, then exactly one move.
+      expect(v.botDueAt).not.toBeNull()
+      const before = await moves()
+      const wait = v.botDueAt! - t.now()
+      expect(wait).toBeGreaterThan(0)
+      expect(wait).toBeLessThanOrEqual(3000 + 10_000) // (plus the scoring pause, at the end of an era)
+      t.tick(wait - 1)
+      v = await t.must(ada, { op: 'ping', gameId: lobby.id })
+      expect(await moves()).toBe(before)
+      t.tick(1)
+      v = await t.must(ada, { op: 'ping', gameId: lobby.id })
+      expect(await moves()).toBe(before + 1)
+      botMovesSeen++
+    }
+    expect(botMovesSeen).toBe(6)
+  })
+
+  it('without a thinking time (the default), bots move at once', async () => {
+    const t = setup()
+    const lobby = await t.must(ada, { op: 'create', players: 2, visibility: 'private' })
+    await t.must(ada, { op: 'add-bot', gameId: lobby.id, level: 'easy' })
+    const v = await t.must(ada, { op: 'start', gameId: lobby.id })
+    expect(v.turn?.seat).toBe(v.mySeat)
+    expect(v.botDueAt).toBeNull()
   })
 })
 

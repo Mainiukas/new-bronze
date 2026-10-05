@@ -13,5 +13,8 @@ export type { Caller, GameServer, Reply, ServerDeps } from './server'
 export { redactState } from './redact'
 export type { ActionRow, GameRecord, GameStore, GameSummary, GameView, QueueEntry, RatingRow, Seat } from './types'
 
+/** Bots' thinking time between moves (the Edge Function passes it to the server). */
+export { botThinkTime } from '../rules/config/game'
+
 /** The rules on our map, as the server plays them. */
 export const RULES_CONTEXT: RulesContext = { data: RULES_DATA, map: BRASS_MAP }

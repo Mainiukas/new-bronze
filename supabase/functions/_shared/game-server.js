@@ -30,7 +30,7 @@ var board_default = {
 			"id": "the_north",
 			"name": "The North",
 			"type": "hub",
-			"x": 61,
+			"x": 60.5,
 			"y": 11.9,
 			"ring": 1,
 			"era": "rail",
@@ -42,7 +42,7 @@ var board_default = {
 			"name": "London",
 			"type": "hub",
 			"x": 85.5,
-			"y": 66.5,
+			"y": 68.1,
 			"ring": 1,
 			"price": 7,
 			"buys": [
@@ -74,7 +74,7 @@ var board_default = {
 			"name": "Reading",
 			"type": "stop",
 			"x": 86,
-			"y": 53.7,
+			"y": 55.2,
 			"ring": 1
 		},
 		{
@@ -82,7 +82,7 @@ var board_default = {
 			"name": "Taunton",
 			"type": "stop",
 			"x": 54.6,
-			"y": 76.6,
+			"y": 77.8,
 			"ring": 3,
 			"era": "rail"
 		},
@@ -90,7 +90,7 @@ var board_default = {
 			"id": "caernarfon",
 			"name": "Caernarfon",
 			"type": "city",
-			"x": 24.2,
+			"x": 23.5,
 			"y": 10.9,
 			"region": "wales",
 			"ring": 3,
@@ -100,8 +100,8 @@ var board_default = {
 			"id": "wrexham",
 			"name": "Wrexham",
 			"type": "city",
-			"x": 35,
-			"y": 25.1,
+			"x": 33.9,
+			"y": 24.5,
 			"region": "wales",
 			"ring": 2,
 			"slots": [["coal"], ["iron"]]
@@ -121,7 +121,7 @@ var board_default = {
 			"name": "Merthyr Tydfil",
 			"type": "city",
 			"x": 42.1,
-			"y": 51.7,
+			"y": 51.5,
 			"region": "wales",
 			"ring": 2,
 			"slots": [
@@ -134,7 +134,7 @@ var board_default = {
 			"id": "stoke",
 			"name": "Stoke-on-Trent",
 			"type": "city",
-			"x": 39.3,
+			"x": 38.6,
 			"y": 12.9,
 			"region": "midlands",
 			"ring": 1,
@@ -148,8 +148,8 @@ var board_default = {
 			"id": "derby",
 			"name": "Derby",
 			"type": "city",
-			"x": 76.5,
-			"y": 25.5,
+			"x": 70.8,
+			"y": 29,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [["cotton"], ["cotton", "iron"]]
@@ -158,7 +158,7 @@ var board_default = {
 			"id": "nottingham",
 			"name": "Nottingham",
 			"type": "city",
-			"x": 74.9,
+			"x": 74.4,
 			"y": 10.9,
 			"region": "midlands",
 			"ring": 2,
@@ -168,8 +168,8 @@ var board_default = {
 			"id": "lichfield",
 			"name": "Lichfield",
 			"type": "city",
-			"x": 60.6,
-			"y": 24.1,
+			"x": 54.8,
+			"y": 25.2,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [["coal"]]
@@ -178,8 +178,8 @@ var board_default = {
 			"id": "wolverhampton",
 			"name": "Wolverhampton",
 			"type": "city",
-			"x": 55,
-			"y": 33.1,
+			"x": 51.8,
+			"y": 35.9,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [
@@ -192,8 +192,8 @@ var board_default = {
 			"id": "birmingham",
 			"name": "Birmingham",
 			"type": "city",
-			"x": 78.2,
-			"y": 36.8,
+			"x": 79.6,
+			"y": 37.3,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [
@@ -208,7 +208,7 @@ var board_default = {
 			"name": "Leicester",
 			"type": "city",
 			"x": 85.9,
-			"y": 22.7,
+			"y": 21.4,
 			"region": "midlands",
 			"ring": 1,
 			"slots": [["cotton", "coal"], ["cotton", "coal"]]
@@ -217,8 +217,8 @@ var board_default = {
 			"id": "gloucester",
 			"name": "Gloucester",
 			"type": "city",
-			"x": 63.2,
-			"y": 48.8,
+			"x": 65.3,
+			"y": 49.6,
 			"region": "thames",
 			"ring": 1,
 			"slots": [["port"], ["cotton", "port"]]
@@ -228,7 +228,7 @@ var board_default = {
 			"name": "Oxford",
 			"type": "city",
 			"x": 71.4,
-			"y": 60.4,
+			"y": 62,
 			"region": "thames",
 			"ring": 1,
 			"slots": [["cotton"], ["cotton"]]
@@ -237,8 +237,8 @@ var board_default = {
 			"id": "bristol",
 			"name": "Bristol",
 			"type": "city",
-			"x": 45.4,
-			"y": 61.9,
+			"x": 45.2,
+			"y": 61.7,
 			"region": "west",
 			"ring": 1,
 			"slots": [
@@ -252,8 +252,8 @@ var board_default = {
 			"id": "swindon",
 			"name": "Swindon",
 			"type": "city",
-			"x": 60.4,
-			"y": 71.2,
+			"x": 59.3,
+			"y": 72.4,
 			"region": "west",
 			"ring": 1,
 			"slots": [["iron"], ["coal"]]
@@ -262,8 +262,8 @@ var board_default = {
 			"id": "southampton",
 			"name": "Southampton",
 			"type": "city",
-			"x": 81.8,
-			"y": 82.1,
+			"x": 81.4,
+			"y": 83.6,
 			"region": "west",
 			"ring": 2,
 			"slots": [
@@ -276,7 +276,7 @@ var board_default = {
 			"id": "barnstaple",
 			"name": "Barnstaple",
 			"type": "city",
-			"x": 28.1,
+			"x": 27.9,
 			"y": 65.5,
 			"region": "southwest",
 			"ring": 3,
@@ -419,6 +419,13 @@ var board_default = {
 			"id": "stoke-derby",
 			"from": "stoke",
 			"to": "derby",
+			"type": "canal",
+			"maxBend": 8
+		},
+		{
+			"id": "derby-leicester",
+			"from": "derby",
+			"to": "leicester",
 			"type": "canal"
 		},
 		{
@@ -1822,6 +1829,24 @@ const SCORING_PAUSE_MS = 1e4;
 const CONNECTION_LOST_MS = 3e4;
 /** …and after this grace time a bot plays their seat until they come back. */
 const DISCONNECT_GRACE_MS = 12e4;
+/**
+* How long a bot "thinks" before a move (ms), so it plays like a person rather than all at once: a
+* longer look at the start of its turn, a shorter one for its second action, and now and then a longer
+* pause. `random` is a number in [0, 1) each time.
+*/
+const BOT_THINK = {
+	firstOfTurn: [1600, 3400],
+	later: [900, 1900],
+	/** Sometimes it hesitates: this share of moves gets the extra pause. */
+	pauseChance: .12,
+	pause: [1200, 2800]
+};
+function botThinkTime(firstOfTurn, random = Math.random) {
+	const [lo, hi] = firstOfTurn ? BOT_THINK.firstOfTurn : BOT_THINK.later;
+	let ms = lo + (hi - lo) * random();
+	if (random() < BOT_THINK.pauseChance) ms += BOT_THINK.pause[0] + (BOT_THINK.pause[1] - BOT_THINK.pause[0]) * random();
+	return Math.round(ms);
+}
 //#endregion
 //#region src/rules/config/cards.ts
 const check = (label, value) => unverified(label, value);
@@ -3466,10 +3491,21 @@ function createGameServer(deps) {
 			const seatId = currentPlayerId(record.state);
 			const seat = record.seats[seatId];
 			if (botPlays(seat)) {
+				if (deps.botThinkMs) {
+					if (record.botNextAt == null) {
+						const state = record.state;
+						const firstOfTurn = record.turn?.seat === seatId && state.actionsLeft >= (state.era === "canal" && state.round === 1 ? 1 : 2);
+						record.botNextAt = Math.max(now, record.turn?.startedAt ?? now) + deps.botThinkMs(firstOfTurn);
+						changed = true;
+					}
+					if (now < record.botNextAt) break;
+				}
+				record.botNextAt = null;
 				apply(record, seatId, botAction(record.state, ctx, seatId, seat.bot ?? "normal", record.moves), "bot", now, log);
 				changed = true;
 				continue;
 			}
+			record.botNextAt = null;
 			if (record.turn?.seat === seatId && clockLeft(record, seat, now) <= 0) {
 				seat.timeouts += 1;
 				apply(record, seatId, { type: "out-of-time" }, "clock", now, log);
@@ -3646,6 +3682,7 @@ function createGameServer(deps) {
 			isHost: !!caller && caller.userId === record.hostId,
 			state: record.state ? redactState(record.state, mine ? mine.seat : null) : null,
 			turn: record.turn,
+			botDueAt: record.status === "playing" ? record.botNextAt ?? null : null,
 			result: record.result,
 			rematchId: record.rematchId,
 			serverNow: now
@@ -4107,7 +4144,11 @@ function createGameServer(deps) {
 				const log = [];
 				if (advance(record, now, log)) changed = true;
 				if (changed) record.version += 1;
-				if (seat || changed) await save(record, expected, log);
+				if ((seat || changed) && !await store.saveGame(record, expected, log)) {
+					const fresh = await load(req.gameId);
+					if (!mayView(fresh, me, false)) fail(403, "private", "That game is private");
+					return ok(await view(fresh, me, false));
+				}
 				if (changed) {
 					await rate(record);
 					if (record.result?.ratings.length) await save(record, record.version);
@@ -4384,4 +4425,4 @@ const RULES_CONTEXT = {
 	map: BRASS_MAP
 };
 //#endregion
-export { RULES_CONTEXT, ServerError, createGameServer, redactState };
+export { RULES_CONTEXT, ServerError, botThinkTime, createGameServer, redactState };

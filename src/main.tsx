@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { CrashScreen } from './components/CrashScreen'
 // Self-hosted fonts (Latin subset only), bundled by Vite: no external requests.
 import '@fontsource/barlow-condensed/latin-500.css'
 import '@fontsource/barlow-condensed/latin-600.css'
@@ -55,7 +56,9 @@ setLanguage(language)
 void loadMessages(language).then(() =>
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App />
+      <CrashScreen>
+        <App />
+      </CrashScreen>
     </StrictMode>,
   ),
 )

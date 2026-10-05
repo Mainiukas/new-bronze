@@ -430,7 +430,10 @@ describe('online games: results and ratings', () => {
     expect(v.result!.ratings).toHaveLength(3)
     const cyDelta = v.result!.ratings.find((r) => r.userId === 'u-cy')!.delta
     expect(cyDelta).toBeLessThan(0)
-    expect(t.store.ratings.get('u-cy|wales-and-the-west')!.gamesPlayed).toBe(1)
+    // 3-player games have their own rating: only it moved.
+    expect(t.store.ratings.get('u-cy|wales-and-the-west@3p')!.gamesPlayed).toBe(1)
+    expect(t.store.ratings.get('u-cy|wales-and-the-west@2p')).toBeUndefined()
+    expect(t.store.history.every((h) => h.mapId === 'wales-and-the-west@3p')).toBe(true)
     // Pinging again doesn't rate twice.
     await t.must(ada, { op: 'ping', gameId: id })
     expect(t.store.history).toHaveLength(3)
@@ -466,15 +469,24 @@ describe('online games: results and ratings', () => {
 
   it('shows your own rating: the starting one until you play, with the RD grown for idle days', async () => {
     const fresh = (await t.call(ada, { op: 'my-rating' })).body
-    expect(fresh).toMatchObject({ rating: START_RATING.beginner, rd: START_RD, gamesPlayed: 0, provisional: true, unplaced: true })
-    // Settled 30 days ago: 20 games, RD 60. Now its RD has grown, and with it back past 110 it's provisional again.
-    t.store.ratings.set('u-ada|wales-and-the-west', { userId: 'u-ada', mapId: 'wales-and-the-west', rating: 1320, rd: 60, volatility: 0.06, gamesPlayed: 20, peakRating: 1350, updatedAt: t.now() - 30 * 86_400_000 })
-    const later = (await t.call(ada, { op: 'my-rating' })).body as { rating: number; rd: number; provisional: boolean; unplaced: boolean }
+    expect(fresh).toMatchObject({ players: 2, rating: START_RATING.beginner, rd: START_RD, gamesPlayed: 0, provisional: true, unplaced: true })
+    // Settled 30 days ago at 2 players: 20 games, RD 60. Now its RD has grown, and with it back past 110 it's provisional again.
+    t.store.ratings.set('u-ada|wales-and-the-west@2p', { userId: 'u-ada', mapId: 'wales-and-the-west@2p', rating: 1320, rd: 60, volatility: 0.06, gamesPlayed: 20, peakRating: 1350, updatedAt: t.now() - 30 * 86_400_000 })
+    const later = (await t.call(ada, { op: 'my-rating', players: 2 })).body as { rating: number; rd: number; provisional: boolean; unplaced: boolean }
     expect(later).toMatchObject({ rating: 1320, unplaced: false, peakRating: 1350 })
     expect(later.rd).toBeGreaterThan(60)
     // A week later it's still settled.
-    t.store.ratings.set('u-ada|wales-and-the-west', { userId: 'u-ada', mapId: 'wales-and-the-west', rating: 1320, rd: 60, volatility: 0.06, gamesPlayed: 20, peakRating: 1350, updatedAt: t.now() - 7 * 86_400_000 })
-    expect((await t.call(ada, { op: 'my-rating' })).body).toMatchObject({ provisional: false })
+    t.store.ratings.set('u-ada|wales-and-the-west@2p', { userId: 'u-ada', mapId: 'wales-and-the-west@2p', rating: 1320, rd: 60, volatility: 0.06, gamesPlayed: 20, peakRating: 1350, updatedAt: t.now() - 7 * 86_400_000 })
+    expect((await t.call(ada, { op: 'my-rating', players: 2 })).body).toMatchObject({ provisional: false })
+    // The 3- and 4-player ratings are separate: not played yet.
+    expect((await t.call(ada, { op: 'my-rating', players: 3 })).body).toMatchObject({ players: 3, rating: START_RATING.beginner, gamesPlayed: 0, unplaced: true })
+  })
+
+  it('starts each player count from the level picked in the welcome slides (the plain map key)', async () => {
+    t.store.ratings.set('u-ada|wales-and-the-west', { userId: 'u-ada', mapId: 'wales-and-the-west', rating: START_RATING.advanced, rd: START_RD, volatility: 0.06, gamesPlayed: 0, peakRating: START_RATING.advanced, updatedAt: t.now() })
+    for (const players of [2, 3, 4] as const) {
+      expect((await t.call(ada, { op: 'my-rating', players })).body).toMatchObject({ players, rating: START_RATING.advanced, gamesPlayed: 0, provisional: true, unplaced: true })
+    }
   })
 
   it('calls a game off, unrated, when someone leaves in the first round', async () => {
@@ -543,8 +555,9 @@ describe('people: profiles, the leaderboard, friends', () => {
     const p = (await t.call(cy, { op: 'profile', username: 'ada' })).body as OnlineProfile
     expect(p).toMatchObject({ username: 'Ada', hidden: false, friend: 'none' })
     expect(p.ratings).toHaveLength(1)
-    expect(p.ratings[0]).toMatchObject({ mapId: 'wales-and-the-west', gamesPlayed: 1, provisional: true })
-    expect(p.graph).toHaveLength(1)
+    expect(p.ratings[0]).toMatchObject({ mapId: 'wales-and-the-west', players: 2, gamesPlayed: 1, provisional: true })
+    expect(p.graphs[2]).toHaveLength(1)
+    expect(p.graphs[3]).toBeUndefined()
     expect(p.stats).toMatchObject({ games: 1, rated: 1 })
     expect(p.games[0]).toMatchObject({ id, rated: true, replayable: true })
     expect(p.games[0].players.map((x) => x.username).sort()).toEqual(['Ada', 'Bob'])
@@ -564,24 +577,26 @@ describe('people: profiles, the leaderboard, friends', () => {
     // History private: ratings show, games don't.
     t.store.users.get('u-ada')!.historyVisibility = 'private'
     const p = (await t.call(cy, { op: 'profile', username: 'Ada' })).body as OnlineProfile
-    expect(p).toMatchObject({ hidden: false, historyHidden: true, games: [], graph: [] })
+    expect(p).toMatchObject({ hidden: false, historyHidden: true, games: [], graphs: {} })
     expect(p.ratings).toHaveLength(1)
     // The owner always sees everything.
     expect(((await t.call(ada, { op: 'profile', username: 'Ada' })).body as OnlineProfile).games).toHaveLength(1)
   })
 
   it('ranks the top 100 settled ratings and says where you are (or that you are still provisional)', async () => {
-    const settled = (userId: string, rating: number) => ({ userId, mapId: 'wales-and-the-west', rating, rd: 60, volatility: 0.06, gamesPlayed: 20, peakRating: rating, updatedAt: t.now() })
+    const key = 'wales-and-the-west@2p'
+    const settled = (userId: string, rating: number) => ({ userId, mapId: key, rating, rd: 60, volatility: 0.06, gamesPlayed: 20, peakRating: rating, updatedAt: t.now() })
     for (let i = 0; i < 120; i++) {
       await t.store.touch(`u-${i}`, `Player${i}`, t.now())
-      t.store.ratings.set(`u-${i}|wales-and-the-west`, settled(`u-${i}`, 1000 + i * 5))
+      t.store.ratings.set(`u-${i}|${key}`, settled(`u-${i}`, 1000 + i * 5))
     }
     // A provisional high rating isn't ranked.
     await t.store.touch('u-new', 'Newcomer', t.now())
-    t.store.ratings.set('u-new|wales-and-the-west', { ...settled('u-new', 2000), gamesPlayed: 3 })
+    t.store.ratings.set(`u-new|${key}`, { ...settled('u-new', 2000), gamesPlayed: 3 })
     await t.call(ada, { op: 'friends' })
-    t.store.ratings.set('u-ada|wales-and-the-west', settled('u-ada', 1012))
-    const board = (await t.call(ada, { op: 'leaderboard' })).body as Leaderboard
+    t.store.ratings.set(`u-ada|${key}`, settled('u-ada', 1012))
+    const board = (await t.call(ada, { op: 'leaderboard', players: 2 })).body as Leaderboard
+    expect(board.players).toBe(2)
     expect(board.rows).toHaveLength(100)
     expect(board.rows[0]).toMatchObject({ rank: 1, username: 'Player119', rating: 1595 })
     expect(board.rows.some((r) => r.username === 'Newcomer')).toBe(false)
@@ -590,6 +605,9 @@ describe('people: profiles, the leaderboard, friends', () => {
     expect(board.me!.rank).toBe(118)
     // Cy has no rating yet.
     expect(((await t.call(cy, { op: 'leaderboard' })).body as Leaderboard).me).toBeNull()
+    // The 3- and 4-player boards are separate (nobody has played them).
+    const three = (await t.call(ada, { op: 'leaderboard', players: 3 })).body as Leaderboard
+    expect(three).toMatchObject({ players: 3, rows: [], me: null })
   })
 
   it('finds players, sends, accepts and declines friend requests, and shows who is online and what they play', async () => {

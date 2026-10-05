@@ -108,6 +108,61 @@ function layoutName(name: string, cardWidth: number, visible: number): NameLayou
   return { lines, size: fit.size, tracking, top: ribbonTop(lines.length, fit.size, cardWidth), left, width: space + 4 }
 }
 
+interface SideLayout {
+  size: number
+  /** px: the band's top and height (from the card's top edge to just above the ribbon), and its width. */
+  top: number
+  height: number
+  width: number
+}
+
+/**
+ * The name of an overlapped card, set vertically (reading upwards) in a band
+ * along the card's visible left edge, from the top to the ribbon: about 96 px
+ * of height on an 84 px phone card, so even "Wolverhampton" fits at 9 px or more.
+ */
+function layoutSideName(name: string, cardWidth: number, visible: number): SideLayout | null {
+  const scale = cardWidth / CARD_BOX.w
+  const top = 12 * scale
+  const height = (RIBBON_BOTTOM - RIBBON_MIN_H - 6) * scale - top
+  const widthAt1px = nameWidth(name) - name.length * NAME_TRACKING
+  const size = Math.min(12, (height - 6) / widthAt1px)
+  const width = Math.ceil(size + 7)
+  // The band must fit inside the part that shows.
+  if (width > cardWidth * Math.min(1, visible) - 4) return null
+  return { size, top, height, width }
+}
+
+/** The vertical name band: the region's ribbon colours, cream text reading upwards. */
+function SideName({ card, name, layout }: { card: Card | string; name: string; layout: SideLayout }) {
+  const [from, to] = RIBBON_COLORS[regionOf(card)]
+  return (
+    <span
+      aria-hidden="true"
+      data-card-name
+      data-side-name
+      className="pointer-events-none absolute left-[3px] flex items-center justify-center rounded-[3px] border border-[#120c08] [backface-visibility:hidden]"
+      style={{ top: layout.top, height: layout.height, width: layout.width, background: `linear-gradient(90deg, ${from}, ${to})`, boxShadow: 'inset 0 0 0 1px rgb(230 204 146 / 0.45)' }}
+    >
+      <span
+        className="block whitespace-nowrap"
+        style={{
+          writingMode: 'vertical-rl',
+          transform: 'rotate(180deg)',
+          fontFamily: 'Cinzel, serif',
+          fontWeight: 700,
+          fontSize: `${layout.size.toFixed(2)}px`,
+          lineHeight: 1,
+          color: CARD_TEXT,
+          textShadow: '1px 0 0 #120c08, -1px 0 0 #120c08, 0 1px 0 #120c08, 0 -1px 0 #120c08',
+        }}
+      >
+        {name}
+      </span>
+    </span>
+  )
+}
+
 /**
  * One card: front and back, so it can flip. The front's name is real text on
  * a ribbon drawn in code (over the art's own, too-small lettering): two lines
@@ -118,7 +173,9 @@ function layoutName(name: string, cardWidth: number, visible: number): NameLayou
 export function CardImage({ card, label, width, visible = 1, compact = false, className = '', style }: { card: Card | string; label?: string; width?: number; visible?: number; compact?: boolean; className?: string; style?: CSSProperties }) {
   useFontsReady()
   const layout = label && width ? layoutName(label, width, visible) : null
-  const top = layout?.top ?? (label && width ? ribbonTop(nameLines(label).length, (NAME_MIN_PX * Math.max(1, width / 130)), width) : RIBBON_BOTTOM - RIBBON_MIN_H)
+  // An overlapped card (a phone's hand) whose name doesn't fit the part that shows: the name runs up its visible edge instead.
+  const side = !layout && label && width && visible < 0.95 ? layoutSideName(label, width, visible) : null
+  const top = layout?.top ?? (side || !label || !width ? RIBBON_BOTTOM - RIBBON_MIN_H : ribbonTop(nameLines(label).length, NAME_MIN_PX * Math.max(1, width / 130), width))
   return (
     <span className={`card3d block ${className}`} style={style}>
       <span className="card3d-inner block size-full">
@@ -126,6 +183,7 @@ export function CardImage({ card, label, width, visible = 1, compact = false, cl
           <img src={cardArt(card)} alt="" draggable={false} className="size-full object-cover select-none" />
           {label && <CardRibbon card={card} compact={compact} top={top} />}
           {layout && width ? <CardName layout={layout} cardWidth={width} /> : null}
+          {side && <SideName card={card} name={label!} layout={side} />}
         </span>
         <img src={CARD_BACK_URL} alt="" draggable={false} className="card3d-face card3d-back size-full rounded-[7%] object-cover select-none" />
       </span>

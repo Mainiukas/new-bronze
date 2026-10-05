@@ -1,7 +1,7 @@
 /**
- * The leaderboard at /leaderboard: the top 100 settled ratings on a map
- * (provisional ratings aren't ranked), and where you stand, even when you're
- * further down or not ranked yet.
+ * The leaderboard at /leaderboard: the top 100 settled ratings on a map, one
+ * board each for 2-, 3- and 4-player games (provisional ratings aren't
+ * ranked), and where you stand, even when you're further down or not ranked yet.
  */
 
 import { useEffect, useState } from 'react'
@@ -13,7 +13,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useT } from '../i18n'
 import { gameRequest } from '../online/client'
 import { useOnlineErrors } from '../online/useOnlineErrors'
-import { PROVISIONAL_GAMES } from '../rating/config'
+import { PROVISIONAL_GAMES, RATED_PLAYER_COUNTS, type RatedPlayers } from '../rating/config'
 import type { Leaderboard as Board } from '../server/types'
 import { OnlineGate } from './OnlineLobby'
 
@@ -41,18 +41,42 @@ function Table() {
   const l = t.online.leaderboard
   const auth = useAuth()
   const showError = useOnlineErrors()
+  const [players, setPlayers] = useState<RatedPlayers>(2)
   const [board, setBoard] = useState<Board | null>(null)
   useEffect(() => {
     let live = true
-    gameRequest<Board>({ op: 'leaderboard', mapId: DEFAULT_MAP_ID }).then(
+    gameRequest<Board>({ op: 'leaderboard', mapId: DEFAULT_MAP_ID, players }).then(
       (b) => live && setBoard(b),
       (error) => showError(error),
     )
     return () => {
       live = false
     }
-  }, [showError])
-  if (!board) return <p className="text-parchment-400">…</p>
+  }, [showError, players])
+  // One board per player count.
+  const tabs = (
+    <div role="tablist" aria-label={l.title} className="flex gap-1.5" data-testid="leaderboard-tabs">
+      {RATED_PLAYER_COUNTS.map((n) => (
+        <button
+          key={n}
+          type="button"
+          role="tab"
+          aria-selected={n === players}
+          onClick={() => setPlayers(n)}
+          className={`min-h-10 flex-1 rounded-lg border px-3 font-display text-sm font-bold tracking-[0.1em] uppercase sm:flex-none ${n === players ? 'border-brass-300/70 bg-brass-300/15 text-parchment-50' : 'border-bronze-500/30 bg-soot-950/50 text-parchment-300 hover:text-parchment-50'}`}
+        >
+          {t.online.rating.players(n)}
+        </button>
+      ))}
+    </div>
+  )
+  if (!board || board.players !== players)
+    return (
+      <div className="flex flex-col gap-4">
+        {tabs}
+        <p className="text-parchment-400">…</p>
+      </div>
+    )
 
   const myName = auth.profile?.username
   const { me } = board
@@ -64,6 +88,7 @@ function Table() {
 
   return (
     <div className="flex flex-col gap-4">
+      {tabs}
       <p className="plate flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-parchment-100" data-testid="my-position">
         <span className="text-xs font-semibold tracking-[0.14em] text-parchment-400 uppercase">{l.you}</span>
         <span>{mine}</span>

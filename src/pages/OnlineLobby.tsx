@@ -17,6 +17,7 @@ import { useAccountAccess } from '../hooks/useAccountAccess'
 import { useOpenAuth } from '../hooks/useOpenAuth'
 import { useT } from '../i18n'
 import { displayName, gameRequest, onlineAvailable, OnlineError, watchTopic, type GameLists, type GameSummary, type GameView, type QuickPlayReply } from '../online/client'
+import { RATED_PLAYER_COUNTS } from '../rating/config'
 import type { MyRating } from '../server/types'
 import { RatingBadge } from '../components/RatingBadge'
 import { POLL_MS } from '../online/useOnlineGame'
@@ -401,11 +402,12 @@ function GameList({ kind, games }: { kind: 'open' | 'live' | 'mine'; games: Game
 function MyRatingPanel() {
   const t = useT()
   const r = t.online.rating
-  const [rating, setRating] = useState<MyRating | null>(null)
+  // One rating per player count: 2-, 3- and 4-player games are rated separately.
+  const [ratings, setRatings] = useState<MyRating[] | null>(null)
   useEffect(() => {
     let stopped = false
-    gameRequest<MyRating>({ op: 'my-rating' })
-      .then((value) => !stopped && setRating(value))
+    Promise.all(RATED_PLAYER_COUNTS.map((players) => gameRequest<MyRating>({ op: 'my-rating', players })))
+      .then((values) => !stopped && setRatings(values))
       .catch(() => {})
     return () => {
       stopped = true
@@ -419,12 +421,15 @@ function MyRatingPanel() {
         </h2>
         <span className="text-sm text-parchment-400">{r.onMap(getMap(DEFAULT_MAP_ID).name)}</span>
       </div>
-      {rating && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <RatingBadge rating={rating.rating} provisional={rating.provisional} rd={rating.rd} games={rating.gamesPlayed} className="text-3xl text-brass-100" />
-          <span className="text-sm text-parchment-300">
-            {rating.unplaced ? r.unplaced : `${r.games(rating.gamesPlayed)} · ${r.peak(rating.peakRating)}`}
-          </span>
+      {ratings && (
+        <div className="grid grid-cols-3 gap-2">
+          {ratings.map((rating) => (
+            <div key={rating.players} className="flex min-w-0 flex-col gap-0.5 rounded-lg border border-bronze-500/30 bg-soot-950/50 px-2.5 py-2" data-players={rating.players}>
+              <span className="text-[0.7rem] font-semibold tracking-[0.12em] text-parchment-400 uppercase">{r.players(rating.players)}</span>
+              <RatingBadge rating={rating.rating} provisional={rating.provisional} rd={rating.rd} games={rating.gamesPlayed} className="text-2xl text-brass-100" />
+              <span className="text-xs text-parchment-300">{rating.unplaced ? r.games(0) : `${r.games(rating.gamesPlayed)} · ${r.peak(rating.peakRating)}`}</span>
+            </div>
+          ))}
         </div>
       )}
       <details className="text-sm text-parchment-300">

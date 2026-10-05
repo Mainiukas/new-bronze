@@ -7,11 +7,17 @@ chess.com uses, adapted to games of 2–4 players. Every number below lives in
 
 ## Who has a rating
 
-- One rating **per map** (table `ratings`, one row per player and map), with
-  every change kept in `rating_history`.
+- One rating **per map and per number of players**: 2-, 3- and 4-player games
+  each have their own rating (table `ratings`, one row per player and key
+  `<map>@2p`, `<map>@3p` or `<map>@4p`), with every change kept in
+  `rating_history` under the same key. The leaderboard has a tab per player
+  count, and the lobby and profiles show all three.
 - A new player starts at the level they pick on the last welcome slide:
   New 800, Beginner 1000, Intermediate 1200, Advanced 1400; RD 350,
-  volatility 0.06. (A player with no row yet is shown 1000 and starts there.)
+  volatility 0.06. That level is saved under the plain map key; a player's
+  first game at each player count starts from it (a rating from before the
+  split, under the same plain key, is the starting point the same way). A
+  player with no row at all is shown 1000 and starts there.
 - **Provisional** ("1000?") while fewer than 10 rated games are played, or
   while the RD is above 110. The "?" has a tooltip saying how many of the 10
   games are played and how sure the number is (± 2 RD).
@@ -30,7 +36,7 @@ chess.com uses, adapted to games of 2–4 players. Every number below lives in
 
 | Rated | Unrated |
 | --- | --- |
-| Public games in Normal mode between people only | Private games, unless the host ticks **Rated** |
+| Public games in Normal mode between people only (no bot in any seat) | Private games, unless the host ticks **Rated** |
 | Private games the host marked **Rated** (people only) | Any game with a bot |
 | Games that end normally, or by someone forfeiting | The tutorial, and games against the computer |
 | | Games called off because someone left in the first round |

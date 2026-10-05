@@ -15,7 +15,7 @@
  */
 
 import { DEFAULT_MAP_ID } from '../data/maps'
-import { MATCHMAKING, PROVISIONAL_GAMES, START_RATING, START_RD, START_VOLATILITY } from '../rating/config'
+import { isRatedPlayers, MATCHMAKING, parseRatingKey, PROVISIONAL_GAMES, RATED_PLAYER_COUNTS, ratingKey, START_RATING, START_RD, START_VOLATILITY } from '../rating/config'
 import { rateGame, ratingNow } from '../rating/glicko2'
 import { CONNECTION_LOST_MS, DISCONNECT_GRACE_MS, MAX_PLAYERS, MIN_PLAYERS, SCORING_PAUSE_MS, TIME_CONTROL } from '../rules/config/game'
 import { applyAction, createGame, currentPlayerId, type RulesContext } from '../rules/engine'
@@ -207,18 +207,51 @@ export function createGameServer(deps: ServerDeps) {
     record.result = { places, ratings: [], aborted: false }
   }
 
-  /** A finished rated game: everyone's new rating on this map (Glicko-2, pairs by place, the mode's weight). */
+  /**
+   * Ratings for a map at a player count (2, 3 and 4 players are rated
+   * separately). Someone without one yet starts from their rating on the plain
+   * map key (the starting level from the welcome slides, or their rating from
+   * before the split), with the games count at 0; `placed` lists who already
+   * has one at this count.
+   */
+  async function ratingsAt(userIds: string[], mapId: string, players: number, now: number) {
+    const key = ratingKey(mapId, players)
+    const rows = userIds.length ? await store.getRatings(userIds, key) : {}
+    const missing = userIds.filter((id) => !rows[id])
+    const base = missing.length ? await store.getRatings(missing, mapId) : {}
+    const out: Record<string, RatingRow> = {}
+    for (const id of userIds) {
+      const b = base[id]
+      out[id] =
+        rows[id] ??
+        (b
+          ? { userId: id, mapId: key, rating: b.rating, rd: Math.max(b.rd, b.gamesPlayed > 0 ? 0 : START_RD), volatility: b.volatility, gamesPlayed: 0, peakRating: b.rating, updatedAt: b.updatedAt }
+          : { userId: id, mapId: key, rating: START_RATING.beginner, rd: START_RD, volatility: START_VOLATILITY, gamesPlayed: 0, peakRating: START_RATING.beginner, updatedAt: now })
+    }
+    return { rows: out, placed: new Set(Object.keys(rows)), started: new Set([...Object.keys(rows), ...Object.keys(base)]) }
+  }
+
+  /**
+   * A finished rated game: everyone's new rating on this map at this player
+   * count (Glicko-2, pairs by place, the mode's weight). Only games between
+   * people are rated (a seat that started as a bot makes the game unrated).
+   */
   async function rate(record: GameRecord) {
     if (record.status !== 'finished' || !record.rated || !record.result || record.result.ratings.length) return
+    if (record.seats.some((s) => s.bot !== null)) return
     // People still with an account (a deleted account's seat isn't rated).
     const humans = record.seats.filter(isHuman)
     if (humans.length < 2) return
     const now = record.finishedAt ?? deps.now()
-    const rows = await store.getRatings(
+    const players = record.seats.length
+    const key = ratingKey(record.mapId, players)
+    const { rows } = await ratingsAt(
       humans.map((s) => s.userId!),
       record.mapId,
+      players,
+      now,
     )
-    const current = (userId: string): RatingRow => rows[userId] ?? { userId, mapId: record.mapId, rating: START_RATING.beginner, rd: START_RD, volatility: START_VOLATILITY, gamesPlayed: 0, peakRating: START_RATING.beginner, updatedAt: now }
+    const current = (userId: string): RatingRow => rows[userId]
     const changes = rateGame(
       humans.map((s) => {
         const r = current(s.userId!)
@@ -233,7 +266,7 @@ export function createGameServer(deps: ServerDeps) {
     })
     await store.saveRatings(
       saved,
-      changes.map((c) => ({ userId: c.id, mapId: record.mapId, gameId: record.id, before: c.before, after: c.after, delta: c.delta, mode: record.mode, at: now })),
+      changes.map((c) => ({ userId: c.id, mapId: key, gameId: record.id, before: c.before, after: c.after, delta: c.delta, mode: record.mode, at: now })),
     )
     record.result.ratings = changes.map((c) => ({ userId: c.id, seat: record.seats.find((x) => x.userId === c.id)!.seat, before: c.before, after: c.after, delta: c.delta }))
   }
@@ -244,9 +277,10 @@ export function createGameServer(deps: ServerDeps) {
     const now = deps.now()
     const mine = seatOf(record, caller)
     const humans = record.seats.filter(isHuman).map((s) => s.userId!)
-    const ratings = humans.length ? await store.getRatings(humans, record.mapId) : {}
+    // Each player's rating for this game's player count.
+    const { rows: ratings, started } = await ratingsAt(humans, record.mapId, record.seats.length, now)
     const seats: SeatView[] = record.seats.map((s) => {
-      const r = s.userId ? ratings[s.userId] : undefined
+      const r = s.userId && started.has(s.userId) ? ratings[s.userId] : undefined
       const nowRating = r ? ratingNow(r, now) : null
       return {
         seat: s.seat,
@@ -300,8 +334,8 @@ export function createGameServer(deps: ServerDeps) {
 
   async function summary(record: GameRecord, caller: Caller | null): Promise<GameSummary> {
     const humans = record.seats.filter(isHuman).map((s) => s.userId!)
-    const ratings = humans.length ? await store.getRatings(humans, record.mapId) : {}
-    const values = humans.map((id) => ratings[id]?.rating).filter((r): r is number => r !== undefined)
+    const { rows: ratings, started } = await ratingsAt(humans, record.mapId, record.seats.length, deps.now())
+    const values = humans.filter((id) => started.has(id)).map((id) => ratings[id].rating)
     const mine = !!seatOf(record, caller)
     return {
       id: record.id,
@@ -439,17 +473,24 @@ export function createGameServer(deps: ServerDeps) {
       friend,
       online: !hidden && isOnline(seen, now),
       ratings: [],
-      graph: [],
+      graphs: {},
       stats: { games: 0, wins: 0, averagePlace: null, rated: 0 },
       games: [],
     }
     if (hidden) return base
-    base.ratings = (await store.ratingsFor(user.userId)).map((r) => {
+    // One rating per map and player count (the plain map key only holds the starting level).
+    base.ratings = (await store.ratingsFor(user.userId)).flatMap((r) => {
+      const { mapId, players } = parseRatingKey(r.mapId)
+      if (players === null || r.gamesPlayed === 0) return []
       const current = ratingNow(r, now)
-      return { mapId: r.mapId, rating: Math.round(r.rating), rd: Math.round(current.rd), provisional: current.provisional, gamesPlayed: r.gamesPlayed, peakRating: Math.round(r.peakRating) }
+      return [{ mapId, players, rating: Math.round(r.rating), rd: Math.round(current.rd), provisional: current.provisional, gamesPlayed: r.gamesPlayed, peakRating: Math.round(r.peakRating) }]
     })
+    base.ratings.sort((a, b) => a.mapId.localeCompare(b.mapId) || a.players - b.players)
     if (historyHidden) return base
-    base.graph = (await store.ratingHistory(user.userId, DEFAULT_MAP_ID, 200)).map((h) => ({ at: h.at, rating: Math.round(h.after), delta: Math.round(h.delta), gameId: h.gameId }))
+    for (const players of RATED_PLAYER_COUNTS) {
+      const points = (await store.ratingHistory(user.userId, ratingKey(DEFAULT_MAP_ID, players), 200)).map((h) => ({ at: h.at, rating: Math.round(h.after), delta: Math.round(h.delta), gameId: h.gameId }))
+      if (points.length) base.graphs[players] = points
+    }
     const finished = await store.finishedGames(user.userId, 200)
     const played = finished.filter((g) => g.status === 'finished' && g.result)
     const places = played.map((g) => g.result!.places[g.seats.find((s) => s.userId === user.userId)!.seat])
@@ -770,7 +811,7 @@ export function createGameServer(deps: ServerDeps) {
           return ok({ status: 'matched', gameId: entry.matchedGameId })
         }
         if (!entry || entry.players !== players || entry.mode !== mode || entry.mapId !== mapId) {
-          const rating = (await store.getRatings([me.userId], mapId))[me.userId]?.rating ?? START_RATING.beginner
+          const rating = (await ratingsAt([me.userId], mapId, players, now)).rows[me.userId].rating
           entry = { userId: me.userId, username: me.username, rating, players, mode, mapId, since: now, matchedGameId: null }
           await store.putQueue(entry)
         }
@@ -784,12 +825,13 @@ export function createGameServer(deps: ServerDeps) {
       }
 
       case 'my-rating': {
-        // Your rating as it stands now (players may read it; only the server ever changes it).
+        // Your rating at a player count as it stands now (players may read it; only the server ever changes it).
         const mapId = req.mapId ?? DEFAULT_MAP_ID
-        const row = (await store.getRatings([me.userId], mapId))[me.userId]
-        const r = row ?? { rating: START_RATING.beginner, rd: START_RD, volatility: START_VOLATILITY, gamesPlayed: 0, peakRating: START_RATING.beginner, updatedAt: now }
+        const players = isRatedPlayers(req.players) ? req.players : 2
+        const { rows, placed } = await ratingsAt([me.userId], mapId, players, now)
+        const r = rows[me.userId]
         const current = ratingNow(r, now)
-        const reply: MyRating = { mapId, rating: Math.round(current.rating), rd: Math.round(current.rd), gamesPlayed: current.gamesPlayed, provisional: current.provisional, peakRating: Math.round(r.peakRating), unplaced: !row }
+        const reply: MyRating = { mapId, players, rating: Math.round(current.rating), rd: Math.round(current.rd), gamesPlayed: current.gamesPlayed, provisional: current.provisional, peakRating: Math.round(r.peakRating), unplaced: !placed.has(me.userId) }
         return ok(reply)
       }
 
@@ -801,13 +843,16 @@ export function createGameServer(deps: ServerDeps) {
 
       case 'leaderboard': {
         const mapId = req.mapId ?? DEFAULT_MAP_ID
-        // Only settled ratings are ranked: at least 10 games, and an RD (grown for idle days) at most 110.
-        const rows = (await store.leaderboardRows(mapId, PROVISIONAL_GAMES, 2000)).map((r) => ({ ...r, now: ratingNow(r, now) })).filter((r) => !r.now.provisional)
+        // One board per player count. Only settled ratings are ranked: at least 10 games, and an RD (grown for idle days) at most 110.
+        const players = isRatedPlayers(req.players) ? req.players : 2
+        const key = ratingKey(mapId, players)
+        const rows = (await store.leaderboardRows(key, PROVISIONAL_GAMES, 2000)).map((r) => ({ ...r, now: ratingNow(r, now) })).filter((r) => !r.now.provisional)
         const ranked = rows.map((r, i) => ({ rank: i + 1, userId: r.userId, username: r.username, rating: Math.round(r.rating), gamesPlayed: r.gamesPlayed }))
-        const mine = (await store.getRatings([me.userId], mapId))[me.userId]
+        const mine = (await store.getRatings([me.userId], key))[me.userId]
         const myNow = mine ? ratingNow(mine, now) : null
         const reply: Leaderboard = {
           mapId,
+          players,
           rows: ranked.slice(0, LEADERBOARD_SIZE).map((r) => ({ rank: r.rank, username: r.username, rating: r.rating, gamesPlayed: r.gamesPlayed })),
           me: mine && myNow ? { rank: ranked.find((r) => r.userId === me.userId)?.rank ?? null, rating: Math.round(mine.rating), provisional: myNow.provisional, gamesPlayed: mine.gamesPlayed } : null,
         }

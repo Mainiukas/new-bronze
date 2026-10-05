@@ -25,3 +25,19 @@ export const MODE_WEIGHT: Readonly<Record<'normal' | 'blitz' | 'bullet', number>
 
 /** Quick play: look for opponents within this many points, widening by the step every interval. */
 export const MATCHMAKING = { startRange: 150, widenBy: 50, widenEverySeconds: 10 } as const
+
+/**
+ * Separate ratings for 2-, 3- and 4-player games: each is stored under its
+ * own key, "<map>@<n>p" (e.g. "wales-and-the-west@3p"). The plain map key
+ * holds the starting level picked in the welcome slides (and ratings from
+ * before the split): a player's first game at a player count starts from it.
+ */
+export const RATED_PLAYER_COUNTS = [2, 3, 4] as const
+export type RatedPlayers = (typeof RATED_PLAYER_COUNTS)[number]
+export const ratingKey = (mapId: string, players: number) => `${mapId}@${players}p`
+/** The map and player count of a rating key; `players` is null for the plain map key (the starting level). */
+export function parseRatingKey(key: string): { mapId: string; players: RatedPlayers | null } {
+  const m = /^(.*)@([234])p$/.exec(key)
+  return m ? { mapId: m[1], players: Number(m[2]) as RatedPlayers } : { mapId: key, players: null }
+}
+export const isRatedPlayers = (n: unknown): n is RatedPlayers => n === 2 || n === 3 || n === 4

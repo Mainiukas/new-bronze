@@ -17,6 +17,7 @@ import { useOnlineErrors } from '../../online/useOnlineErrors'
 import type { FriendStatus, OnlineProfile as Profile } from '../../server/types'
 import { RatingBadge } from '../RatingBadge'
 import { RatingGraph } from '../RatingGraph'
+import { RATED_PLAYER_COUNTS, type RatedPlayers } from '../../rating/config'
 
 const mapName = (id: string) => (isMapId(id) ? getMap(id).name : id)
 
@@ -82,11 +83,13 @@ export function OnlineProfile({ username }: { username: string }) {
         <p className="plate px-5 py-4 text-parchment-300">{pr.hidden}</p>
       ) : (
         <>
-          {/* Ratings, one per map */}
+          {/* Ratings, one per map and player count */}
           <div className={`grid gap-3 ${profile.ratings.length > 1 ? 'sm:grid-cols-2' : ''}`}>
             {profile.ratings.map((r) => (
-              <div key={r.mapId} className="plate flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
-                <span className="w-full text-xs font-semibold tracking-[0.14em] text-parchment-400 uppercase">{mapName(r.mapId)}</span>
+              <div key={`${r.mapId}@${r.players}`} className="plate flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3" data-players={r.players}>
+                <span className="w-full text-xs font-semibold tracking-[0.14em] text-parchment-400 uppercase">
+                  {mapName(r.mapId)} · {o.rating.players(r.players)}
+                </span>
                 <RatingBadge rating={r.rating} provisional={r.provisional} rd={r.rd} games={r.gamesPlayed} className="text-3xl text-brass-100" />
                 <span className="text-sm text-parchment-300">
                   {o.rating.games(r.gamesPlayed)} · {o.rating.peak(r.peakRating)}
@@ -102,7 +105,7 @@ export function OnlineProfile({ username }: { username: string }) {
             <>
               <div className="plate flex flex-col gap-2 px-4 py-3">
                 <h3 className="font-display text-sm font-bold tracking-[0.12em] text-parchment-200 uppercase">{pr.graphTitle}</h3>
-                {profile.graph.length ? <RatingGraph points={profile.graph} label={pr.graphLabel(profile.graph.length)} /> : <p className="text-sm text-parchment-400">{pr.graphEmpty}</p>}
+                <RatingGraphs graphs={profile.graphs} />
               </div>
 
               <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -192,5 +195,38 @@ function FriendButton({ status, onAdd, onRemove, onRespond }: { status: FriendSt
         {s.remove}
       </button>
     </span>
+  )
+}
+
+/** The rating graph, one per player count played (a tab for each when there are several). */
+function RatingGraphs({ graphs }: { graphs: Profile['graphs'] }) {
+  const t = useT()
+  const o = t.online
+  const pr = o.profile
+  const counts = RATED_PLAYER_COUNTS.filter((n) => graphs[n]?.length)
+  const [chosen, setChosen] = useState<RatedPlayers | null>(null)
+  const shown = chosen && counts.includes(chosen) ? chosen : counts[0]
+  if (!shown) return <p className="text-sm text-parchment-400">{pr.graphEmpty}</p>
+  const points = graphs[shown]!
+  return (
+    <>
+      {counts.length > 1 && (
+        <div role="tablist" aria-label={pr.graphTitle} className="flex gap-1">
+          {counts.map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="tab"
+              aria-selected={n === shown}
+              onClick={() => setChosen(n)}
+              className={`min-h-8 rounded-md border px-2.5 text-xs font-semibold tracking-[0.08em] uppercase ${n === shown ? 'border-brass-300/70 bg-brass-300/15 text-parchment-50' : 'border-bronze-500/30 text-parchment-300 hover:text-parchment-50'}`}
+            >
+              {o.rating.players(n)}
+            </button>
+          ))}
+        </div>
+      )}
+      <RatingGraph points={points} label={`${o.rating.players(shown)}: ${pr.graphLabel(points.length)}`} />
+    </>
   )
 }

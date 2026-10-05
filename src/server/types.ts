@@ -4,6 +4,7 @@
  * leaves the server), and sends each viewer a GameView made for them.
  */
 
+import type { RatedPlayers } from '../rating/config'
 import type { Action, Card, GameState } from '../rules/state'
 
 export type GameStatus = 'lobby' | 'playing' | 'finished' | 'aborted'
@@ -179,6 +180,8 @@ export interface RatingRow {
 /** A player's own rating on a map, as it stands now. */
 export interface MyRating {
   mapId: string
+  /** Ratings are separate for 2-, 3- and 4-player games. */
+  players: RatedPlayers
   rating: number
   /** Uncertainty now (grown for the days without a rated game). */
   rd: number
@@ -292,9 +295,10 @@ export interface OnlineProfile {
   historyHidden: boolean
   friend: FriendStatus
   online: boolean
-  ratings: { mapId: string; rating: number; rd: number; provisional: boolean; gamesPlayed: number; peakRating: number }[]
-  /** The rating after each rated game on the main map, oldest first. */
-  graph: { at: number; rating: number; delta: number; gameId: string }[]
+  /** One rating per map and player count (2, 3 or 4), for the ones with rated games. */
+  ratings: { mapId: string; players: RatedPlayers; rating: number; rd: number; provisional: boolean; gamesPlayed: number; peakRating: number }[]
+  /** The rating after each rated game on the main map, oldest first, per player count (only the counts played). */
+  graphs: Partial<Record<RatedPlayers, { at: number; rating: number; delta: number; gameId: string }[]>>
   stats: { games: number; wins: number; averagePlace: number | null; rated: number }
   games: ProfileGame[]
 }
@@ -322,6 +326,8 @@ export interface LeaderboardRow {
 
 export interface Leaderboard {
   mapId: string
+  /** One board per player count. */
+  players: RatedPlayers
   rows: LeaderboardRow[]
   /** The caller: their rank (when not provisional and not in the top rows, still shown), or why they're not ranked. */
   me: { rank: number | null; rating: number; provisional: boolean; gamesPlayed: number } | null
@@ -351,9 +357,9 @@ export type Request =
   | { op: 'replay'; gameId: string }
   | { op: 'quick-play'; players: number; mode?: ModeId; mapId?: string }
   | { op: 'quick-cancel' }
-  | { op: 'my-rating'; mapId?: string }
+  | { op: 'my-rating'; mapId?: string; players?: RatedPlayers }
   | { op: 'profile'; username: string }
-  | { op: 'leaderboard'; mapId?: string }
+  | { op: 'leaderboard'; mapId?: string; players?: RatedPlayers }
   | { op: 'friends' }
   | { op: 'friend-search'; query: string }
   | { op: 'friend-request'; username: string }
